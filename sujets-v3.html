@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PQP — Sujets v3</title>
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <style>
+    :root {
+      --blue-france: #000091;
+      --blue-light: #E3E3FD;
+      --red: #E1000F;
+      --orange: #F9AE41;
+      --green: #18753C;
+      --green-light: #B8FEC9;
+      --grey-bg: #F6F6F6;
+      --grey-border: #E5E5E5;
+      --grey-text: #666;
+      --white: #FFFFFF;
+      --shadow: 0 1px 4px rgba(0,0,0,0.08);
+      --radius: 6px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, 'Segoe UI', Roboto, 'Marianne', sans-serif;
+      background: var(--grey-bg);
+      color: #1E1E1E;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    /* ── HEADER ── */
+    .header {
+      background: var(--blue-france);
+      color: var(--white);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header h1 {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+    .header .subtitle {
+      font-size: 11px;
+      opacity: 0.7;
+      font-weight: 400;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .refresh-btn {
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: white;
+      border-radius: var(--radius);
+      padding: 5px 10px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background 0.15s;
+    }
+    .refresh-btn:hover { background: rgba(255,255,255,0.25); }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #4ADE80;
+    }
+    .status-dot.error { background: var(--red); }
+    .status-dot.loading { background: var(--orange); animation: pulse 1s infinite; }
+    @keyframes pulse { 50% { opacity: 0.4; } }
+
+    /* ── KPI BAR ── */
+    .kpi-bar {
+      display: flex;
+      gap: 8px;
+      padding: 10px 16px;
+      background: var(--white);
+      border-bottom: 1px solid var(--grey-border);
+      overflow-x: auto;
+    }
+    .kpi {
+      flex: 1;
+      min-width: 100px;
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      background: var(--grey-bg);
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: 2px solid transparent;
+    }
+    .kpi:hover { border-color: var(--blue-france); }
+    .kpi.active { border-color: var(--blue-france); background: var(--blue-light); }
+    .kpi-value {
+      font-size: 22px;
+      font-weight: 800;
+      line-height: 1.1;
+    }
+    .kpi-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--grey-text);
+      margin-top: 2px;
+    }
+
+    /* ── FILTERS ── */
+    .filters {
+      display: flex;
+      gap: 8px;
+      padding: 8px 16px;
+      background: var(--white);
+      border-bottom: 1px solid var(--grey-border);
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .filter-group label {
+      font-size: 11px;
+      color: var(--grey-text);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    select {
+      padding: 4px 8px;
+      border: 1px solid var(--grey-border);
+      border-radius: var(--radius);
+      font-size: 12px;
+      background: var(--white);
+      cursor: pointer;
+    }
+    select:focus { outline: 2px solid var(--blue-france); }
+    .search-box {
+      flex: 1;
+      min-width: 180px;
+      padding: 5px 10px;
+      border: 1px solid var(--grey-border);
+      border-radius: var(--radius);
+      font-size: 12px;
+    }
+    .search-box:focus { outline: 2px solid var(--blue-france); }
+
+    /* ── CARD LIST ── */
+    .card-list {
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .card {
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border-left: 4px solid var(--grey-border);
+      padding: 12px 14px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .card:hover {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      transform: translateY(-1px);
+    }
+    .card.selected {
+      box-shadow: 0 0 0 2px var(--blue-france);
+    }
+    .card.statut-en-attente { border-left-color: var(--orange); }
+    .card.statut-relance { border-left-color: #E67E22; }
+    .card.statut-repondu { border-left-color: var(--green); }
+    .card.statut-clos { border-left-color: #95A5A6; }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .card-code {
+      font-weight: 700;
+      font-size: 12px;
+      color: var(--blue-france);
+      white-space: nowrap;
+    }
+    .card-badges {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .badge-statut-en-attente { background: #FEF3CD; color: #856404; }
+    .badge-statut-relance { background: #FDEDEC; color: #922B21; }
+    .badge-statut-repondu { background: #D5F5E3; color: #1E8449; }
+    .badge-statut-clos { background: #EAECEE; color: #616A6B; }
+    .badge-prio-haute { background: #FDEDEC; color: #C0392B; }
+    .badge-prio-normale { background: #EBF5FB; color: #2E86C1; }
+    .badge-prio-basse { background: #EAECEE; color: #616A6B; }
+    .badge-cat {
+      background: var(--blue-light);
+      color: var(--blue-france);
+    }
+
+    .card-objet {
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 6px;
+      line-height: 1.35;
+    }
+
+    .card-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 14px;
+      font-size: 11px;
+      color: var(--grey-text);
+    }
+    .card-meta span::before {
+      margin-right: 3px;
+    }
+    .meta-beneficiaire::before { content: '🏛️'; }
+    .meta-demandeur::before { content: '👤'; }
+    .meta-date::before { content: '📅'; }
+    .meta-echeance::before { content: '⏰'; }
+    .meta-relances::before { content: '🔁'; }
+    .meta-canal::before { content: '📨'; }
+
+    .card-prochaine-action {
+      margin-top: 6px;
+      padding: 5px 8px;
+      background: #FFF8E1;
+      border-radius: 4px;
+      font-size: 11px;
+      color: #856404;
+    }
+    .card-prochaine-action::before { content: '▶ '; font-weight: 700; }
+
+    /* ── DETAIL PANEL ── */
+    .detail-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.35);
+      z-index: 200;
+    }
+    .detail-overlay.open { display: flex; justify-content: flex-end; }
+    .detail-panel {
+      width: 50%;
+      min-width: 360px;
+      max-width: 600px;
+      background: var(--white);
+      height: 100%;
+      overflow-y: auto;
+      box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+      animation: slideIn 0.2s ease-out;
+    }
+    @keyframes slideIn { from { transform: translateX(100%); } }
+    .detail-header {
+      position: sticky;
+      top: 0;
+      background: var(--blue-france);
+      color: white;
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .detail-header h2 {
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .close-btn {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+    }
+    .detail-body { padding: 16px; }
+    .detail-section {
+      margin-bottom: 16px;
+    }
+    .detail-section h3 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--grey-text);
+      margin-bottom: 6px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--grey-border);
+    }
+    .detail-field {
+      display: flex;
+      padding: 4px 0;
+      gap: 8px;
+    }
+    .detail-field .label {
+      width: 120px;
+      flex-shrink: 0;
+      font-weight: 600;
+      font-size: 12px;
+      color: var(--grey-text);
+    }
+    .detail-field .value {
+      font-size: 12px;
+      word-break: break-word;
+    }
+    .detail-notes {
+      background: var(--grey-bg);
+      padding: 10px;
+      border-radius: var(--radius);
+      font-size: 12px;
+      white-space: pre-wrap;
+      max-height: 300px;
+      overflow-y: auto;
+      line-height: 1.5;
+    }
+
+    /* ── EMPTY STATE ── */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--grey-text);
+    }
+    .empty-state .icon { font-size: 40px; margin-bottom: 10px; }
+    .empty-state h3 { font-size: 14px; color: #333; margin-bottom: 4px; }
+
+    /* ── LOADING ── */
+    .loading-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--grey-text);
+    }
+    .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid var(--grey-border);
+      border-top-color: var(--blue-france);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── SORT BUTTON ── */
+    .sort-btn {
+      padding: 4px 8px;
+      border: 1px solid var(--grey-border);
+      border-radius: var(--radius);
+      background: var(--white);
+      cursor: pointer;
+      font-size: 11px;
+      color: var(--grey-text);
+      transition: all 0.15s;
+    }
+    .sort-btn:hover { border-color: var(--blue-france); color: var(--blue-france); }
+    .sort-btn.active { background: var(--blue-light); border-color: var(--blue-france); color: var(--blue-france); }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div>
+      <h1>PQP — Sujets <span class="subtitle">v3</span></h1>
+    </div>
+    <div class="header-right">
+      <span class="subtitle" id="lastUpdate"></span>
+      <button class="refresh-btn" onclick="loadData()" title="Rafraîchir">⟳ Refresh</button>
+      <div class="status-dot loading" id="statusDot"></div>
+    </div>
+  </div>
+
+  <div class="kpi-bar" id="kpiBar"></div>
+
+  <div class="filters">
+    <div class="filter-group">
+      <label>Statut</label>
+      <select id="filterStatut" onchange="renderCards()">
+        <option value="">Tous</option>
+        <option value="En attente">En attente</option>
+        <option value="Relance">Relance</option>
+        <option value="Repondu">Répondu</option>
+        <option value="Clos">Clos</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Priorité</label>
+      <select id="filterPrio" onchange="renderCards()">
+        <option value="">Toutes</option>
+        <option value="Haute">Haute</option>
+        <option value="Normale">Normale</option>
+        <option value="Basse">Basse</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Catégorie</label>
+      <select id="filterCat" onchange="renderCards()">
+        <option value="">Toutes</option>
+        <option value="Demande d'information">Demande info</option>
+        <option value="Communication">Communication</option>
+        <option value="Suivi incident">Suivi incident</option>
+        <option value="Relance bénéficiaire">Relance bénéf.</option>
+        <option value="Gouvernance">Gouvernance</option>
+        <option value="Arbitrage">Arbitrage</option>
+        <option value="Autre">Autre</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Tri</label>
+      <button class="sort-btn active" id="sortDate" onclick="setSort('date')">Date ↓</button>
+      <button class="sort-btn" id="sortPrio" onclick="setSort('prio')">Priorité</button>
+      <button class="sort-btn" id="sortBenef" onclick="setSort('benef')">Bénéf.</button>
+    </div>
+    <input type="text" class="search-box" id="searchBox" placeholder="🔍 Rechercher (code, objet, demandeur…)" oninput="renderCards()">
+  </div>
+
+  <div id="cardList" class="card-list">
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Chargement des données Grist…</p>
+    </div>
+  </div>
+
+  <!-- Detail overlay -->
+  <div class="detail-overlay" id="detailOverlay" onclick="closeDetail(event)">
+    <div class="detail-panel" id="detailPanel" onclick="event.stopPropagation()">
+      <div class="detail-header">
+        <h2 id="detailTitle">—</h2>
+        <button class="close-btn" onclick="closeDetail()">&times;</button>
+      </div>
+      <div class="detail-body" id="detailBody"></div>
+    </div>
+  </div>
+
+<script>
+  // ── STATE ──
+  let sujets = [];
+  let beneficiaires = {};
+  let currentSort = 'date';
+  let selectedId = null;
+  let gristReady = false;
+
+  // ── DATE HELPERS ──
+  function fmtDate(ts) {
+    if (!ts) return '—';
+    const d = new Date(ts * 1000);
+    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  }
+  function fmtDateLong(ts) {
+    if (!ts) return '—';
+    const d = new Date(ts * 1000);
+    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+  function fmtNow() {
+    return new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  // ── SLUG HELPERS ──
+  function slugStatut(s) {
+    return (s || '').toLowerCase().replace(/[^a-z]/g, '-').replace(/-+/g, '-');
+  }
+
+  // ── GRIST INIT ──
+  grist.ready({
+    requiredAccess: 'full',
+    allowSelectBy: true
+  });
+
+  async function loadData() {
+    const dot = document.getElementById('statusDot');
+    dot.className = 'status-dot loading';
+
+    try {
+      // Try Grist plugin API first
+      const [sujetsData, benData] = await Promise.all([
+        grist.docApi.fetchTable('Sujets_v2'),
+        grist.docApi.fetchTable('Beneficiaires')
+      ]);
+
+      // Parse columnar format → row format
+      const sujetIds = sujetsData.id;
+      sujets = sujetIds.map((id, i) => ({
+        id,
+        Code: sujetsData.Code[i],
+        Objet: sujetsData.Objet[i],
+        Beneficiaire: sujetsData.Beneficiaire[i],
+        Demandeur: sujetsData.Demandeur[i],
+        Responsable_PQP: sujetsData.Responsable_PQP[i],
+        Categorie: sujetsData.Categorie[i],
+        Canal_Origine: sujetsData.Canal_Origine[i],
+        Date_Demande: sujetsData.Date_Demande[i],
+        Echeance: sujetsData.Echeance[i],
+        Date_Derniere_Relance: sujetsData.Date_Derniere_Relance[i],
+        Date_MAJ: sujetsData.Date_MAJ[i],
+        Date_Cloture: sujetsData.Date_Cloture[i],
+        Statut: sujetsData.Statut[i],
+        Priorite: sujetsData.Priorite[i],
+        Prochaine_Action: sujetsData.Prochaine_Action[i],
+        Lien_Source: sujetsData.Lien_Source[i],
+        Notes: sujetsData.Notes[i],
+        Nb_Relances: sujetsData.Nb_Relances[i],
+      }));
+
+      // Build beneficiaires lookup
+      beneficiaires = {};
+      const benIds = benData.id;
+      benIds.forEach((id, i) => {
+        beneficiaires[id] = {
+          nom: benData.Beneficiaire[i],
+          entite: benData.Entite[i],
+          vrf: benData.VRF[i],
+          quadrigramme: benData.Quadrigramme[i],
+          type: benData.Type_[i],
+          interlocuteur: benData.Interlocuteur_principal[i],
+        };
+      });
+
+      gristReady = true;
+      dot.className = 'status-dot';
+      document.getElementById('lastUpdate').textContent = 'MAJ ' + fmtNow();
+
+      renderKPIs();
+      renderCards();
+
+    } catch (err) {
+      console.error('Erreur chargement Grist:', err);
+      dot.className = 'status-dot error';
+      document.getElementById('cardList').innerHTML = `
+        <div class="empty-state">
+          <div class="icon">⚠️</div>
+          <h3>Erreur de connexion</h3>
+          <p>Impossible de charger les données Grist.<br>
+          Vérifiez que le widget a l'accès « Full document access ».</p>
+          <p style="margin-top:8px;font-size:11px;color:#999">${err.message || err}</p>
+        </div>`;
+    }
+  }
+
+  // ── Listen for Grist cursor changes ──
+  grist.onRecord(function(record) {
+    if (record && record.id) {
+      selectedId = record.id;
+      renderCards();
+    }
+  });
+
+  // ── KPIs ──
+  function renderKPIs() {
+    const total = sujets.length;
+    const enAttente = sujets.filter(s => s.Statut === 'En attente').length;
+    const relance = sujets.filter(s => s.Statut === 'Relance').length;
+    const repondu = sujets.filter(s => s.Statut === 'Repondu').length;
+    const clos = sujets.filter(s => s.Statut === 'Clos').length;
+    const haute = sujets.filter(s => s.Priorite === 'Haute').length;
+
+    const kpis = [
+      { value: total, label: 'Total', color: 'var(--blue-france)', filter: '' },
+      { value: enAttente, label: 'En attente', color: 'var(--orange)', filter: 'En attente' },
+      { value: relance, label: 'Relance', color: '#E67E22', filter: 'Relance' },
+      { value: repondu, label: 'Répondu', color: 'var(--green)', filter: 'Repondu' },
+      { value: clos, label: 'Clos', color: '#95A5A6', filter: 'Clos' },
+      { value: haute, label: 'Priorité haute', color: 'var(--red)', filter: '_haute' },
+    ];
+
+    document.getElementById('kpiBar').innerHTML = kpis.map(k => `
+      <div class="kpi" onclick="kpiFilter('${k.filter}')" data-filter="${k.filter}">
+        <div class="kpi-value" style="color:${k.color}">${k.value}</div>
+        <div class="kpi-label">${k.label}</div>
+      </div>
+    `).join('');
+  }
+
+  function kpiFilter(filter) {
+    if (filter === '_haute') {
+      document.getElementById('filterStatut').value = '';
+      document.getElementById('filterPrio').value = 'Haute';
+    } else {
+      document.getElementById('filterStatut').value = filter;
+      document.getElementById('filterPrio').value = '';
+    }
+    document.getElementById('filterCat').value = '';
+    document.getElementById('searchBox').value = '';
+    renderCards();
+    // Highlight active KPI
+    document.querySelectorAll('.kpi').forEach(el => {
+      el.classList.toggle('active', el.dataset.filter === filter);
+    });
+  }
+
+  // ── SORT ──
+  function setSort(mode) {
+    currentSort = mode;
+    document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('sort' + mode.charAt(0).toUpperCase() + mode.slice(1)).classList.add('active');
+    renderCards();
+  }
+
+  function sortSujets(list) {
+    const prioOrder = { 'Haute': 0, 'Normale': 1, 'Basse': 2, '': 3 };
+    switch (currentSort) {
+      case 'date':
+        return list.sort((a, b) => (b.Date_MAJ || 0) - (a.Date_MAJ || 0));
+      case 'prio':
+        return list.sort((a, b) => (prioOrder[a.Priorite] || 3) - (prioOrder[b.Priorite] || 3));
+      case 'benef':
+        return list.sort((a, b) => {
+          const na = (beneficiaires[a.Beneficiaire] || {}).nom || '';
+          const nb = (beneficiaires[b.Beneficiaire] || {}).nom || '';
+          return na.localeCompare(nb, 'fr');
+        });
+      default:
+        return list;
+    }
+  }
+
+  // ── CARDS ──
+  function renderCards() {
+    const fStatut = document.getElementById('filterStatut').value;
+    const fPrio = document.getElementById('filterPrio').value;
+    const fCat = document.getElementById('filterCat').value;
+    const search = document.getElementById('searchBox').value.toLowerCase().trim();
+
+    let filtered = sujets.filter(s => {
+      if (fStatut && s.Statut !== fStatut) return false;
+      if (fPrio && s.Priorite !== fPrio) return false;
+      if (fCat && s.Categorie !== fCat) return false;
+      if (search) {
+        const benName = (beneficiaires[s.Beneficiaire] || {}).nom || '';
+        const haystack = [s.Code, s.Objet, s.Demandeur, s.Responsable_PQP, benName, s.Categorie, s.Notes]
+          .join(' ').toLowerCase();
+        if (!haystack.includes(search)) return false;
+      }
+      return true;
+    });
+
+    filtered = sortSujets(filtered);
+
+    if (filtered.length === 0) {
+      document.getElementById('cardList').innerHTML = `
+        <div class="empty-state">
+          <div class="icon">📋</div>
+          <h3>Aucun sujet trouvé</h3>
+          <p>Modifiez les filtres ou la recherche.</p>
+        </div>`;
+      return;
+    }
+
+    document.getElementById('cardList').innerHTML = filtered.map(s => {
+      const ben = beneficiaires[s.Beneficiaire] || {};
+      const slugSt = slugStatut(s.Statut);
+      const isSelected = s.id === selectedId;
+      const demandeurShort = (s.Demandeur || '').replace(/<[^>]+>/g, '').split(' <')[0];
+
+      return `
+      <div class="card statut-${slugSt} ${isSelected ? 'selected' : ''}"
+           onclick="openDetail(${s.id})" data-id="${s.id}">
+        <div class="card-top">
+          <span class="card-code">${s.Code || '—'}</span>
+          <div class="card-badges">
+            ${s.Categorie ? `<span class="badge badge-cat">${s.Categorie}</span>` : ''}
+            <span class="badge badge-statut-${slugSt}">${s.Statut || '—'}</span>
+            <span class="badge badge-prio-${(s.Priorite||'').toLowerCase()}">${s.Priorite || '—'}</span>
+          </div>
+        </div>
+        <div class="card-objet">${s.Objet || '(sans objet)'}</div>
+        <div class="card-meta">
+          <span class="meta-beneficiaire">${ben.nom || '?'} ${ben.entite ? '— ' + ben.entite : ''}</span>
+          <span class="meta-demandeur">${demandeurShort || '—'}</span>
+          <span class="meta-date">${fmtDate(s.Date_MAJ)}</span>
+          ${s.Echeance ? `<span class="meta-echeance">${fmtDate(s.Echeance)}</span>` : ''}
+          ${s.Nb_Relances ? `<span class="meta-relances">${s.Nb_Relances} relance${s.Nb_Relances > 1 ? 's' : ''}</span>` : ''}
+          ${s.Canal_Origine ? `<span class="meta-canal">${s.Canal_Origine}</span>` : ''}
+        </div>
+        ${s.Prochaine_Action ? `<div class="card-prochaine-action">${s.Prochaine_Action}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  // ── DETAIL ──
+  function openDetail(id) {
+    const s = sujets.find(x => x.id === id);
+    if (!s) return;
+    selectedId = id;
+
+    // Tell Grist to select this row
+    try { grist.setCursorPos({ rowId: id }); } catch(e) {}
+
+    const ben = beneficiaires[s.Beneficiaire] || {};
+    document.getElementById('detailTitle').textContent = s.Code || 'Détail';
+
+    const notesClean = (s.Notes || '').substring(0, 3000);
+
+    document.getElementById('detailBody').innerHTML = `
+      <div class="detail-section">
+        <h3>Identification</h3>
+        <div class="detail-field"><span class="label">Code</span><span class="value">${s.Code || '—'}</span></div>
+        <div class="detail-field"><span class="label">Objet</span><span class="value" style="font-weight:600">${s.Objet || '—'}</span></div>
+        <div class="detail-field"><span class="label">Catégorie</span><span class="value">${s.Categorie || '—'}</span></div>
+        <div class="detail-field"><span class="label">Canal d'origine</span><span class="value">${s.Canal_Origine || '—'}</span></div>
+      </div>
+
+      <div class="detail-section">
+        <h3>Acteurs</h3>
+        <div class="detail-field"><span class="label">Bénéficiaire</span><span class="value">${ben.nom || '—'} ${ben.entite ? '(' + ben.entite + ')' : ''}</span></div>
+        <div class="detail-field"><span class="label">VRF / Type</span><span class="value">${ben.vrf || '—'} / ${ben.type || '—'}</span></div>
+        <div class="detail-field"><span class="label">Interlocuteur</span><span class="value">${ben.interlocuteur || '—'}</span></div>
+        <div class="detail-field"><span class="label">Demandeur</span><span class="value">${(s.Demandeur || '—').replace(/</g, '&lt;')}</span></div>
+        <div class="detail-field"><span class="label">Responsable PQP</span><span class="value">${s.Responsable_PQP || '—'}</span></div>
+      </div>
+
+      <div class="detail-section">
+        <h3>Suivi</h3>
+        <div class="detail-field"><span class="label">Statut</span><span class="value"><span class="badge badge-statut-${slugStatut(s.Statut)}">${s.Statut || '—'}</span></span></div>
+        <div class="detail-field"><span class="label">Priorité</span><span class="value"><span class="badge badge-prio-${(s.Priorite||'').toLowerCase()}">${s.Priorite || '—'}</span></span></div>
+        <div class="detail-field"><span class="label">Date demande</span><span class="value">${fmtDateLong(s.Date_Demande)}</span></div>
+        <div class="detail-field"><span class="label">Échéance</span><span class="value">${fmtDateLong(s.Echeance)}</span></div>
+        <div class="detail-field"><span class="label">Dernière relance</span><span class="value">${fmtDateLong(s.Date_Derniere_Relance)}</span></div>
+        <div class="detail-field"><span class="label">Dernière MAJ</span><span class="value">${fmtDateLong(s.Date_MAJ)}</span></div>
+        <div class="detail-field"><span class="label">Date clôture</span><span class="value">${fmtDateLong(s.Date_Cloture)}</span></div>
+        <div class="detail-field"><span class="label">Nb relances</span><span class="value">${s.Nb_Relances || 0}</span></div>
+      </div>
+
+      ${s.Prochaine_Action ? `
+      <div class="detail-section">
+        <h3>Prochaine action</h3>
+        <div class="card-prochaine-action">${s.Prochaine_Action}</div>
+      </div>` : ''}
+
+      <div class="detail-section">
+        <h3>Notes</h3>
+        <div class="detail-notes">${notesClean || '(aucune note)'}</div>
+      </div>
+    `;
+
+    document.getElementById('detailOverlay').classList.add('open');
+    renderCards(); // update selection highlight
+  }
+
+  function closeDetail(e) {
+    if (e && e.target !== document.getElementById('detailOverlay')) return;
+    document.getElementById('detailOverlay').classList.remove('open');
+    if (!e) document.getElementById('detailOverlay').classList.remove('open');
+  }
+
+  // Keyboard nav
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeDetail();
+  });
+
+  // ── BOOT ──
+  loadData();
+</script>
+</body>
+</html>
