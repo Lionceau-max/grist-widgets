@@ -29,7 +29,6 @@
       line-height: 1.45;
     }
 
-    /* ── HEADER ── */
     .header {
       background: var(--blue-france);
       color: var(--white);
@@ -44,7 +43,7 @@
     .header h1 { font-size: 15px; font-weight: 700; letter-spacing: 0.3px; }
     .header .subtitle { font-size: 11px; opacity: 0.7; font-weight: 400; }
     .header-right { display: flex; align-items: center; gap: 8px; }
-    .refresh-btn {
+    .header-btn {
       background: rgba(255,255,255,0.15);
       border: 1px solid rgba(255,255,255,0.3);
       color: white;
@@ -54,102 +53,55 @@
       font-size: 12px;
       transition: background 0.15s;
     }
-    .refresh-btn:hover { background: rgba(255,255,255,0.25); }
+    .header-btn:hover { background: rgba(255,255,255,0.25); }
+    .new-btn { background: rgba(255,255,255,0.25); font-weight: 700; }
+    .new-btn:hover { background: rgba(255,255,255,0.4); }
     .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #4ADE80; }
     .status-dot.error { background: var(--red); }
     .status-dot.loading { background: var(--orange); animation: pulse 1s infinite; }
     @keyframes pulse { 50% { opacity: 0.4; } }
 
-    /* ── TOAST ── */
-    .toast-container {
-      position: fixed;
-      top: 56px;
-      right: 16px;
-      z-index: 500;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
+    .toast-container { position: fixed; top: 56px; right: 16px; z-index: 500; display: flex; flex-direction: column; gap: 6px; }
     .toast {
-      padding: 8px 14px;
-      border-radius: var(--radius);
-      font-size: 12px;
-      font-weight: 600;
-      color: white;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-      animation: toastIn 0.25s ease-out, toastOut 0.3s ease-in 2.2s forwards;
-      max-width: 320px;
+      padding: 8px 14px; border-radius: var(--radius); font-size: 12px; font-weight: 600;
+      color: white; box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      animation: toastIn 0.25s ease-out, toastOut 0.3s ease-in 2.2s forwards; max-width: 320px;
     }
     .toast.success { background: var(--green); }
     .toast.error { background: var(--red); }
     @keyframes toastIn { from { transform: translateX(100%); opacity: 0; } }
     @keyframes toastOut { to { transform: translateX(100%); opacity: 0; } }
 
-    /* ── KPI BAR ── */
     .kpi-bar {
-      display: flex;
-      gap: 8px;
-      padding: 10px 16px;
-      background: var(--white);
-      border-bottom: 1px solid var(--grey-border);
-      overflow-x: auto;
+      display: flex; gap: 8px; padding: 10px 16px; background: var(--white);
+      border-bottom: 1px solid var(--grey-border); overflow-x: auto;
     }
     .kpi {
-      flex: 1;
-      min-width: 100px;
-      padding: 8px 12px;
-      border-radius: var(--radius);
-      background: var(--grey-bg);
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.15s;
-      border: 2px solid transparent;
+      flex: 1; min-width: 100px; padding: 8px 12px; border-radius: var(--radius);
+      background: var(--grey-bg); text-align: center; cursor: pointer;
+      transition: all 0.15s; border: 2px solid transparent;
     }
     .kpi:hover { border-color: var(--blue-france); }
     .kpi.active { border-color: var(--blue-france); background: var(--blue-light); }
     .kpi-value { font-size: 22px; font-weight: 800; line-height: 1.1; }
     .kpi-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--grey-text); margin-top: 2px; }
 
-    /* ── FILTERS ── */
     .filters {
-      display: flex;
-      gap: 8px;
-      padding: 8px 16px;
-      background: var(--white);
-      border-bottom: 1px solid var(--grey-border);
-      flex-wrap: wrap;
-      align-items: center;
+      display: flex; gap: 8px; padding: 8px 16px; background: var(--white);
+      border-bottom: 1px solid var(--grey-border); flex-wrap: wrap; align-items: center;
     }
     .filter-group { display: flex; align-items: center; gap: 4px; }
-    .filter-group label {
-      font-size: 11px;
-      color: var(--grey-text);
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
-    }
-    select, .search-box {
-      padding: 4px 8px;
-      border: 1px solid var(--grey-border);
-      border-radius: var(--radius);
-      font-size: 12px;
-      background: var(--white);
-    }
+    .filter-group label { font-size: 11px; color: var(--grey-text); font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+    select, .search-box { padding: 4px 8px; border: 1px solid var(--grey-border); border-radius: var(--radius); font-size: 12px; background: var(--white); }
     select { cursor: pointer; }
     select:focus, .search-box:focus { outline: 2px solid var(--blue-france); }
     .search-box { flex: 1; min-width: 180px; padding: 5px 10px; }
 
-    /* ── CARD LIST ── */
     .card-list { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
     .card {
-      background: var(--white);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      border-left: 4px solid var(--grey-border);
-      padding: 12px 14px;
-      cursor: pointer;
-      transition: all 0.15s;
-      position: relative;
+      background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow);
+      border-left: 4px solid var(--grey-border); padding: 12px 14px; cursor: pointer;
+      transition: all 0.15s; position: relative;
     }
     .card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.12); transform: translateY(-1px); }
     .card.selected { box-shadow: 0 0 0 2px var(--blue-france); }
@@ -180,13 +132,9 @@
     .meta-echeance::before { content: '\23F0'; }
     .meta-relances::before { content: '\U0001F501'; }
     .meta-canal::before { content: '\U0001F4E8'; }
-
-    .card-prochaine-action {
-      margin-top: 6px; padding: 5px 8px; background: #FFF8E1; border-radius: 4px; font-size: 11px; color: #856404;
-    }
+    .card-prochaine-action { margin-top: 6px; padding: 5px 8px; background: #FFF8E1; border-radius: 4px; font-size: 11px; color: #856404; }
     .card-prochaine-action::before { content: '\25B6 '; font-weight: 700; }
 
-    /* ── QUICK ACTIONS ── */
     .card-quick-actions { position: absolute; top: 8px; right: 8px; display: none; gap: 3px; }
     .card:hover .card-quick-actions { display: flex; }
     .quick-btn {
@@ -195,7 +143,6 @@
       display: flex; align-items: center; justify-content: center; transition: all 0.1s;
     }
     .quick-btn:hover { background: var(--blue-light); border-color: var(--blue-france); }
-
     .quick-status-dropdown {
       position: absolute; top: 36px; right: 8px; background: var(--white);
       border: 1px solid var(--grey-border); border-radius: var(--radius);
@@ -208,20 +155,21 @@
     .quick-status-dropdown .qsd-item:hover { background: var(--grey-bg); }
     .qsd-dot { width: 8px; height: 8px; border-radius: 50%; }
 
-    /* ── DETAIL PANEL ── */
     .detail-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.35); z-index: 200; }
     .detail-overlay.open { display: flex; justify-content: flex-end; }
     .detail-panel {
       width: 55%; min-width: 380px; max-width: 640px; background: var(--white);
       height: 100%; overflow-y: auto; box-shadow: -4px 0 20px rgba(0,0,0,0.15);
-      animation: slideIn 0.2s ease-out;
+      animation: slideIn 0.2s ease-out; display: flex; flex-direction: column;
     }
     @keyframes slideIn { from { transform: translateX(100%); } }
     .detail-header {
       position: sticky; top: 0; background: var(--blue-france); color: white;
       padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; z-index: 10;
+      flex-shrink: 0;
     }
     .detail-header h2 { font-size: 14px; font-weight: 700; }
+    .detail-header .badge-new { background: #4ADE80; color: #052E16; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; margin-left: 8px; }
     .detail-header-actions { display: flex; gap: 6px; align-items: center; }
     .close-btn, .edit-toggle-btn {
       background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
@@ -231,7 +179,7 @@
     .close-btn:hover, .edit-toggle-btn:hover { background: rgba(255,255,255,0.3); }
     .edit-toggle-btn.active { background: rgba(255,255,255,0.35); font-weight: 700; }
 
-    .detail-body { padding: 16px; }
+    .detail-body { padding: 16px; flex: 1; overflow-y: auto; }
     .detail-section { margin-bottom: 16px; }
     .detail-section h3 {
       font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
@@ -254,6 +202,7 @@
     .save-bar {
       position: sticky; bottom: 0; background: var(--white); border-top: 2px solid var(--blue-france);
       padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; gap: 8px; z-index: 10;
+      flex-shrink: 0;
     }
     .save-bar .changes-info { font-size: 11px; color: var(--grey-text); }
     .save-bar .changes-info strong { color: var(--blue-france); }
@@ -264,6 +213,9 @@
     .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-secondary { background: var(--white); color: var(--grey-text); border-color: var(--grey-border); }
     .btn-secondary:hover { background: var(--grey-bg); }
+    .btn-create { background: var(--green); color: white; }
+    .btn-create:hover { background: #145F2E; }
+    .btn-create:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .empty-state { text-align: center; padding: 40px 20px; color: var(--grey-text); }
     .empty-state .icon { font-size: 40px; margin-bottom: 10px; }
@@ -276,6 +228,14 @@
     .sort-btn.active { background: var(--blue-light); border-color: var(--blue-france); color: var(--blue-france); }
     .detail-notes { background: var(--grey-bg); padding: 10px; border-radius: var(--radius); font-size: 12px; white-space: pre-wrap; max-height: 300px; overflow-y: auto; line-height: 1.5; }
     .field-dirty .label::after { content: '\25CF'; color: var(--blue-france); margin-left: 4px; font-size: 8px; vertical-align: super; }
+    .field-required .label::after { content: ' *'; color: var(--red); font-weight: 700; }
+
+    .create-hint {
+      background: #DBEAFE; border: 1px solid #93C5FD; border-radius: var(--radius);
+      padding: 10px 12px; margin-bottom: 16px; font-size: 12px; color: #1E40AF;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .create-hint .hint-icon { font-size: 18px; flex-shrink: 0; }
   </style>
 </head>
 <body>
@@ -283,7 +243,8 @@
     <div><h1>PQP — Sujets <span class="subtitle">v3</span></h1></div>
     <div class="header-right">
       <span class="subtitle" id="lastUpdate"></span>
-      <button class="refresh-btn" onclick="loadData()" title="Rafraichir">&#x27F3; Refresh</button>
+      <button class="header-btn new-btn" onclick="openCreate()" title="Nouveau ticket">+ Nouveau</button>
+      <button class="header-btn" onclick="loadData()" title="Rafraichir">&#x27F3;</button>
       <div class="status-dot loading" id="statusDot"></div>
     </div>
   </div>
@@ -321,28 +282,32 @@
   </div>
 
 <script>
-const CHOICES = {
+var CHOICES = {
   Statut: ['En attente', 'Relance', 'Repondu', 'Clos'],
   Priorite: ['Haute', 'Normale', 'Basse'],
   Categorie: ["Demande d'information", 'Communication', 'Suivi incident', 'Relance beneficiaire', 'Gouvernance', 'Arbitrage', 'Autre'],
   Canal_Origine: ['Mail', 'Tchap', 'Reunion', 'Telephone', 'COPIL', 'COSUI', 'Autre'],
 };
-const STATUT_COLORS = { 'En attente': '#F9AE41', 'Relance': '#E67E22', 'Repondu': '#18753C', 'Clos': '#95A5A6' };
+var STATUT_COLORS = { 'En attente': '#F9AE41', 'Relance': '#E67E22', 'Repondu': '#18753C', 'Clos': '#95A5A6' };
+var ALL_FIELDS = ['Code','Objet','Beneficiaire','Demandeur','Responsable_PQP','Categorie','Canal_Origine','Date_Demande','Echeance','Date_Derniere_Relance','Date_MAJ','Date_Cloture','Statut','Priorite','Prochaine_Action','Lien_Source','Notes','Nb_Relances'];
 
-let sujets = [];
-let beneficiaires = {};
-let beneficiairesList = [];
-let currentSort = 'date';
-let selectedId = null;
-let editMode = false;
-let editDraft = {};
-let originalFields = {};
-let openQuickStatusId = null;
+var sujets = [];
+var beneficiaires = {};
+var beneficiairesList = [];
+var currentSort = 'date';
+var selectedId = null;
+var editMode = false;
+var createMode = false;
+var editDraft = {};
+var originalFields = {};
+var openQuickStatusId = null;
 
 function fmtDate(ts) { if (!ts) return '-'; return new Date(ts * 1000).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' }); }
 function fmtDateLong(ts) { if (!ts) return '-'; return new Date(ts * 1000).toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' }); }
 function tsToISO(ts) { if (!ts) return ''; return new Date(ts * 1000).toISOString().split('T')[0]; }
 function isoToTs(iso) { if (!iso) return null; return Math.floor(new Date(iso + 'T12:00:00Z').getTime() / 1000); }
+function todayTs() { return Math.floor(Date.now() / 1000); }
+function todayISO() { return new Date().toISOString().split('T')[0]; }
 function fmtNow() { return new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' }); }
 function slugStatut(s) { return (s||'').toLowerCase().replace(/[^a-z]/g,'-').replace(/-+/g,'-'); }
 function escHtml(s) { var d = document.createElement('div'); d.textContent = s||''; return d.innerHTML; }
@@ -354,6 +319,21 @@ function toast(msg, type) {
   el.textContent = msg;
   document.getElementById('toastContainer').appendChild(el);
   setTimeout(function() { el.remove(); }, 2600);
+}
+
+function nextCode() {
+  var year = new Date().getFullYear();
+  var prefix = 'PQP-' + year + '-';
+  var max = 0;
+  sujets.forEach(function(s) {
+    var c = s.Code || '';
+    if (c.indexOf(prefix) === 0) {
+      var n = parseInt(c.substring(prefix.length), 10);
+      if (n > max) max = n;
+    }
+  });
+  var next = max + 1;
+  return prefix + String(next).padStart(3, '0');
 }
 
 grist.ready({ requiredAccess: 'full', allowSelectBy: true });
@@ -368,36 +348,22 @@ async function loadData() {
     ]);
     var sujetsData = results[0];
     var benData = results[1];
-
     var sujetIds = sujetsData.id;
     sujets = sujetIds.map(function(id, i) {
       var row = { id: id };
-      Object.keys(sujetsData).forEach(function(key) {
-        if (key !== 'id') row[key] = sujetsData[key][i];
-      });
+      Object.keys(sujetsData).forEach(function(key) { if (key !== 'id') row[key] = sujetsData[key][i]; });
       return row;
     });
-
     beneficiaires = {};
     beneficiairesList = [];
     benData.id.forEach(function(id, i) {
-      var b = {
-        id: id,
-        nom: benData.Beneficiaire[i],
-        entite: benData.Entite[i],
-        vrf: benData.VRF[i],
-        quadrigramme: benData.Quadrigramme[i],
-        type: benData.Type_[i],
-        interlocuteur: benData.Interlocuteur_principal[i],
-      };
+      var b = { id: id, nom: benData.Beneficiaire[i], entite: benData.Entite[i], vrf: benData.VRF[i], quadrigramme: benData.Quadrigramme[i], type: benData.Type_[i], interlocuteur: benData.Interlocuteur_principal[i] };
       beneficiaires[id] = b;
       beneficiairesList.push(b);
     });
-
     dot.className = 'status-dot';
     document.getElementById('lastUpdate').textContent = 'MAJ ' + fmtNow();
-    renderKPIs();
-    renderCards();
+    renderKPIs(); renderCards();
   } catch (err) {
     console.error('Erreur:', err);
     dot.className = 'status-dot error';
@@ -418,18 +384,27 @@ async function saveRecord(id, fields) {
   }
 }
 
+async function createRecord(fields) {
+  try {
+    var result = await grist.docApi.applyUserActions([['AddRecord', 'Sujets_v2', null, fields]]);
+    return result;
+  } catch (err) {
+    console.error('Erreur creation:', err);
+    toast('Erreur : ' + (err.message || err), 'error');
+    return null;
+  }
+}
+
 grist.onRecord(function(record) {
-  if (record && record.id) { selectedId = record.id; renderCards(); }
+  if (record && record.id && !createMode) { selectedId = record.id; renderCards(); }
 });
 
+/* ── KPIs ── */
 function renderKPIs() {
   var total = sujets.length;
   var counts = { 'En attente': 0, 'Relance': 0, 'Repondu': 0, 'Clos': 0 };
   var haute = 0;
-  sujets.forEach(function(s) {
-    if (counts[s.Statut] !== undefined) counts[s.Statut]++;
-    if (s.Priorite === 'Haute') haute++;
-  });
+  sujets.forEach(function(s) { if (counts[s.Statut] !== undefined) counts[s.Statut]++; if (s.Priorite === 'Haute') haute++; });
   var kpis = [
     { value: total, label: 'Total', color: 'var(--blue-france)', filter: '' },
     { value: counts['En attente'], label: 'En attente', color: 'var(--orange)', filter: 'En attente' },
@@ -444,13 +419,8 @@ function renderKPIs() {
 }
 
 function kpiFilter(filter) {
-  if (filter === '_haute') {
-    document.getElementById('filterStatut').value = '';
-    document.getElementById('filterPrio').value = 'Haute';
-  } else {
-    document.getElementById('filterStatut').value = filter;
-    document.getElementById('filterPrio').value = '';
-  }
+  if (filter === '_haute') { document.getElementById('filterStatut').value = ''; document.getElementById('filterPrio').value = 'Haute'; }
+  else { document.getElementById('filterStatut').value = filter; document.getElementById('filterPrio').value = ''; }
   document.getElementById('filterCat').value = '';
   document.getElementById('searchBox').value = '';
   renderCards();
@@ -473,30 +443,28 @@ function sortSujets(list) {
   return list;
 }
 
+/* ── CARDS ── */
 function renderCards() {
   var fStatut = document.getElementById('filterStatut').value;
   var fPrio = document.getElementById('filterPrio').value;
   var fCat = document.getElementById('filterCat').value;
   var search = document.getElementById('searchBox').value.toLowerCase().trim();
-
   var filtered = sujets.filter(function(s) {
     if (fStatut && s.Statut !== fStatut) return false;
     if (fPrio && s.Priorite !== fPrio) return false;
     if (fCat && s.Categorie !== fCat) return false;
     if (search) {
       var benName = (beneficiaires[s.Beneficiaire]||{}).nom||'';
-      var haystack = [s.Code, s.Objet, s.Demandeur, s.Responsable_PQP, benName, s.Categorie, s.Notes].join(' ').toLowerCase();
+      var haystack = [s.Code,s.Objet,s.Demandeur,s.Responsable_PQP,benName,s.Categorie,s.Notes].join(' ').toLowerCase();
       if (haystack.indexOf(search) === -1) return false;
     }
     return true;
   });
   filtered = sortSujets(filtered);
-
   if (filtered.length === 0) {
-    document.getElementById('cardList').innerHTML = '<div class="empty-state"><div class="icon">&#x1F4CB;</div><h3>Aucun sujet trouve</h3><p>Modifiez les filtres.</p></div>';
+    document.getElementById('cardList').innerHTML = '<div class="empty-state"><div class="icon">&#x1F4CB;</div><h3>Aucun sujet trouve</h3><p>Modifiez les filtres ou <a href="#" onclick="event.preventDefault();openCreate()">creez un nouveau ticket</a>.</p></div>';
     return;
   }
-
   document.getElementById('cardList').innerHTML = filtered.map(function(s) {
     var ben = beneficiaires[s.Beneficiaire] || {};
     var sl = slugStatut(s.Statut);
@@ -527,6 +495,7 @@ function renderCards() {
   }).join('');
 }
 
+/* ── QUICK STATUS ── */
 function toggleQuickStatus(id, btnEl) {
   document.querySelectorAll('.quick-status-dropdown').forEach(function(el){el.remove();});
   if (openQuickStatusId === id) { openQuickStatusId = null; return; }
@@ -538,35 +507,26 @@ function toggleQuickStatus(id, btnEl) {
     item.className = 'qsd-item';
     item.innerHTML = '<span class="qsd-dot" style="background:' + (STATUT_COLORS[st]||'#999') + '"></span>' + st;
     item.onclick = async function(e) {
-      e.stopPropagation();
-      dd.remove();
-      openQuickStatusId = null;
-      var ok = await saveRecord(id, { Statut: st, Date_MAJ: Math.floor(Date.now()/1000) });
-      if (ok) {
-        toast('Statut > ' + st);
-        renderKPIs(); renderCards();
-        if (selectedId === id && document.getElementById('detailOverlay').classList.contains('open')) openDetail(id);
-      }
+      e.stopPropagation(); dd.remove(); openQuickStatusId = null;
+      var ok = await saveRecord(id, { Statut: st, Date_MAJ: todayTs() });
+      if (ok) { toast('Statut > ' + st); renderKPIs(); renderCards(); if (selectedId === id && document.getElementById('detailOverlay').classList.contains('open')) openDetail(id); }
     };
     dd.appendChild(item);
   });
   btnEl.closest('.card').appendChild(dd);
-  setTimeout(function() {
-    var closer = function(e) { if (!dd.contains(e.target)) { dd.remove(); openQuickStatusId = null; document.removeEventListener('click', closer); } };
-    document.addEventListener('click', closer);
-  }, 10);
+  setTimeout(function() { var closer = function(e) { if (!dd.contains(e.target)) { dd.remove(); openQuickStatusId = null; document.removeEventListener('click', closer); } }; document.addEventListener('click', closer); }, 10);
 }
 
+/* ── DETAIL (view) ── */
 function openDetail(id) {
   var s = sujets.find(function(x){return x.id===id;});
   if (!s) return;
   selectedId = id;
-  editMode = false;
-  editDraft = {};
-  originalFields = {};
+  editMode = false; createMode = false; editDraft = {}; originalFields = {};
   try { grist.setCursorPos({ rowId: id }); } catch(e) {}
-  document.getElementById('editToggleBtn').innerHTML = '&#x270F;&#xFE0F; Editer';
-  document.getElementById('editToggleBtn').classList.remove('active');
+  var btn = document.getElementById('editToggleBtn');
+  btn.innerHTML = '&#x270F;&#xFE0F; Editer'; btn.classList.remove('active');
+  btn.style.display = '';
   renderDetailContent(s);
   document.getElementById('detailOverlay').classList.add('open');
   renderCards();
@@ -574,7 +534,7 @@ function openDetail(id) {
 
 function renderDetailContent(s) {
   var ben = beneficiaires[s.Beneficiaire] || {};
-  document.getElementById('detailTitle').textContent = s.Code || 'Detail';
+  document.getElementById('detailTitle').innerHTML = escHtml(s.Code || 'Detail');
   if (editMode) renderDetailEdit(s, ben);
   else renderDetailView(s, ben);
 }
@@ -602,30 +562,34 @@ function vf(label, value, bold) {
   return '<div class="detail-field"><span class="label">' + label + '</span><span class="value"' + (bold?' style="font-weight:600"':'') + '>' + escHtml(String(value==null?'-':value)) + '</span></div>';
 }
 
+/* ── DETAIL (edit) ── */
 function toggleEdit() {
+  if (createMode) return;
   var s = sujets.find(function(x){return x.id===selectedId;});
   if (!s) return;
   editMode = !editMode;
   var btn = document.getElementById('editToggleBtn');
   if (editMode) {
-    btn.innerHTML = '&#x1F441;&#xFE0F; Lecture';
-    btn.classList.add('active');
-    originalFields = {
-      Objet: s.Objet||'', Demandeur: s.Demandeur||'', Responsable_PQP: s.Responsable_PQP||'',
-      Categorie: s.Categorie||'', Canal_Origine: s.Canal_Origine||'', Statut: s.Statut||'',
-      Priorite: s.Priorite||'', Beneficiaire: s.Beneficiaire||0,
-      Date_Demande: s.Date_Demande, Echeance: s.Echeance,
-      Date_Derniere_Relance: s.Date_Derniere_Relance, Date_Cloture: s.Date_Cloture,
-      Nb_Relances: s.Nb_Relances||0, Prochaine_Action: s.Prochaine_Action||'',
-      Notes: s.Notes||'', Lien_Source: s.Lien_Source||'',
-    };
+    btn.innerHTML = '&#x1F441;&#xFE0F; Lecture'; btn.classList.add('active');
+    originalFields = buildFieldsFrom(s);
     editDraft = Object.assign({}, originalFields);
   } else {
-    btn.innerHTML = '&#x270F;&#xFE0F; Editer';
-    btn.classList.remove('active');
+    btn.innerHTML = '&#x270F;&#xFE0F; Editer'; btn.classList.remove('active');
     editDraft = {};
   }
   renderDetailContent(s);
+}
+
+function buildFieldsFrom(s) {
+  return {
+    Objet: s.Objet||'', Demandeur: s.Demandeur||'', Responsable_PQP: s.Responsable_PQP||'',
+    Categorie: s.Categorie||'', Canal_Origine: s.Canal_Origine||'', Statut: s.Statut||'',
+    Priorite: s.Priorite||'', Beneficiaire: s.Beneficiaire||0,
+    Date_Demande: s.Date_Demande, Echeance: s.Echeance,
+    Date_Derniere_Relance: s.Date_Derniere_Relance, Date_Cloture: s.Date_Cloture,
+    Nb_Relances: s.Nb_Relances||0, Prochaine_Action: s.Prochaine_Action||'',
+    Notes: s.Notes||'', Lien_Source: s.Lien_Source||'',
+  };
 }
 
 function renderDetailEdit(s, ben) {
@@ -649,40 +613,133 @@ function renderDetailEdit(s, ben) {
   updateDirtyState();
 }
 
+/* ── CREATE MODE ── */
+function openCreate() {
+  createMode = true; editMode = false; selectedId = null; editDraft = {}; originalFields = {};
+  var code = nextCode();
+  var now = todayTs();
+
+  editDraft = {
+    Code: code, Objet: '', Beneficiaire: 0, Demandeur: '', Responsable_PQP: '',
+    Categorie: '', Canal_Origine: 'Mail', Statut: 'En attente', Priorite: 'Normale',
+    Date_Demande: now, Echeance: null, Date_Derniere_Relance: null, Date_MAJ: now, Date_Cloture: null,
+    Nb_Relances: 0, Prochaine_Action: '', Lien_Source: '', Notes: '',
+  };
+
+  var btn = document.getElementById('editToggleBtn');
+  btn.style.display = 'none';
+  document.getElementById('detailTitle').innerHTML = escHtml(code) + ' <span class="badge-new">NOUVEAU</span>';
+  renderCreateForm();
+  document.getElementById('detailOverlay').classList.add('open');
+}
+
+function renderCreateForm() {
+  document.getElementById('detailBody').innerHTML =
+    '<div class="create-hint"><span class="hint-icon">&#x1F4DD;</span>Remplissez les champs ci-dessous. Seul l\'objet est obligatoire. Le code <strong>' + escHtml(editDraft.Code) + '</strong> est auto-genere.</div>'
+    + '<div class="detail-section"><h3>Identification</h3>'
+    + vf('Code', editDraft.Code)
+    + cf_text('Objet *', 'Objet', true) + cf_select('Categorie', 'Categorie', CHOICES.Categorie)
+    + cf_select('Canal origine', 'Canal_Origine', CHOICES.Canal_Origine) + cf_text('Lien source', 'Lien_Source', false) + '</div>'
+    + '<div class="detail-section"><h3>Acteurs</h3>'
+    + cf_beneficiaire() + cf_text('Demandeur', 'Demandeur', false) + cf_text('Responsable PQP', 'Responsable_PQP', false) + '</div>'
+    + '<div class="detail-section"><h3>Suivi</h3>'
+    + cf_select('Statut', 'Statut', CHOICES.Statut) + cf_select('Priorite', 'Priorite', CHOICES.Priorite)
+    + cf_date('Date demande', 'Date_Demande') + cf_date('Echeance', 'Echeance')
+    + cf_number('Nb relances', 'Nb_Relances') + '</div>'
+    + '<div class="detail-section"><h3>Prochaine action</h3>' + cf_text('Action', 'Prochaine_Action', false) + '</div>'
+    + '<div class="detail-section"><h3>Notes</h3>' + cf_textarea('Notes', 'Notes') + '</div>'
+    + '<div class="save-bar"><span class="changes-info" id="changesInfo">Nouveau ticket</span>'
+    + '<div class="btn-group"><button class="btn btn-secondary" onclick="closeDetail()">Annuler</button>'
+    + '<button class="btn btn-create" id="createBtn" onclick="submitCreate()">&#x2795; Creer le ticket</button></div></div>';
+  updateCreateValidity();
+}
+
+function cf_text(label, field, required) {
+  return '<div class="detail-field' + (required ? ' field-required' : '') + '" data-field="' + field + '"><span class="label">' + label + '</span><span class="value"><input class="edit-input" type="text" value="' + escHtml(editDraft[field]||'') + '" oninput="onCreateChange(\'' + field + '\', this.value)" placeholder="' + (required?'Obligatoire...':'') + '"></span></div>';
+}
+function cf_select(label, field, options) {
+  var opts = '<option value="">(vide)</option>';
+  options.forEach(function(o) { opts += '<option value="' + escHtml(o) + '"' + (editDraft[field]===o?' selected':'') + '>' + escHtml(o) + '</option>'; });
+  return '<div class="detail-field" data-field="' + field + '"><span class="label">' + label + '</span><span class="value"><select class="edit-select" onchange="onCreateChange(\'' + field + '\', this.value)">' + opts + '</select></span></div>';
+}
+function cf_date(label, field) {
+  var val = tsToISO(editDraft[field]);
+  return '<div class="detail-field" data-field="' + field + '"><span class="label">' + label + '</span><span class="value"><input class="edit-date" type="date" value="' + val + '" onchange="onCreateDateChange(\'' + field + '\', this.value)"></span></div>';
+}
+function cf_number(label, field) {
+  return '<div class="detail-field" data-field="' + field + '"><span class="label">' + label + '</span><span class="value"><input class="edit-input" type="number" min="0" value="' + (editDraft[field]||0) + '" oninput="onCreateChange(\'' + field + '\', parseInt(this.value)||0)"></span></div>';
+}
+function cf_textarea(label, field) {
+  return '<div class="detail-field" data-field="' + field + '" style="flex-direction:column;gap:4px"><span class="label">' + label + '</span><textarea class="edit-textarea" rows="6" oninput="onCreateChange(\'' + field + '\', this.value)" placeholder="Notes libres...">' + escHtml(editDraft[field]||'') + '</textarea></div>';
+}
+function cf_beneficiaire() {
+  var opts = '<option value="0">(aucun)</option>';
+  beneficiairesList.forEach(function(b) { opts += '<option value="' + b.id + '"' + (editDraft.Beneficiaire===b.id?' selected':'') + '>' + escHtml(b.nom) + (b.entite?' - '+escHtml(b.entite):'') + '</option>'; });
+  return '<div class="detail-field" data-field="Beneficiaire"><span class="label">Beneficiaire</span><span class="value"><select class="edit-select" onchange="onCreateChange(\'Beneficiaire\', parseInt(this.value)||0)">' + opts + '</select></span></div>';
+}
+
+function onCreateChange(field, value) { editDraft[field] = value; updateCreateValidity(); }
+function onCreateDateChange(field, isoValue) { editDraft[field] = isoValue ? isoToTs(isoValue) : null; }
+
+function updateCreateValidity() {
+  var btn = document.getElementById('createBtn');
+  if (btn) btn.disabled = !(editDraft.Objet && editDraft.Objet.trim().length > 0);
+}
+
+async function submitCreate() {
+  var btn = document.getElementById('createBtn');
+  if (!editDraft.Objet || !editDraft.Objet.trim()) { toast('L\'objet est obligatoire', 'error'); return; }
+  btn.disabled = true; btn.textContent = 'Creation...';
+
+  var fields = {};
+  Object.keys(editDraft).forEach(function(key) {
+    var v = editDraft[key];
+    if (v !== null && v !== '' && v !== 0) fields[key] = v;
+    else if (key === 'Nb_Relances') fields[key] = v || 0;
+    else if (v === null && (key.indexOf('Date') === 0 || key === 'Echeance')) { /* skip nulls for dates */ }
+    else fields[key] = v;
+  });
+  fields.Date_MAJ = todayTs();
+
+  var result = await createRecord(fields);
+  if (result) {
+    toast('Ticket ' + editDraft.Code + ' cree !');
+    createMode = false;
+    document.getElementById('detailOverlay').classList.remove('open');
+    await loadData();
+  } else {
+    btn.disabled = false; btn.innerHTML = '&#x2795; Creer le ticket';
+  }
+}
+
+/* ── EDIT HELPERS ── */
 function ef_text(label, field) {
   var dirty = editDraft[field] !== originalFields[field];
   return '<div class="detail-field' + (dirty?' field-dirty':'') + '" data-field="' + field + '"><span class="label">' + label + '</span><span class="value"><input class="edit-input" type="text" value="' + escHtml(editDraft[field]||'') + '" oninput="onFieldChange(\'' + field + '\', this.value)"></span></div>';
 }
-
 function ef_select(label, field, options) {
   var dirty = editDraft[field] !== originalFields[field];
   var opts = '<option value="">(vide)</option>';
   options.forEach(function(o) { opts += '<option value="' + escHtml(o) + '"' + (editDraft[field]===o?' selected':'') + '>' + escHtml(o) + '</option>'; });
   return '<div class="detail-field' + (dirty?' field-dirty':'') + '" data-field="' + field + '"><span class="label">' + label + '</span><span class="value"><select class="edit-select" onchange="onFieldChange(\'' + field + '\', this.value)">' + opts + '</select></span></div>';
 }
-
 function ef_date(label, field) {
   var dirty = editDraft[field] !== originalFields[field];
   var val = tsToISO(editDraft[field]);
   return '<div class="detail-field' + (dirty?' field-dirty':'') + '" data-field="' + field + '"><span class="label">' + label + '</span><span class="value"><input class="edit-date" type="date" value="' + val + '" onchange="onDateChange(\'' + field + '\', this.value)"></span></div>';
 }
-
 function ef_number(label, field) {
   var dirty = editDraft[field] !== originalFields[field];
   return '<div class="detail-field' + (dirty?' field-dirty':'') + '" data-field="' + field + '"><span class="label">' + label + '</span><span class="value"><input class="edit-input" type="number" min="0" value="' + (editDraft[field]||0) + '" oninput="onFieldChange(\'' + field + '\', parseInt(this.value)||0)"></span></div>';
 }
-
 function ef_textarea(label, field) {
   var dirty = editDraft[field] !== originalFields[field];
   return '<div class="detail-field' + (dirty?' field-dirty':'') + '" data-field="' + field + '" style="flex-direction:column;gap:4px"><span class="label">' + label + '</span><textarea class="edit-textarea" rows="8" oninput="onFieldChange(\'' + field + '\', this.value)">' + escHtml(editDraft[field]||'') + '</textarea></div>';
 }
-
 function ef_beneficiaire() {
   var dirty = editDraft.Beneficiaire !== originalFields.Beneficiaire;
   var opts = '<option value="0">(aucun)</option>';
-  beneficiairesList.forEach(function(b) {
-    opts += '<option value="' + b.id + '"' + (editDraft.Beneficiaire===b.id?' selected':'') + '>' + escHtml(b.nom) + (b.entite?' - '+escHtml(b.entite):'') + '</option>';
-  });
+  beneficiairesList.forEach(function(b) { opts += '<option value="' + b.id + '"' + (editDraft.Beneficiaire===b.id?' selected':'') + '>' + escHtml(b.nom) + (b.entite?' - '+escHtml(b.entite):'') + '</option>'; });
   return '<div class="detail-field' + (dirty?' field-dirty':'') + '" data-field="Beneficiaire"><span class="label">Beneficiaire</span><span class="value"><select class="edit-select" onchange="onFieldChange(\'Beneficiaire\', parseInt(this.value)||0)">' + opts + '</select></span></div>';
 }
 
@@ -691,9 +748,7 @@ function onDateChange(field, isoValue) { editDraft[field] = isoValue ? isoToTs(i
 
 function getDirtyFields() {
   var dirty = {};
-  Object.keys(originalFields).forEach(function(key) {
-    if (editDraft[key] !== originalFields[key]) dirty[key] = editDraft[key];
-  });
+  Object.keys(originalFields).forEach(function(key) { if (editDraft[key] !== originalFields[key]) dirty[key] = editDraft[key]; });
   return dirty;
 }
 
@@ -714,46 +769,42 @@ async function saveEdits() {
   var dirty = getDirtyFields();
   if (Object.keys(dirty).length === 0) return;
   var btn = document.getElementById('saveBtn');
-  btn.disabled = true;
-  btn.textContent = 'Sauvegarde...';
-  dirty.Date_MAJ = Math.floor(Date.now() / 1000);
+  btn.disabled = true; btn.textContent = 'Sauvegarde...';
+  dirty.Date_MAJ = todayTs();
   var ok = await saveRecord(selectedId, dirty);
   if (ok) {
     toast(Object.keys(dirty).length + ' champ(s) mis a jour');
     editMode = false;
-    document.getElementById('editToggleBtn').innerHTML = '&#x270F;&#xFE0F; Editer';
-    document.getElementById('editToggleBtn').classList.remove('active');
+    var ebtn = document.getElementById('editToggleBtn');
+    ebtn.innerHTML = '&#x270F;&#xFE0F; Editer'; ebtn.classList.remove('active');
     editDraft = {};
     renderKPIs(); renderCards();
     var s = sujets.find(function(x){return x.id===selectedId;});
     if (s) renderDetailContent(s);
-  } else {
-    btn.disabled = false;
-    btn.innerHTML = '&#x1F4BE; Enregistrer';
-  }
+  } else { btn.disabled = false; btn.innerHTML = '&#x1F4BE; Enregistrer'; }
 }
 
 function closeDetail(e) {
   if (e && e.target !== document.getElementById('detailOverlay')) return;
-  if (editMode) {
+  if (editMode && !createMode) {
     var dirty = getDirtyFields();
-    if (Object.keys(dirty).length > 0) {
-      if (!confirm('Modifications non sauvegardees. Quitter ?')) return;
-    }
+    if (Object.keys(dirty).length > 0) { if (!confirm('Modifications non sauvegardees. Quitter ?')) return; }
+  }
+  if (createMode) {
+    if (editDraft.Objet && editDraft.Objet.trim()) { if (!confirm('Abandonner la creation du ticket ?')) return; }
   }
   document.getElementById('detailOverlay').classList.remove('open');
-  editMode = false;
+  editMode = false; createMode = false;
 }
 
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeDetail();
-  if (e.ctrlKey && e.key === 's' && editMode) { e.preventDefault(); saveEdits(); }
+  if (e.ctrlKey && e.key === 's') {
+    if (editMode && !createMode) { e.preventDefault(); saveEdits(); }
+    if (createMode) { e.preventDefault(); submitCreate(); }
+  }
 });
-
-document.addEventListener('click', function() {
-  document.querySelectorAll('.quick-status-dropdown').forEach(function(el){el.remove();});
-  openQuickStatusId = null;
-});
+document.addEventListener('click', function() { document.querySelectorAll('.quick-status-dropdown').forEach(function(el){el.remove();}); openQuickStatusId = null; });
 
 loadData();
 </script>
