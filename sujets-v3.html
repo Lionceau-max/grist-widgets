@@ -20,9 +20,7 @@
       --shadow: 0 1px 4px rgba(0,0,0,0.08);
       --radius: 6px;
     }
-
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
     body {
       font-family: -apple-system, 'Segoe UI', Roboto, 'Marianne', sans-serif;
       background: var(--grey-bg);
@@ -43,21 +41,9 @@
       top: 0;
       z-index: 100;
     }
-    .header h1 {
-      font-size: 15px;
-      font-weight: 700;
-      letter-spacing: 0.3px;
-    }
-    .header .subtitle {
-      font-size: 11px;
-      opacity: 0.7;
-      font-weight: 400;
-    }
-    .header-right {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+    .header h1 { font-size: 15px; font-weight: 700; letter-spacing: 0.3px; }
+    .header .subtitle { font-size: 11px; opacity: 0.7; font-weight: 400; }
+    .header-right { display: flex; align-items: center; gap: 8px; }
     .refresh-btn {
       background: rgba(255,255,255,0.15);
       border: 1px solid rgba(255,255,255,0.3);
@@ -69,14 +55,35 @@
       transition: background 0.15s;
     }
     .refresh-btn:hover { background: rgba(255,255,255,0.25); }
-    .status-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: #4ADE80;
-    }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #4ADE80; }
     .status-dot.error { background: var(--red); }
     .status-dot.loading { background: var(--orange); animation: pulse 1s infinite; }
     @keyframes pulse { 50% { opacity: 0.4; } }
+
+    /* ── TOAST ── */
+    .toast-container {
+      position: fixed;
+      top: 56px;
+      right: 16px;
+      z-index: 500;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .toast {
+      padding: 8px 14px;
+      border-radius: var(--radius);
+      font-size: 12px;
+      font-weight: 600;
+      color: white;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      animation: toastIn 0.25s ease-out, toastOut 0.3s ease-in 2.2s forwards;
+      max-width: 320px;
+    }
+    .toast.success { background: var(--green); }
+    .toast.error { background: var(--red); }
+    @keyframes toastIn { from { transform: translateX(100%); opacity: 0; } }
+    @keyframes toastOut { to { transform: translateX(100%); opacity: 0; } }
 
     /* ── KPI BAR ── */
     .kpi-bar {
@@ -100,18 +107,8 @@
     }
     .kpi:hover { border-color: var(--blue-france); }
     .kpi.active { border-color: var(--blue-france); background: var(--blue-light); }
-    .kpi-value {
-      font-size: 22px;
-      font-weight: 800;
-      line-height: 1.1;
-    }
-    .kpi-label {
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--grey-text);
-      margin-top: 2px;
-    }
+    .kpi-value { font-size: 22px; font-weight: 800; line-height: 1.1; }
+    .kpi-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--grey-text); margin-top: 2px; }
 
     /* ── FILTERS ── */
     .filters {
@@ -123,11 +120,7 @@
       flex-wrap: wrap;
       align-items: center;
     }
-    .filter-group {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
+    .filter-group { display: flex; align-items: center; gap: 4px; }
     .filter-group label {
       font-size: 11px;
       color: var(--grey-text);
@@ -135,33 +128,19 @@
       text-transform: uppercase;
       letter-spacing: 0.3px;
     }
-    select {
+    select, .search-box {
       padding: 4px 8px;
       border: 1px solid var(--grey-border);
       border-radius: var(--radius);
       font-size: 12px;
       background: var(--white);
-      cursor: pointer;
     }
-    select:focus { outline: 2px solid var(--blue-france); }
-    .search-box {
-      flex: 1;
-      min-width: 180px;
-      padding: 5px 10px;
-      border: 1px solid var(--grey-border);
-      border-radius: var(--radius);
-      font-size: 12px;
-    }
-    .search-box:focus { outline: 2px solid var(--blue-france); }
+    select { cursor: pointer; }
+    select:focus, .search-box:focus { outline: 2px solid var(--blue-france); }
+    .search-box { flex: 1; min-width: 180px; padding: 5px 10px; }
 
     /* ── CARD LIST ── */
-    .card-list {
-      padding: 12px 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
+    .card-list { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
     .card {
       background: var(--white);
       border-radius: var(--radius);
@@ -170,45 +149,19 @@
       padding: 12px 14px;
       cursor: pointer;
       transition: all 0.15s;
+      position: relative;
     }
-    .card:hover {
-      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-      transform: translateY(-1px);
-    }
-    .card.selected {
-      box-shadow: 0 0 0 2px var(--blue-france);
-    }
+    .card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.12); transform: translateY(-1px); }
+    .card.selected { box-shadow: 0 0 0 2px var(--blue-france); }
     .card.statut-en-attente { border-left-color: var(--orange); }
     .card.statut-relance { border-left-color: #E67E22; }
     .card.statut-repondu { border-left-color: var(--green); }
     .card.statut-clos { border-left-color: #95A5A6; }
 
-    .card-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 8px;
-      margin-bottom: 6px;
-    }
-    .card-code {
-      font-weight: 700;
-      font-size: 12px;
-      color: var(--blue-france);
-      white-space: nowrap;
-    }
-    .card-badges {
-      display: flex;
-      gap: 4px;
-      flex-shrink: 0;
-    }
-    .badge {
-      display: inline-block;
-      padding: 2px 7px;
-      border-radius: 10px;
-      font-size: 10px;
-      font-weight: 600;
-      white-space: nowrap;
-    }
+    .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+    .card-code { font-weight: 700; font-size: 12px; color: var(--blue-france); white-space: nowrap; }
+    .card-badges { display: flex; gap: 4px; flex-shrink: 0; align-items: center; }
+    .badge { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: 600; white-space: nowrap; }
     .badge-statut-en-attente { background: #FEF3CD; color: #856404; }
     .badge-statut-relance { background: #FDEDEC; color: #922B21; }
     .badge-statut-repondu { background: #D5F5E3; color: #1E8449; }
@@ -216,560 +169,593 @@
     .badge-prio-haute { background: #FDEDEC; color: #C0392B; }
     .badge-prio-normale { background: #EBF5FB; color: #2E86C1; }
     .badge-prio-basse { background: #EAECEE; color: #616A6B; }
-    .badge-cat {
-      background: var(--blue-light);
-      color: var(--blue-france);
-    }
+    .badge-cat { background: var(--blue-light); color: var(--blue-france); }
 
-    .card-objet {
-      font-weight: 600;
-      font-size: 13px;
-      margin-bottom: 6px;
-      line-height: 1.35;
-    }
-
-    .card-meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px 14px;
-      font-size: 11px;
-      color: var(--grey-text);
-    }
-    .card-meta span::before {
-      margin-right: 3px;
-    }
-    .meta-beneficiaire::before { content: '🏛️'; }
-    .meta-demandeur::before { content: '👤'; }
-    .meta-date::before { content: '📅'; }
-    .meta-echeance::before { content: '⏰'; }
-    .meta-relances::before { content: '🔁'; }
-    .meta-canal::before { content: '📨'; }
+    .card-objet { font-weight: 600; font-size: 13px; margin-bottom: 6px; line-height: 1.35; }
+    .card-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 11px; color: var(--grey-text); }
+    .card-meta span::before { margin-right: 3px; }
+    .meta-beneficiaire::before { content: '\U0001F3DB\FE0F'; }
+    .meta-demandeur::before { content: '\U0001F464'; }
+    .meta-date::before { content: '\U0001F4C5'; }
+    .meta-echeance::before { content: '\23F0'; }
+    .meta-relances::before { content: '\U0001F501'; }
+    .meta-canal::before { content: '\U0001F4E8'; }
 
     .card-prochaine-action {
-      margin-top: 6px;
-      padding: 5px 8px;
-      background: #FFF8E1;
-      border-radius: 4px;
-      font-size: 11px;
-      color: #856404;
+      margin-top: 6px; padding: 5px 8px; background: #FFF8E1; border-radius: 4px; font-size: 11px; color: #856404;
     }
-    .card-prochaine-action::before { content: '▶ '; font-weight: 700; }
+    .card-prochaine-action::before { content: '\25B6 '; font-weight: 700; }
+
+    /* ── QUICK ACTIONS ── */
+    .card-quick-actions { position: absolute; top: 8px; right: 8px; display: none; gap: 3px; }
+    .card:hover .card-quick-actions { display: flex; }
+    .quick-btn {
+      width: 26px; height: 26px; border: 1px solid var(--grey-border); border-radius: 4px;
+      background: var(--white); cursor: pointer; font-size: 13px;
+      display: flex; align-items: center; justify-content: center; transition: all 0.1s;
+    }
+    .quick-btn:hover { background: var(--blue-light); border-color: var(--blue-france); }
+
+    .quick-status-dropdown {
+      position: absolute; top: 36px; right: 8px; background: var(--white);
+      border: 1px solid var(--grey-border); border-radius: var(--radius);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15); z-index: 50; min-width: 140px; overflow: hidden;
+    }
+    .quick-status-dropdown .qsd-item {
+      padding: 7px 12px; font-size: 12px; cursor: pointer;
+      display: flex; align-items: center; gap: 6px; transition: background 0.1s;
+    }
+    .quick-status-dropdown .qsd-item:hover { background: var(--grey-bg); }
+    .qsd-dot { width: 8px; height: 8px; border-radius: 50%; }
 
     /* ── DETAIL PANEL ── */
-    .detail-overlay {
-      display: none;
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.35);
-      z-index: 200;
-    }
+    .detail-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.35); z-index: 200; }
     .detail-overlay.open { display: flex; justify-content: flex-end; }
     .detail-panel {
-      width: 50%;
-      min-width: 360px;
-      max-width: 600px;
-      background: var(--white);
-      height: 100%;
-      overflow-y: auto;
-      box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+      width: 55%; min-width: 380px; max-width: 640px; background: var(--white);
+      height: 100%; overflow-y: auto; box-shadow: -4px 0 20px rgba(0,0,0,0.15);
       animation: slideIn 0.2s ease-out;
     }
     @keyframes slideIn { from { transform: translateX(100%); } }
     .detail-header {
-      position: sticky;
-      top: 0;
-      background: var(--blue-france);
-      color: white;
-      padding: 14px 16px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+      position: sticky; top: 0; background: var(--blue-france); color: white;
+      padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; z-index: 10;
     }
-    .detail-header h2 {
-      font-size: 14px;
-      font-weight: 700;
+    .detail-header h2 { font-size: 14px; font-weight: 700; }
+    .detail-header-actions { display: flex; gap: 6px; align-items: center; }
+    .close-btn, .edit-toggle-btn {
+      background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+      color: white; border-radius: var(--radius); padding: 4px 10px; cursor: pointer;
+      font-size: 12px; transition: background 0.15s;
     }
-    .close-btn {
-      background: none;
-      border: none;
-      color: white;
-      font-size: 20px;
-      cursor: pointer;
-      padding: 0 4px;
-      line-height: 1;
-    }
-    .detail-body { padding: 16px; }
-    .detail-section {
-      margin-bottom: 16px;
-    }
-    .detail-section h3 {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--grey-text);
-      margin-bottom: 6px;
-      padding-bottom: 4px;
-      border-bottom: 1px solid var(--grey-border);
-    }
-    .detail-field {
-      display: flex;
-      padding: 4px 0;
-      gap: 8px;
-    }
-    .detail-field .label {
-      width: 120px;
-      flex-shrink: 0;
-      font-weight: 600;
-      font-size: 12px;
-      color: var(--grey-text);
-    }
-    .detail-field .value {
-      font-size: 12px;
-      word-break: break-word;
-    }
-    .detail-notes {
-      background: var(--grey-bg);
-      padding: 10px;
-      border-radius: var(--radius);
-      font-size: 12px;
-      white-space: pre-wrap;
-      max-height: 300px;
-      overflow-y: auto;
-      line-height: 1.5;
-    }
+    .close-btn:hover, .edit-toggle-btn:hover { background: rgba(255,255,255,0.3); }
+    .edit-toggle-btn.active { background: rgba(255,255,255,0.35); font-weight: 700; }
 
-    /* ── EMPTY STATE ── */
-    .empty-state {
-      text-align: center;
-      padding: 40px 20px;
-      color: var(--grey-text);
+    .detail-body { padding: 16px; }
+    .detail-section { margin-bottom: 16px; }
+    .detail-section h3 {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+      color: var(--grey-text); margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid var(--grey-border);
     }
+    .detail-field { display: flex; padding: 4px 0; gap: 8px; align-items: flex-start; }
+    .detail-field .label { width: 120px; flex-shrink: 0; font-weight: 600; font-size: 12px; color: var(--grey-text); padding-top: 3px; }
+    .detail-field .value { font-size: 12px; word-break: break-word; flex: 1; }
+
+    .edit-input, .edit-select, .edit-textarea, .edit-date {
+      width: 100%; padding: 5px 8px; border: 1px solid #CBD5E1; border-radius: 4px;
+      font-size: 12px; font-family: inherit; background: #FAFBFF; transition: border 0.15s;
+    }
+    .edit-input:focus, .edit-select:focus, .edit-textarea:focus, .edit-date:focus {
+      outline: none; border-color: var(--blue-france); box-shadow: 0 0 0 2px rgba(0,0,145,0.12);
+    }
+    .edit-textarea { min-height: 80px; resize: vertical; line-height: 1.5; }
+    .edit-select { cursor: pointer; }
+
+    .save-bar {
+      position: sticky; bottom: 0; background: var(--white); border-top: 2px solid var(--blue-france);
+      padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; gap: 8px; z-index: 10;
+    }
+    .save-bar .changes-info { font-size: 11px; color: var(--grey-text); }
+    .save-bar .changes-info strong { color: var(--blue-france); }
+    .btn-group { display: flex; gap: 6px; }
+    .btn { padding: 6px 16px; border-radius: var(--radius); font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid transparent; transition: all 0.15s; }
+    .btn-primary { background: var(--blue-france); color: white; }
+    .btn-primary:hover { background: #0000B8; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary { background: var(--white); color: var(--grey-text); border-color: var(--grey-border); }
+    .btn-secondary:hover { background: var(--grey-bg); }
+
+    .empty-state { text-align: center; padding: 40px 20px; color: var(--grey-text); }
     .empty-state .icon { font-size: 40px; margin-bottom: 10px; }
     .empty-state h3 { font-size: 14px; color: #333; margin-bottom: 4px; }
-
-    /* ── LOADING ── */
-    .loading-state {
-      text-align: center;
-      padding: 60px 20px;
-      color: var(--grey-text);
-    }
-    .spinner {
-      width: 32px; height: 32px;
-      border: 3px solid var(--grey-border);
-      border-top-color: var(--blue-france);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin: 0 auto 12px;
-    }
+    .loading-state { text-align: center; padding: 60px 20px; color: var(--grey-text); }
+    .spinner { width: 32px; height: 32px; border: 3px solid var(--grey-border); border-top-color: var(--blue-france); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
     @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* ── SORT BUTTON ── */
-    .sort-btn {
-      padding: 4px 8px;
-      border: 1px solid var(--grey-border);
-      border-radius: var(--radius);
-      background: var(--white);
-      cursor: pointer;
-      font-size: 11px;
-      color: var(--grey-text);
-      transition: all 0.15s;
-    }
+    .sort-btn { padding: 4px 8px; border: 1px solid var(--grey-border); border-radius: var(--radius); background: var(--white); cursor: pointer; font-size: 11px; color: var(--grey-text); transition: all 0.15s; }
     .sort-btn:hover { border-color: var(--blue-france); color: var(--blue-france); }
     .sort-btn.active { background: var(--blue-light); border-color: var(--blue-france); color: var(--blue-france); }
+    .detail-notes { background: var(--grey-bg); padding: 10px; border-radius: var(--radius); font-size: 12px; white-space: pre-wrap; max-height: 300px; overflow-y: auto; line-height: 1.5; }
+    .field-dirty .label::after { content: '\25CF'; color: var(--blue-france); margin-left: 4px; font-size: 8px; vertical-align: super; }
   </style>
 </head>
 <body>
-
   <div class="header">
-    <div>
-      <h1>PQP — Sujets <span class="subtitle">v3</span></h1>
-    </div>
+    <div><h1>PQP — Sujets <span class="subtitle">v3</span></h1></div>
     <div class="header-right">
       <span class="subtitle" id="lastUpdate"></span>
-      <button class="refresh-btn" onclick="loadData()" title="Rafraîchir">⟳ Refresh</button>
+      <button class="refresh-btn" onclick="loadData()" title="Rafraichir">&#x27F3; Refresh</button>
       <div class="status-dot loading" id="statusDot"></div>
     </div>
   </div>
-
   <div class="kpi-bar" id="kpiBar"></div>
-
   <div class="filters">
-    <div class="filter-group">
-      <label>Statut</label>
-      <select id="filterStatut" onchange="renderCards()">
-        <option value="">Tous</option>
-        <option value="En attente">En attente</option>
-        <option value="Relance">Relance</option>
-        <option value="Repondu">Répondu</option>
-        <option value="Clos">Clos</option>
-      </select>
+    <div class="filter-group"><label>Statut</label>
+      <select id="filterStatut" onchange="renderCards()"><option value="">Tous</option><option value="En attente">En attente</option><option value="Relance">Relance</option><option value="Repondu">Repondu</option><option value="Clos">Clos</option></select>
     </div>
-    <div class="filter-group">
-      <label>Priorité</label>
-      <select id="filterPrio" onchange="renderCards()">
-        <option value="">Toutes</option>
-        <option value="Haute">Haute</option>
-        <option value="Normale">Normale</option>
-        <option value="Basse">Basse</option>
-      </select>
+    <div class="filter-group"><label>Priorite</label>
+      <select id="filterPrio" onchange="renderCards()"><option value="">Toutes</option><option value="Haute">Haute</option><option value="Normale">Normale</option><option value="Basse">Basse</option></select>
     </div>
-    <div class="filter-group">
-      <label>Catégorie</label>
-      <select id="filterCat" onchange="renderCards()">
-        <option value="">Toutes</option>
-        <option value="Demande d'information">Demande info</option>
-        <option value="Communication">Communication</option>
-        <option value="Suivi incident">Suivi incident</option>
-        <option value="Relance bénéficiaire">Relance bénéf.</option>
-        <option value="Gouvernance">Gouvernance</option>
-        <option value="Arbitrage">Arbitrage</option>
-        <option value="Autre">Autre</option>
-      </select>
+    <div class="filter-group"><label>Categorie</label>
+      <select id="filterCat" onchange="renderCards()"><option value="">Toutes</option><option value="Demande d'information">Demande info</option><option value="Communication">Communication</option><option value="Suivi incident">Suivi incident</option><option value="Relance beneficiaire">Relance benef.</option><option value="Gouvernance">Gouvernance</option><option value="Arbitrage">Arbitrage</option><option value="Autre">Autre</option></select>
     </div>
-    <div class="filter-group">
-      <label>Tri</label>
-      <button class="sort-btn active" id="sortDate" onclick="setSort('date')">Date ↓</button>
-      <button class="sort-btn" id="sortPrio" onclick="setSort('prio')">Priorité</button>
-      <button class="sort-btn" id="sortBenef" onclick="setSort('benef')">Bénéf.</button>
+    <div class="filter-group"><label>Tri</label>
+      <button class="sort-btn active" id="sortDate" onclick="setSort('date')">Date</button>
+      <button class="sort-btn" id="sortPrio" onclick="setSort('prio')">Priorite</button>
+      <button class="sort-btn" id="sortBenef" onclick="setSort('benef')">Benef.</button>
     </div>
-    <input type="text" class="search-box" id="searchBox" placeholder="🔍 Rechercher (code, objet, demandeur…)" oninput="renderCards()">
+    <input type="text" class="search-box" id="searchBox" placeholder="Rechercher..." oninput="renderCards()">
   </div>
-
-  <div id="cardList" class="card-list">
-    <div class="loading-state">
-      <div class="spinner"></div>
-      <p>Chargement des données Grist…</p>
-    </div>
-  </div>
-
-  <!-- Detail overlay -->
+  <div id="cardList" class="card-list"><div class="loading-state"><div class="spinner"></div><p>Chargement...</p></div></div>
+  <div class="toast-container" id="toastContainer"></div>
   <div class="detail-overlay" id="detailOverlay" onclick="closeDetail(event)">
     <div class="detail-panel" id="detailPanel" onclick="event.stopPropagation()">
       <div class="detail-header">
-        <h2 id="detailTitle">—</h2>
-        <button class="close-btn" onclick="closeDetail()">&times;</button>
+        <h2 id="detailTitle">-</h2>
+        <div class="detail-header-actions">
+          <button class="edit-toggle-btn" id="editToggleBtn" onclick="toggleEdit()">&#x270F;&#xFE0F; Editer</button>
+          <button class="close-btn" onclick="closeDetail()">&#x2715;</button>
+        </div>
       </div>
       <div class="detail-body" id="detailBody"></div>
     </div>
   </div>
 
 <script>
-  // ── STATE ──
-  let sujets = [];
-  let beneficiaires = {};
-  let currentSort = 'date';
-  let selectedId = null;
-  let gristReady = false;
+const CHOICES = {
+  Statut: ['En attente', 'Relance', 'Repondu', 'Clos'],
+  Priorite: ['Haute', 'Normale', 'Basse'],
+  Categorie: ["Demande d'information", 'Communication', 'Suivi incident', 'Relance beneficiaire', 'Gouvernance', 'Arbitrage', 'Autre'],
+  Canal_Origine: ['Mail', 'Tchap', 'Reunion', 'Telephone', 'COPIL', 'COSUI', 'Autre'],
+};
+const STATUT_COLORS = { 'En attente': '#F9AE41', 'Relance': '#E67E22', 'Repondu': '#18753C', 'Clos': '#95A5A6' };
 
-  // ── DATE HELPERS ──
-  function fmtDate(ts) {
-    if (!ts) return '—';
-    const d = new Date(ts * 1000);
-    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  }
-  function fmtDateLong(ts) {
-    if (!ts) return '—';
-    const d = new Date(ts * 1000);
-    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-  }
-  function fmtNow() {
-    return new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  }
+let sujets = [];
+let beneficiaires = {};
+let beneficiairesList = [];
+let currentSort = 'date';
+let selectedId = null;
+let editMode = false;
+let editDraft = {};
+let originalFields = {};
+let openQuickStatusId = null;
 
-  // ── SLUG HELPERS ──
-  function slugStatut(s) {
-    return (s || '').toLowerCase().replace(/[^a-z]/g, '-').replace(/-+/g, '-');
-  }
+function fmtDate(ts) { if (!ts) return '-'; return new Date(ts * 1000).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' }); }
+function fmtDateLong(ts) { if (!ts) return '-'; return new Date(ts * 1000).toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' }); }
+function tsToISO(ts) { if (!ts) return ''; return new Date(ts * 1000).toISOString().split('T')[0]; }
+function isoToTs(iso) { if (!iso) return null; return Math.floor(new Date(iso + 'T12:00:00Z').getTime() / 1000); }
+function fmtNow() { return new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' }); }
+function slugStatut(s) { return (s||'').toLowerCase().replace(/[^a-z]/g,'-').replace(/-+/g,'-'); }
+function escHtml(s) { var d = document.createElement('div'); d.textContent = s||''; return d.innerHTML; }
 
-  // ── GRIST INIT ──
-  grist.ready({
-    requiredAccess: 'full',
-    allowSelectBy: true
-  });
+function toast(msg, type) {
+  type = type || 'success';
+  var el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(function() { el.remove(); }, 2600);
+}
 
-  async function loadData() {
-    const dot = document.getElementById('statusDot');
-    dot.className = 'status-dot loading';
+grist.ready({ requiredAccess: 'full', allowSelectBy: true });
 
-    try {
-      // Try Grist plugin API first
-      const [sujetsData, benData] = await Promise.all([
-        grist.docApi.fetchTable('Sujets_v2'),
-        grist.docApi.fetchTable('Beneficiaires')
-      ]);
+async function loadData() {
+  var dot = document.getElementById('statusDot');
+  dot.className = 'status-dot loading';
+  try {
+    var results = await Promise.all([
+      grist.docApi.fetchTable('Sujets_v2'),
+      grist.docApi.fetchTable('Beneficiaires')
+    ]);
+    var sujetsData = results[0];
+    var benData = results[1];
 
-      // Parse columnar format → row format
-      const sujetIds = sujetsData.id;
-      sujets = sujetIds.map((id, i) => ({
-        id,
-        Code: sujetsData.Code[i],
-        Objet: sujetsData.Objet[i],
-        Beneficiaire: sujetsData.Beneficiaire[i],
-        Demandeur: sujetsData.Demandeur[i],
-        Responsable_PQP: sujetsData.Responsable_PQP[i],
-        Categorie: sujetsData.Categorie[i],
-        Canal_Origine: sujetsData.Canal_Origine[i],
-        Date_Demande: sujetsData.Date_Demande[i],
-        Echeance: sujetsData.Echeance[i],
-        Date_Derniere_Relance: sujetsData.Date_Derniere_Relance[i],
-        Date_MAJ: sujetsData.Date_MAJ[i],
-        Date_Cloture: sujetsData.Date_Cloture[i],
-        Statut: sujetsData.Statut[i],
-        Priorite: sujetsData.Priorite[i],
-        Prochaine_Action: sujetsData.Prochaine_Action[i],
-        Lien_Source: sujetsData.Lien_Source[i],
-        Notes: sujetsData.Notes[i],
-        Nb_Relances: sujetsData.Nb_Relances[i],
-      }));
-
-      // Build beneficiaires lookup
-      beneficiaires = {};
-      const benIds = benData.id;
-      benIds.forEach((id, i) => {
-        beneficiaires[id] = {
-          nom: benData.Beneficiaire[i],
-          entite: benData.Entite[i],
-          vrf: benData.VRF[i],
-          quadrigramme: benData.Quadrigramme[i],
-          type: benData.Type_[i],
-          interlocuteur: benData.Interlocuteur_principal[i],
-        };
+    var sujetIds = sujetsData.id;
+    sujets = sujetIds.map(function(id, i) {
+      var row = { id: id };
+      Object.keys(sujetsData).forEach(function(key) {
+        if (key !== 'id') row[key] = sujetsData[key][i];
       });
-
-      gristReady = true;
-      dot.className = 'status-dot';
-      document.getElementById('lastUpdate').textContent = 'MAJ ' + fmtNow();
-
-      renderKPIs();
-      renderCards();
-
-    } catch (err) {
-      console.error('Erreur chargement Grist:', err);
-      dot.className = 'status-dot error';
-      document.getElementById('cardList').innerHTML = `
-        <div class="empty-state">
-          <div class="icon">⚠️</div>
-          <h3>Erreur de connexion</h3>
-          <p>Impossible de charger les données Grist.<br>
-          Vérifiez que le widget a l'accès « Full document access ».</p>
-          <p style="margin-top:8px;font-size:11px;color:#999">${err.message || err}</p>
-        </div>`;
-    }
-  }
-
-  // ── Listen for Grist cursor changes ──
-  grist.onRecord(function(record) {
-    if (record && record.id) {
-      selectedId = record.id;
-      renderCards();
-    }
-  });
-
-  // ── KPIs ──
-  function renderKPIs() {
-    const total = sujets.length;
-    const enAttente = sujets.filter(s => s.Statut === 'En attente').length;
-    const relance = sujets.filter(s => s.Statut === 'Relance').length;
-    const repondu = sujets.filter(s => s.Statut === 'Repondu').length;
-    const clos = sujets.filter(s => s.Statut === 'Clos').length;
-    const haute = sujets.filter(s => s.Priorite === 'Haute').length;
-
-    const kpis = [
-      { value: total, label: 'Total', color: 'var(--blue-france)', filter: '' },
-      { value: enAttente, label: 'En attente', color: 'var(--orange)', filter: 'En attente' },
-      { value: relance, label: 'Relance', color: '#E67E22', filter: 'Relance' },
-      { value: repondu, label: 'Répondu', color: 'var(--green)', filter: 'Repondu' },
-      { value: clos, label: 'Clos', color: '#95A5A6', filter: 'Clos' },
-      { value: haute, label: 'Priorité haute', color: 'var(--red)', filter: '_haute' },
-    ];
-
-    document.getElementById('kpiBar').innerHTML = kpis.map(k => `
-      <div class="kpi" onclick="kpiFilter('${k.filter}')" data-filter="${k.filter}">
-        <div class="kpi-value" style="color:${k.color}">${k.value}</div>
-        <div class="kpi-label">${k.label}</div>
-      </div>
-    `).join('');
-  }
-
-  function kpiFilter(filter) {
-    if (filter === '_haute') {
-      document.getElementById('filterStatut').value = '';
-      document.getElementById('filterPrio').value = 'Haute';
-    } else {
-      document.getElementById('filterStatut').value = filter;
-      document.getElementById('filterPrio').value = '';
-    }
-    document.getElementById('filterCat').value = '';
-    document.getElementById('searchBox').value = '';
-    renderCards();
-    // Highlight active KPI
-    document.querySelectorAll('.kpi').forEach(el => {
-      el.classList.toggle('active', el.dataset.filter === filter);
+      return row;
     });
-  }
 
-  // ── SORT ──
-  function setSort(mode) {
-    currentSort = mode;
-    document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('sort' + mode.charAt(0).toUpperCase() + mode.slice(1)).classList.add('active');
+    beneficiaires = {};
+    beneficiairesList = [];
+    benData.id.forEach(function(id, i) {
+      var b = {
+        id: id,
+        nom: benData.Beneficiaire[i],
+        entite: benData.Entite[i],
+        vrf: benData.VRF[i],
+        quadrigramme: benData.Quadrigramme[i],
+        type: benData.Type_[i],
+        interlocuteur: benData.Interlocuteur_principal[i],
+      };
+      beneficiaires[id] = b;
+      beneficiairesList.push(b);
+    });
+
+    dot.className = 'status-dot';
+    document.getElementById('lastUpdate').textContent = 'MAJ ' + fmtNow();
+    renderKPIs();
     renderCards();
+  } catch (err) {
+    console.error('Erreur:', err);
+    dot.className = 'status-dot error';
+    document.getElementById('cardList').innerHTML = '<div class="empty-state"><div class="icon">&#x26A0;&#xFE0F;</div><h3>Erreur de connexion</h3><p>Verifiez Full document access.</p><p style="margin-top:8px;font-size:11px;color:#999">' + escHtml(err.message || String(err)) + '</p></div>';
   }
+}
 
-  function sortSujets(list) {
-    const prioOrder = { 'Haute': 0, 'Normale': 1, 'Basse': 2, '': 3 };
-    switch (currentSort) {
-      case 'date':
-        return list.sort((a, b) => (b.Date_MAJ || 0) - (a.Date_MAJ || 0));
-      case 'prio':
-        return list.sort((a, b) => (prioOrder[a.Priorite] || 3) - (prioOrder[b.Priorite] || 3));
-      case 'benef':
-        return list.sort((a, b) => {
-          const na = (beneficiaires[a.Beneficiaire] || {}).nom || '';
-          const nb = (beneficiaires[b.Beneficiaire] || {}).nom || '';
-          return na.localeCompare(nb, 'fr');
-        });
-      default:
-        return list;
+async function saveRecord(id, fields) {
+  try {
+    await grist.docApi.applyUserActions([['UpdateRecord', 'Sujets_v2', id, fields]]);
+    var s = sujets.find(function(x) { return x.id === id; });
+    if (s) Object.assign(s, fields);
+    return true;
+  } catch (err) {
+    console.error('Erreur sauvegarde:', err);
+    toast('Erreur : ' + (err.message || err), 'error');
+    return false;
+  }
+}
+
+grist.onRecord(function(record) {
+  if (record && record.id) { selectedId = record.id; renderCards(); }
+});
+
+function renderKPIs() {
+  var total = sujets.length;
+  var counts = { 'En attente': 0, 'Relance': 0, 'Repondu': 0, 'Clos': 0 };
+  var haute = 0;
+  sujets.forEach(function(s) {
+    if (counts[s.Statut] !== undefined) counts[s.Statut]++;
+    if (s.Priorite === 'Haute') haute++;
+  });
+  var kpis = [
+    { value: total, label: 'Total', color: 'var(--blue-france)', filter: '' },
+    { value: counts['En attente'], label: 'En attente', color: 'var(--orange)', filter: 'En attente' },
+    { value: counts['Relance'], label: 'Relance', color: '#E67E22', filter: 'Relance' },
+    { value: counts['Repondu'], label: 'Repondu', color: 'var(--green)', filter: 'Repondu' },
+    { value: counts['Clos'], label: 'Clos', color: '#95A5A6', filter: 'Clos' },
+    { value: haute, label: 'Prio haute', color: 'var(--red)', filter: '_haute' },
+  ];
+  document.getElementById('kpiBar').innerHTML = kpis.map(function(k) {
+    return '<div class="kpi" onclick="kpiFilter(\'' + k.filter + '\')" data-filter="' + k.filter + '"><div class="kpi-value" style="color:' + k.color + '">' + k.value + '</div><div class="kpi-label">' + k.label + '</div></div>';
+  }).join('');
+}
+
+function kpiFilter(filter) {
+  if (filter === '_haute') {
+    document.getElementById('filterStatut').value = '';
+    document.getElementById('filterPrio').value = 'Haute';
+  } else {
+    document.getElementById('filterStatut').value = filter;
+    document.getElementById('filterPrio').value = '';
+  }
+  document.getElementById('filterCat').value = '';
+  document.getElementById('searchBox').value = '';
+  renderCards();
+  document.querySelectorAll('.kpi').forEach(function(el) { el.classList.toggle('active', el.dataset.filter === filter); });
+}
+
+function setSort(mode) {
+  currentSort = mode;
+  document.querySelectorAll('.sort-btn').forEach(function(b) { b.classList.remove('active'); });
+  var btn = document.getElementById('sort' + mode.charAt(0).toUpperCase() + mode.slice(1));
+  if (btn) btn.classList.add('active');
+  renderCards();
+}
+
+function sortSujets(list) {
+  var prioOrder = { 'Haute': 0, 'Normale': 1, 'Basse': 2, '': 3 };
+  if (currentSort === 'date') return list.sort(function(a,b) { return (b.Date_MAJ||0)-(a.Date_MAJ||0); });
+  if (currentSort === 'prio') return list.sort(function(a,b) { return (prioOrder[a.Priorite]||3)-(prioOrder[b.Priorite]||3); });
+  if (currentSort === 'benef') return list.sort(function(a,b) { var na=(beneficiaires[a.Beneficiaire]||{}).nom||''; var nb=(beneficiaires[b.Beneficiaire]||{}).nom||''; return na.localeCompare(nb,'fr'); });
+  return list;
+}
+
+function renderCards() {
+  var fStatut = document.getElementById('filterStatut').value;
+  var fPrio = document.getElementById('filterPrio').value;
+  var fCat = document.getElementById('filterCat').value;
+  var search = document.getElementById('searchBox').value.toLowerCase().trim();
+
+  var filtered = sujets.filter(function(s) {
+    if (fStatut && s.Statut !== fStatut) return false;
+    if (fPrio && s.Priorite !== fPrio) return false;
+    if (fCat && s.Categorie !== fCat) return false;
+    if (search) {
+      var benName = (beneficiaires[s.Beneficiaire]||{}).nom||'';
+      var haystack = [s.Code, s.Objet, s.Demandeur, s.Responsable_PQP, benName, s.Categorie, s.Notes].join(' ').toLowerCase();
+      if (haystack.indexOf(search) === -1) return false;
     }
+    return true;
+  });
+  filtered = sortSujets(filtered);
+
+  if (filtered.length === 0) {
+    document.getElementById('cardList').innerHTML = '<div class="empty-state"><div class="icon">&#x1F4CB;</div><h3>Aucun sujet trouve</h3><p>Modifiez les filtres.</p></div>';
+    return;
   }
 
-  // ── CARDS ──
-  function renderCards() {
-    const fStatut = document.getElementById('filterStatut').value;
-    const fPrio = document.getElementById('filterPrio').value;
-    const fCat = document.getElementById('filterCat').value;
-    const search = document.getElementById('searchBox').value.toLowerCase().trim();
+  document.getElementById('cardList').innerHTML = filtered.map(function(s) {
+    var ben = beneficiaires[s.Beneficiaire] || {};
+    var sl = slugStatut(s.Statut);
+    var isSel = s.id === selectedId;
+    var demShort = (s.Demandeur||'').replace(/<[^>]+>/g,'').split(' <')[0];
+    return '<div class="card statut-' + sl + (isSel ? ' selected' : '') + '" onclick="openDetail(' + s.id + ')" data-id="' + s.id + '">'
+      + '<div class="card-quick-actions">'
+      + '<button class="quick-btn" title="Changer statut" onclick="event.stopPropagation(); toggleQuickStatus(' + s.id + ', this)">&#x26A1;</button>'
+      + '<button class="quick-btn" title="Editer" onclick="event.stopPropagation(); openDetail(' + s.id + '); setTimeout(function(){if(!editMode)toggleEdit();},100)">&#x270F;&#xFE0F;</button>'
+      + '</div>'
+      + '<div class="card-top"><span class="card-code">' + (escHtml(s.Code)||'-') + '</span>'
+      + '<div class="card-badges">'
+      + (s.Categorie ? '<span class="badge badge-cat">' + escHtml(s.Categorie) + '</span>' : '')
+      + '<span class="badge badge-statut-' + sl + '">' + (escHtml(s.Statut)||'-') + '</span>'
+      + '<span class="badge badge-prio-' + (s.Priorite||'').toLowerCase() + '">' + (escHtml(s.Priorite)||'-') + '</span>'
+      + '</div></div>'
+      + '<div class="card-objet">' + (escHtml(s.Objet)||'(sans objet)') + '</div>'
+      + '<div class="card-meta">'
+      + '<span class="meta-beneficiaire">' + (escHtml(ben.nom)||'?') + (ben.entite ? ' - ' + escHtml(ben.entite) : '') + '</span>'
+      + '<span class="meta-demandeur">' + (escHtml(demShort)||'-') + '</span>'
+      + '<span class="meta-date">' + fmtDate(s.Date_MAJ) + '</span>'
+      + (s.Echeance ? '<span class="meta-echeance">' + fmtDate(s.Echeance) + '</span>' : '')
+      + (s.Nb_Relances ? '<span class="meta-relances">' + s.Nb_Relances + ' relance' + (s.Nb_Relances>1?'s':'') + '</span>' : '')
+      + (s.Canal_Origine ? '<span class="meta-canal">' + escHtml(s.Canal_Origine) + '</span>' : '')
+      + '</div>'
+      + (s.Prochaine_Action ? '<div class="card-prochaine-action">' + escHtml(s.Prochaine_Action) + '</div>' : '')
+      + '</div>';
+  }).join('');
+}
 
-    let filtered = sujets.filter(s => {
-      if (fStatut && s.Statut !== fStatut) return false;
-      if (fPrio && s.Priorite !== fPrio) return false;
-      if (fCat && s.Categorie !== fCat) return false;
-      if (search) {
-        const benName = (beneficiaires[s.Beneficiaire] || {}).nom || '';
-        const haystack = [s.Code, s.Objet, s.Demandeur, s.Responsable_PQP, benName, s.Categorie, s.Notes]
-          .join(' ').toLowerCase();
-        if (!haystack.includes(search)) return false;
+function toggleQuickStatus(id, btnEl) {
+  document.querySelectorAll('.quick-status-dropdown').forEach(function(el){el.remove();});
+  if (openQuickStatusId === id) { openQuickStatusId = null; return; }
+  openQuickStatusId = id;
+  var dd = document.createElement('div');
+  dd.className = 'quick-status-dropdown';
+  CHOICES.Statut.forEach(function(st) {
+    var item = document.createElement('div');
+    item.className = 'qsd-item';
+    item.innerHTML = '<span class="qsd-dot" style="background:' + (STATUT_COLORS[st]||'#999') + '"></span>' + st;
+    item.onclick = async function(e) {
+      e.stopPropagation();
+      dd.remove();
+      openQuickStatusId = null;
+      var ok = await saveRecord(id, { Statut: st, Date_MAJ: Math.floor(Date.now()/1000) });
+      if (ok) {
+        toast('Statut > ' + st);
+        renderKPIs(); renderCards();
+        if (selectedId === id && document.getElementById('detailOverlay').classList.contains('open')) openDetail(id);
       }
-      return true;
-    });
-
-    filtered = sortSujets(filtered);
-
-    if (filtered.length === 0) {
-      document.getElementById('cardList').innerHTML = `
-        <div class="empty-state">
-          <div class="icon">📋</div>
-          <h3>Aucun sujet trouvé</h3>
-          <p>Modifiez les filtres ou la recherche.</p>
-        </div>`;
-      return;
-    }
-
-    document.getElementById('cardList').innerHTML = filtered.map(s => {
-      const ben = beneficiaires[s.Beneficiaire] || {};
-      const slugSt = slugStatut(s.Statut);
-      const isSelected = s.id === selectedId;
-      const demandeurShort = (s.Demandeur || '').replace(/<[^>]+>/g, '').split(' <')[0];
-
-      return `
-      <div class="card statut-${slugSt} ${isSelected ? 'selected' : ''}"
-           onclick="openDetail(${s.id})" data-id="${s.id}">
-        <div class="card-top">
-          <span class="card-code">${s.Code || '—'}</span>
-          <div class="card-badges">
-            ${s.Categorie ? `<span class="badge badge-cat">${s.Categorie}</span>` : ''}
-            <span class="badge badge-statut-${slugSt}">${s.Statut || '—'}</span>
-            <span class="badge badge-prio-${(s.Priorite||'').toLowerCase()}">${s.Priorite || '—'}</span>
-          </div>
-        </div>
-        <div class="card-objet">${s.Objet || '(sans objet)'}</div>
-        <div class="card-meta">
-          <span class="meta-beneficiaire">${ben.nom || '?'} ${ben.entite ? '— ' + ben.entite : ''}</span>
-          <span class="meta-demandeur">${demandeurShort || '—'}</span>
-          <span class="meta-date">${fmtDate(s.Date_MAJ)}</span>
-          ${s.Echeance ? `<span class="meta-echeance">${fmtDate(s.Echeance)}</span>` : ''}
-          ${s.Nb_Relances ? `<span class="meta-relances">${s.Nb_Relances} relance${s.Nb_Relances > 1 ? 's' : ''}</span>` : ''}
-          ${s.Canal_Origine ? `<span class="meta-canal">${s.Canal_Origine}</span>` : ''}
-        </div>
-        ${s.Prochaine_Action ? `<div class="card-prochaine-action">${s.Prochaine_Action}</div>` : ''}
-      </div>`;
-    }).join('');
-  }
-
-  // ── DETAIL ──
-  function openDetail(id) {
-    const s = sujets.find(x => x.id === id);
-    if (!s) return;
-    selectedId = id;
-
-    // Tell Grist to select this row
-    try { grist.setCursorPos({ rowId: id }); } catch(e) {}
-
-    const ben = beneficiaires[s.Beneficiaire] || {};
-    document.getElementById('detailTitle').textContent = s.Code || 'Détail';
-
-    const notesClean = (s.Notes || '').substring(0, 3000);
-
-    document.getElementById('detailBody').innerHTML = `
-      <div class="detail-section">
-        <h3>Identification</h3>
-        <div class="detail-field"><span class="label">Code</span><span class="value">${s.Code || '—'}</span></div>
-        <div class="detail-field"><span class="label">Objet</span><span class="value" style="font-weight:600">${s.Objet || '—'}</span></div>
-        <div class="detail-field"><span class="label">Catégorie</span><span class="value">${s.Categorie || '—'}</span></div>
-        <div class="detail-field"><span class="label">Canal d'origine</span><span class="value">${s.Canal_Origine || '—'}</span></div>
-      </div>
-
-      <div class="detail-section">
-        <h3>Acteurs</h3>
-        <div class="detail-field"><span class="label">Bénéficiaire</span><span class="value">${ben.nom || '—'} ${ben.entite ? '(' + ben.entite + ')' : ''}</span></div>
-        <div class="detail-field"><span class="label">VRF / Type</span><span class="value">${ben.vrf || '—'} / ${ben.type || '—'}</span></div>
-        <div class="detail-field"><span class="label">Interlocuteur</span><span class="value">${ben.interlocuteur || '—'}</span></div>
-        <div class="detail-field"><span class="label">Demandeur</span><span class="value">${(s.Demandeur || '—').replace(/</g, '&lt;')}</span></div>
-        <div class="detail-field"><span class="label">Responsable PQP</span><span class="value">${s.Responsable_PQP || '—'}</span></div>
-      </div>
-
-      <div class="detail-section">
-        <h3>Suivi</h3>
-        <div class="detail-field"><span class="label">Statut</span><span class="value"><span class="badge badge-statut-${slugStatut(s.Statut)}">${s.Statut || '—'}</span></span></div>
-        <div class="detail-field"><span class="label">Priorité</span><span class="value"><span class="badge badge-prio-${(s.Priorite||'').toLowerCase()}">${s.Priorite || '—'}</span></span></div>
-        <div class="detail-field"><span class="label">Date demande</span><span class="value">${fmtDateLong(s.Date_Demande)}</span></div>
-        <div class="detail-field"><span class="label">Échéance</span><span class="value">${fmtDateLong(s.Echeance)}</span></div>
-        <div class="detail-field"><span class="label">Dernière relance</span><span class="value">${fmtDateLong(s.Date_Derniere_Relance)}</span></div>
-        <div class="detail-field"><span class="label">Dernière MAJ</span><span class="value">${fmtDateLong(s.Date_MAJ)}</span></div>
-        <div class="detail-field"><span class="label">Date clôture</span><span class="value">${fmtDateLong(s.Date_Cloture)}</span></div>
-        <div class="detail-field"><span class="label">Nb relances</span><span class="value">${s.Nb_Relances || 0}</span></div>
-      </div>
-
-      ${s.Prochaine_Action ? `
-      <div class="detail-section">
-        <h3>Prochaine action</h3>
-        <div class="card-prochaine-action">${s.Prochaine_Action}</div>
-      </div>` : ''}
-
-      <div class="detail-section">
-        <h3>Notes</h3>
-        <div class="detail-notes">${notesClean || '(aucune note)'}</div>
-      </div>
-    `;
-
-    document.getElementById('detailOverlay').classList.add('open');
-    renderCards(); // update selection highlight
-  }
-
-  function closeDetail(e) {
-    if (e && e.target !== document.getElementById('detailOverlay')) return;
-    document.getElementById('detailOverlay').classList.remove('open');
-    if (!e) document.getElementById('detailOverlay').classList.remove('open');
-  }
-
-  // Keyboard nav
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeDetail();
+    };
+    dd.appendChild(item);
   });
+  btnEl.closest('.card').appendChild(dd);
+  setTimeout(function() {
+    var closer = function(e) { if (!dd.contains(e.target)) { dd.remove(); openQuickStatusId = null; document.removeEventListener('click', closer); } };
+    document.addEventListener('click', closer);
+  }, 10);
+}
 
-  // ── BOOT ──
-  loadData();
+function openDetail(id) {
+  var s = sujets.find(function(x){return x.id===id;});
+  if (!s) return;
+  selectedId = id;
+  editMode = false;
+  editDraft = {};
+  originalFields = {};
+  try { grist.setCursorPos({ rowId: id }); } catch(e) {}
+  document.getElementById('editToggleBtn').innerHTML = '&#x270F;&#xFE0F; Editer';
+  document.getElementById('editToggleBtn').classList.remove('active');
+  renderDetailContent(s);
+  document.getElementById('detailOverlay').classList.add('open');
+  renderCards();
+}
+
+function renderDetailContent(s) {
+  var ben = beneficiaires[s.Beneficiaire] || {};
+  document.getElementById('detailTitle').textContent = s.Code || 'Detail';
+  if (editMode) renderDetailEdit(s, ben);
+  else renderDetailView(s, ben);
+}
+
+function renderDetailView(s, ben) {
+  var notesClean = (s.Notes||'').substring(0, 4000);
+  document.getElementById('detailBody').innerHTML =
+    '<div class="detail-section"><h3>Identification</h3>'
+    + vf('Code', s.Code) + vf('Objet', s.Objet, true) + vf('Categorie', s.Categorie) + vf('Canal origine', s.Canal_Origine) + '</div>'
+    + '<div class="detail-section"><h3>Acteurs</h3>'
+    + vf('Beneficiaire', (ben.nom||'-') + (ben.entite ? ' (' + ben.entite + ')' : ''))
+    + vf('VRF / Type', (ben.vrf||'-') + ' / ' + (ben.type||'-'))
+    + vf('Interlocuteur', ben.interlocuteur) + vf('Demandeur', s.Demandeur) + vf('Responsable PQP', s.Responsable_PQP) + '</div>'
+    + '<div class="detail-section"><h3>Suivi</h3>'
+    + '<div class="detail-field"><span class="label">Statut</span><span class="value"><span class="badge badge-statut-' + slugStatut(s.Statut) + '">' + escHtml(s.Statut||'-') + '</span></span></div>'
+    + '<div class="detail-field"><span class="label">Priorite</span><span class="value"><span class="badge badge-prio-' + (s.Priorite||'').toLowerCase() + '">' + escHtml(s.Priorite||'-') + '</span></span></div>'
+    + vf('Date demande', fmtDateLong(s.Date_Demande)) + vf('Echeance', fmtDateLong(s.Echeance))
+    + vf('Derniere relance', fmtDateLong(s.Date_Derniere_Relance)) + vf('Derniere MAJ', fmtDateLong(s.Date_MAJ))
+    + vf('Date cloture', fmtDateLong(s.Date_Cloture)) + vf('Nb relances', s.Nb_Relances||0) + '</div>'
+    + (s.Prochaine_Action ? '<div class="detail-section"><h3>Prochaine action</h3><div class="card-prochaine-action">' + escHtml(s.Prochaine_Action) + '</div></div>' : '')
+    + '<div class="detail-section"><h3>Notes</h3><div class="detail-notes">' + (escHtml(notesClean)||'(aucune note)') + '</div></div>';
+}
+
+function vf(label, value, bold) {
+  return '<div class="detail-field"><span class="label">' + label + '</span><span class="value"' + (bold?' style="font-weight:600"':'') + '>' + escHtml(String(value==null?'-':value)) + '</span></div>';
+}
+
+function toggleEdit() {
+  var s = sujets.find(function(x){return x.id===selectedId;});
+  if (!s) return;
+  editMode = !editMode;
+  var btn = document.getElementById('editToggleBtn');
+  if (editMode) {
+    btn.innerHTML = '&#x1F441;&#xFE0F; Lecture';
+    btn.classList.add('active');
+    originalFields = {
+      Objet: s.Objet||'', Demandeur: s.Demandeur||'', Responsable_PQP: s.Responsable_PQP||'',
+      Categorie: s.Categorie||'', Canal_Origine: s.Canal_Origine||'', Statut: s.Statut||'',
+      Priorite: s.Priorite||'', Beneficiaire: s.Beneficiaire||0,
+      Date_Demande: s.Date_Demande, Echeance: s.Echeance,
+      Date_Derniere_Relance: s.Date_Derniere_Relance, Date_Cloture: s.Date_Cloture,
+      Nb_Relances: s.Nb_Relances||0, Prochaine_Action: s.Prochaine_Action||'',
+      Notes: s.Notes||'', Lien_Source: s.Lien_Source||'',
+    };
+    editDraft = Object.assign({}, originalFields);
+  } else {
+    btn.innerHTML = '&#x270F;&#xFE0F; Editer';
+    btn.classList.remove('active');
+    editDraft = {};
+  }
+  renderDetailContent(s);
+}
+
+function renderDetailEdit(s, ben) {
+  document.getElementById('detailBody').innerHTML =
+    '<div class="detail-section"><h3>Identification</h3>'
+    + vf('Code', s.Code)
+    + ef_text('Objet', 'Objet') + ef_select('Categorie', 'Categorie', CHOICES.Categorie)
+    + ef_select('Canal origine', 'Canal_Origine', CHOICES.Canal_Origine) + ef_text('Lien source', 'Lien_Source') + '</div>'
+    + '<div class="detail-section"><h3>Acteurs</h3>'
+    + ef_beneficiaire() + ef_text('Demandeur', 'Demandeur') + ef_text('Responsable PQP', 'Responsable_PQP') + '</div>'
+    + '<div class="detail-section"><h3>Suivi</h3>'
+    + ef_select('Statut', 'Statut', CHOICES.Statut) + ef_select('Priorite', 'Priorite', CHOICES.Priorite)
+    + ef_date('Date demande', 'Date_Demande') + ef_date('Echeance', 'Echeance')
+    + ef_date('Derniere relance', 'Date_Derniere_Relance') + ef_date('Date cloture', 'Date_Cloture')
+    + ef_number('Nb relances', 'Nb_Relances') + '</div>'
+    + '<div class="detail-section"><h3>Prochaine action</h3>' + ef_text('Action', 'Prochaine_Action') + '</div>'
+    + '<div class="detail-section"><h3>Notes</h3>' + ef_textarea('Notes', 'Notes') + '</div>'
+    + '<div class="save-bar"><span class="changes-info" id="changesInfo">Aucune modification</span>'
+    + '<div class="btn-group"><button class="btn btn-secondary" onclick="toggleEdit()">Annuler</button>'
+    + '<button class="btn btn-primary" id="saveBtn" disabled onclick="saveEdits()">&#x1F4BE; Enregistrer</button></div></div>';
+  updateDirtyState();
+}
+
+function ef_text(label, field) {
+  var dirty = editDraft[field] !== originalFields[field];
+  return '<div class="detail-field' + (dirty?' field-dirty':'') + '" data-field="' + field + '"><span class="label">' + label + '</span><span class="value"><input class="edit-input" type="text" value="' + escHtml(editDraft[field]||'') + '" oninput="onFieldChange(\'' + field + '\', this.value)"></span></div>';
+}
+
+function ef_select(label, field, options) {
+  var dirty = editDraft[field] !== originalFields[field];
+  var opts = '<option value="">(vide)</option>';
+  options.forEach(function(o) { opts += '<option value="' + escHtml(o) + '"' + (editDraft[field]===o?' selected':'') + '>' + escHtml(o) + '</option>'; });
+  return '<div class="detail-field' + (dirty?' field-dirty':'') + '" data-field="' + field + '"><span class="label">' + label + '</span><span class="value"><select class="edit-select" onchange="onFieldChange(\'' + field + '\', this.value)">' + opts + '</select></span></div>';
+}
+
+function ef_date(label, field) {
+  var dirty = editDraft[field] !== originalFields[field];
+  var val = tsToISO(editDraft[field]);
+  return '<div class="detail-field' + (dirty?' field-dirty':'') + '" data-field="' + field + '"><span class="label">' + label + '</span><span class="value"><input class="edit-date" type="date" value="' + val + '" onchange="onDateChange(\'' + field + '\', this.value)"></span></div>';
+}
+
+function ef_number(label, field) {
+  var dirty = editDraft[field] !== originalFields[field];
+  return '<div class="detail-field' + (dirty?' field-dirty':'') + '" data-field="' + field + '"><span class="label">' + label + '</span><span class="value"><input class="edit-input" type="number" min="0" value="' + (editDraft[field]||0) + '" oninput="onFieldChange(\'' + field + '\', parseInt(this.value)||0)"></span></div>';
+}
+
+function ef_textarea(label, field) {
+  var dirty = editDraft[field] !== originalFields[field];
+  return '<div class="detail-field' + (dirty?' field-dirty':'') + '" data-field="' + field + '" style="flex-direction:column;gap:4px"><span class="label">' + label + '</span><textarea class="edit-textarea" rows="8" oninput="onFieldChange(\'' + field + '\', this.value)">' + escHtml(editDraft[field]||'') + '</textarea></div>';
+}
+
+function ef_beneficiaire() {
+  var dirty = editDraft.Beneficiaire !== originalFields.Beneficiaire;
+  var opts = '<option value="0">(aucun)</option>';
+  beneficiairesList.forEach(function(b) {
+    opts += '<option value="' + b.id + '"' + (editDraft.Beneficiaire===b.id?' selected':'') + '>' + escHtml(b.nom) + (b.entite?' - '+escHtml(b.entite):'') + '</option>';
+  });
+  return '<div class="detail-field' + (dirty?' field-dirty':'') + '" data-field="Beneficiaire"><span class="label">Beneficiaire</span><span class="value"><select class="edit-select" onchange="onFieldChange(\'Beneficiaire\', parseInt(this.value)||0)">' + opts + '</select></span></div>';
+}
+
+function onFieldChange(field, value) { editDraft[field] = value; updateDirtyState(); }
+function onDateChange(field, isoValue) { editDraft[field] = isoValue ? isoToTs(isoValue) : null; updateDirtyState(); }
+
+function getDirtyFields() {
+  var dirty = {};
+  Object.keys(originalFields).forEach(function(key) {
+    if (editDraft[key] !== originalFields[key]) dirty[key] = editDraft[key];
+  });
+  return dirty;
+}
+
+function updateDirtyState() {
+  var dirty = getDirtyFields();
+  var count = Object.keys(dirty).length;
+  var info = document.getElementById('changesInfo');
+  var btn = document.getElementById('saveBtn');
+  if (info) info.innerHTML = count > 0 ? '<strong>' + count + '</strong> champ' + (count>1?'s':'') + ' modifie' + (count>1?'s':'') : 'Aucune modification';
+  if (btn) btn.disabled = count === 0;
+  document.querySelectorAll('.detail-field[data-field]').forEach(function(el) {
+    var f = el.getAttribute('data-field');
+    el.classList.toggle('field-dirty', dirty.hasOwnProperty(f));
+  });
+}
+
+async function saveEdits() {
+  var dirty = getDirtyFields();
+  if (Object.keys(dirty).length === 0) return;
+  var btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  btn.textContent = 'Sauvegarde...';
+  dirty.Date_MAJ = Math.floor(Date.now() / 1000);
+  var ok = await saveRecord(selectedId, dirty);
+  if (ok) {
+    toast(Object.keys(dirty).length + ' champ(s) mis a jour');
+    editMode = false;
+    document.getElementById('editToggleBtn').innerHTML = '&#x270F;&#xFE0F; Editer';
+    document.getElementById('editToggleBtn').classList.remove('active');
+    editDraft = {};
+    renderKPIs(); renderCards();
+    var s = sujets.find(function(x){return x.id===selectedId;});
+    if (s) renderDetailContent(s);
+  } else {
+    btn.disabled = false;
+    btn.innerHTML = '&#x1F4BE; Enregistrer';
+  }
+}
+
+function closeDetail(e) {
+  if (e && e.target !== document.getElementById('detailOverlay')) return;
+  if (editMode) {
+    var dirty = getDirtyFields();
+    if (Object.keys(dirty).length > 0) {
+      if (!confirm('Modifications non sauvegardees. Quitter ?')) return;
+    }
+  }
+  document.getElementById('detailOverlay').classList.remove('open');
+  editMode = false;
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeDetail();
+  if (e.ctrlKey && e.key === 's' && editMode) { e.preventDefault(); saveEdits(); }
+});
+
+document.addEventListener('click', function() {
+  document.querySelectorAll('.quick-status-dropdown').forEach(function(el){el.remove();});
+  openQuickStatusId = null;
+});
+
+loadData();
 </script>
 </body>
 </html>
