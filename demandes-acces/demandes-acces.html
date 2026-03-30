@@ -1283,6 +1283,12 @@ function isLabelLike(v) {
 function parseDateFR(s) {
   if (!s) return '';
   s = normText(s);
+  var serial = parseFloat(String(s).replace(',', '.'));
+  if (!isNaN(serial) && serial > 30000) {
+    var base = new Date(Date.UTC(1899, 11, 30));
+    base.setUTCDate(base.getUTCDate() + Math.floor(serial));
+    return base.getUTCFullYear() + '-' + String(base.getUTCMonth() + 1).padStart(2, '0') + '-' + String(base.getUTCDate()).padStart(2, '0');
+  }
   var m = s.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
   if (m) return m[1] + '-' + String(m[2]).padStart(2, '0') + '-' + String(m[3]).padStart(2, '0');
   m = s.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/);
@@ -1299,6 +1305,13 @@ function parseDateFR(s) {
 function parseTime(s) {
   if (!s) return '';
   s = normText(s);
+  var serial = parseFloat(String(s).replace(',', '.'));
+  if (!isNaN(serial) && serial >= 0 && serial < 1) {
+    var totalMinutes = Math.round(serial * 24 * 60);
+    var hh0 = Math.floor(totalMinutes / 60) % 24;
+    var mm0 = totalMinutes % 60;
+    return String(hh0).padStart(2, '0') + ':' + String(mm0).padStart(2, '0');
+  }
   var m = s.match(/(\d{1,2})\s*[:hH]\s*(\d{1,2})(?::\d{1,2})?\s*(AM|PM)?/i);
   if (m) {
     var hh = parseInt(m[1], 10), mm = parseInt(m[2], 10);
@@ -1420,9 +1433,22 @@ function extractLocationValue(rows, labels) {
   var cell = findCell(rows, labels, { exact: false });
   if (!cell) return '';
   return firstValueRight(rows, cell.r, cell.c, {
-    maxDistance: 2, skipMarkers: true, skipLabels: true,
+    maxDistance: 6, skipMarkers: true, skipLabels: true,
     skip: function(val) { return isLabelLike(val); }
   });
+}
+
+function extractPrestataireFromRows(rows) {
+  var cell = findCell(rows, ['Société', 'Societe']);
+  if (!cell) return '';
+  for (var rr = cell.r + 1; rr < rows.length; rr++) {
+    if (isSectionBoundaryRow(rows, rr)) break;
+    var soc = normText(cleanCell(rows, rr, cell.c));
+    if (!isMeaningful(soc) || isNoValue(soc) || isMarker(soc)) continue;
+    if (normCmp(soc).indexOf('SOCIETE') !== -1) continue;
+    return soc;
+  }
+  return '';
 }
 
 function extractPopName(rows, version) {
@@ -1574,6 +1600,7 @@ function parseForm(rows) {
   }
   data.intervenants = extractIntervenants(rows);
   data.prestataire = deducePrestataire(data.intervenants);
+  if (!data.prestataire) data.prestataire = extractPrestataireFromRows(rows);
   data.resume = buildImportedResume(data);
   return data;
 }
