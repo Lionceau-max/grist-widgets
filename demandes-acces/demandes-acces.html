@@ -1,0 +1,1693 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demandes d'Accès — NOC RIE</title>
+<link rel="stylesheet" href="https://unpkg.com/@gouvfr/dsfr@1.11.2/dist/dsfr.min.css">
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<style>
+:root {
+  --bg: #f6f6f6; --card-bg: #fff; --border: #e5e5e5; --text: #1e1e1e; --text-secondary: #666;
+  --col-recue: #e3e3fd; --col-recue-border: #6a6af4;
+  --col-verif: #fef4cc; --col-verif-border: #d6a819;
+  --col-transmise: #bafaee; --col-transmise-border: #009081;
+  --col-reponse: #fddede; --col-reponse-border: #ce0500;
+  --col-cloturee: #ddd; --col-cloturee-border: #929292;
+  --col-annulee: #f0f0f0; --col-annulee-border: #aaa;
+  --shadow: 0 1px 4px rgba(0,0,0,.08); --radius: 8px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Marianne', system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+.header { background: #000091; color: #fff; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.header h1 { font-size: 18px; font-weight: 700; color: #fff !important; }
+.header-stats { display: flex; gap: 16px; font-size: 13px; }
+.header-stats .stat { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,.15); padding: 4px 10px; border-radius: 4px; }
+.header-stats .stat-count { font-weight: 700; font-size: 16px; }
+.toolbar { padding: 10px 20px; display: flex; gap: 12px; align-items: center; background: #fff; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.toolbar select, .toolbar input { font-family: inherit; font-size: 13px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 4px; background: #fff; }
+.toolbar .search-box { flex: 1; min-width: 200px; }
+.toolbar label { font-size: 12px; color: var(--text-secondary); margin-right: 4px; }
+.btn { font-family: inherit; font-size: 13px; padding: 7px 14px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; transition: all .15s; }
+.btn-primary { background: #000091; color: #fff; }
+.btn-primary:hover { background: #1212ff; }
+.btn-success { background: #18753c; color: #fff; }
+.btn-warning { background: #b34000; color: #fff; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.btn-ghost:hover { background: #f0f0f0; }
+.btn-mail { background: #f5f5fe; border: 1px solid #000091; color: #000091; }
+.btn-mail:hover { background: #e3e3fd; }
+.btn-danger-text { color: #ce0500; }
+.action-sep { display: inline-block; width: 1px; height: 20px; background: var(--border); margin: 0 4px; vertical-align: middle; }
+.tab-switch { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; margin-right: 4px; }
+.tab-btn { font-family: inherit; font-size: 12px; font-weight: 600; padding: 6px 14px; border: none; background: #fff; color: var(--text-secondary); cursor: pointer; }
+.tab-btn.active { background: #000091; color: #fff; }
+.board { display: flex; gap: 12px; padding: 12px 20px; overflow-x: auto; min-height: calc(100vh - 140px); align-items: flex-start; }
+.column { flex: 1; min-width: 260px; max-width: 340px; background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); display: flex; flex-direction: column; }
+.column-header { padding: 10px 14px; border-radius: var(--radius) var(--radius) 0 0; display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: .5px; }
+.column-header .count { background: rgba(0,0,0,.12); padding: 2px 8px; border-radius: 10px; font-size: 12px; }
+.col-Recue .column-header { background: var(--col-recue); border-left: 4px solid var(--col-recue-border); }
+.col-Verif .column-header { background: var(--col-verif); border-left: 4px solid var(--col-verif-border); }
+.col-Transmise .column-header { background: var(--col-transmise); border-left: 4px solid var(--col-transmise-border); }
+.col-Reponse .column-header { background: var(--col-reponse); border-left: 4px solid var(--col-reponse-border); }
+.col-Cloturee .column-header { background: var(--col-cloturee); border-left: 4px solid var(--col-cloturee-border); }
+.col-Annulee .column-header { background: var(--col-annulee); border-left: 4px solid var(--col-annulee-border); }
+.column-body { padding: 8px; flex: 1; display: flex; flex-direction: column; gap: 8px; min-height: 80px; }
+.column-body:empty::after { content: 'Aucune demande'; display: block; text-align: center; color: #aaa; font-size: 12px; padding: 20px; font-style: italic; }
+.card { background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; cursor: pointer; transition: box-shadow .15s, transform .1s; }
+.card:hover { box-shadow: 0 3px 12px rgba(0,0,0,.12); transform: translateY(-1px); }
+.card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+.card-ref { font-size: 12px; font-weight: 700; color: #000091; font-family: monospace; }
+.card-type { font-size: 10px; padding: 2px 6px; border-radius: 3px; font-weight: 600; text-transform: uppercase; }
+.card-type.Accueil { background: #e3e3fd; color: #000091; }
+.card-type.Livraison { background: #fee7fc; color: #a558a0; }
+.card-type.Geste { background: #fddede; color: #ce0500; }
+.card-type.Autres { background: #fef4cc; color: #716043; }
+.card-pop { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+.card-resume { font-size: 12px; color: var(--text-secondary); line-height: 1.4; margin-bottom: 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card-meta { display: flex; gap: 8px; font-size: 11px; color: var(--text-secondary); flex-wrap: wrap; }
+.card-alerts { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
+.alert-badge { font-size: 10px; padding: 2px 6px; border-radius: 3px; font-weight: 600; }
+.alert-badge.criblage { background: #fddede; color: #ce0500; }
+.alert-badge.cpr { background: #fee7fc; color: #a558a0; }
+.alert-badge.cni { background: #fef4cc; color: #716043; }
+.alert-badge.biodata { background: #e3e3fd; color: #000091; }
+.alert-badge.outremer { background: #e8d5f5; color: #6b3fa0; }
+.alert-badge.delai { background: #fff4e5; color: #b34000; }
+.alert-badge.info { background: #e6f9ee; color: #18753c; }
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 1000; justify-content: center; align-items: flex-start; padding: 40px 20px; overflow-y: auto; }
+.modal-overlay.active { display: flex; }
+.modal { background: #fff; border-radius: var(--radius); width: 100%; max-width: 720px; box-shadow: 0 8px 32px rgba(0,0,0,.2); }
+.modal-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.modal-header h2 { font-size: 16px; }
+.modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-secondary); padding: 4px 8px; }
+.modal-body { padding: 20px; max-height: 60vh; overflow-y: auto; }
+.modal-section { margin-bottom: 16px; }
+.modal-section h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .5px; color: #000091; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 2px solid #000091; }
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
+.field { display: flex; flex-direction: column; gap: 2px; }
+.field-label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .3px; }
+.field-value { font-size: 13px; font-weight: 500; }
+.field-value:empty::after { content: '\2014'; color: #ccc; }
+.modal-actions { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; gap: 8px; flex-wrap: wrap; }
+.status-flow { display: flex; gap: 4px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+.status-step { font-size: 11px; padding: 4px 10px; border-radius: 12px; background: #f0f0f0; color: #999; font-weight: 600; }
+.status-step.active { background: #000091; color: #fff; }
+.status-step.done { background: #18753c; color: #fff; }
+.status-arrow { color: #ccc; font-size: 16px; }
+.form-group { margin-bottom: 12px; }
+.form-group label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: var(--text-secondary); }
+.form-group input, .form-group select, .form-group textarea { width: 100%; font-family: inherit; font-size: 13px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 4px; }
+.form-group textarea { resize: vertical; min-height: 60px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.exigences-box { font-size: 12px; line-height: 1.6; background: #fffde6; border: 1px solid #d6a819; border-radius: 4px; padding: 10px 12px; color: #3a3a3a; max-height: 200px; overflow-y: auto; }
+.mail-hint { background: #e3e3fd; border-radius: 4px; padding: 8px 12px; margin-bottom: 12px; font-size: 12px; line-height: 1.6; }
+.mail-box { background: #f6f6f6; border: 1px solid var(--border); border-radius: 4px; padding: 10px 12px; font-size: 13px; line-height: 1.5; margin: 4px 0; }
+.toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 8px; }
+.toast { padding: 10px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; color: #fff; animation: slideIn .3s ease; box-shadow: 0 4px 12px rgba(0,0,0,.2); }
+.toast.success { background: #18753c; }
+.toast.error { background: #ce0500; }
+.toast.info { background: #000091; }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: none; opacity: 1; } }
+.loading { text-align: center; padding: 40px; color: var(--text-secondary); }
+.loading::after { content: ''; display: block; margin: 12px auto; width: 24px; height: 24px; border: 3px solid #e5e5e5; border-top-color: #000091; border-radius: 50%; animation: spin .6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---- DROP ZONE (enhanced for file D&D) ---- */
+.drop-zone { border: 2px dashed #000091; border-radius: 8px; padding: 16px 20px; text-align: center; color: #000091; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .2s; margin: 0 20px 12px; background: #f5f5fe; outline: none; position: relative; }
+.drop-zone:hover, .drop-zone:focus, .drop-zone.active { background: #e3e3fd; border-color: #6a6af4; }
+.drop-zone.dragover { background: #cacafb; border-color: #000091; transform: scale(1.01); box-shadow: 0 0 0 4px rgba(0,0,145,.15); }
+.drop-zone .drop-icon { font-size: 28px; display: block; margin-bottom: 4px; }
+.drop-zone .drop-sub { font-size: 11px; font-weight: 400; color: var(--text-secondary); display: block; margin-top: 4px; }
+.drop-zone .drop-formats { font-size: 11px; font-weight: 400; color: #000091; display: block; margin-top: 2px; }
+.drop-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+.timeline-container { padding: 12px 20px; min-height: calc(100vh - 140px); }
+.timeline-nav { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 12px; font-size: 14px; font-weight: 600; }
+.timeline-legend { display: flex; gap: 16px; justify-content: center; margin-bottom: 16px; font-size: 12px; color: var(--text-secondary); }
+.tl-leg { display: flex; align-items: center; gap: 4px; }
+.tl-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.tl-risk-ok { background: #18753c; }
+.tl-risk-warn { background: #d6a819; }
+.tl-risk-danger { background: #ce0500; }
+.tl-risk-done { background: #aaa; }
+.timeline-scroll { overflow-x: auto; }
+.timeline-grid { display: flex; gap: 0; min-width: max-content; }
+.tl-day { min-width: 140px; max-width: 180px; flex: 1; border-right: 1px solid var(--border); }
+.tl-day-header { padding: 8px; text-align: center; font-size: 12px; font-weight: 600; border-bottom: 2px solid var(--border); background: #fff; }
+.tl-day-header .tl-dow { font-size: 10px; text-transform: uppercase; color: var(--text-secondary); }
+.tl-day-header .tl-date { font-size: 14px; }
+.tl-day.tl-today .tl-day-header { background: #e3e3fd; border-bottom-color: #000091; }
+.tl-day.tl-weekend .tl-day-header { background: #f0f0f0; color: #aaa; }
+.tl-day-body { padding: 6px 4px; display: flex; flex-direction: column; gap: 4px; min-height: 80px; }
+.tl-day.tl-weekend .tl-day-body { background: #fafafa; }
+.tl-card { border-radius: 5px; padding: 6px 8px; font-size: 11px; cursor: pointer; border-left: 4px solid transparent; transition: box-shadow .15s; }
+.tl-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+.tl-card.tl-risk-ok { background: #e6f9ee; border-left-color: #18753c; }
+.tl-card.tl-risk-warn { background: #fef8e0; border-left-color: #d6a819; }
+.tl-card.tl-risk-danger { background: #fde8e8; border-left-color: #ce0500; }
+.tl-card.tl-risk-done { background: #f0f0f0; border-left-color: #aaa; opacity: .6; }
+.tl-card-ref { font-weight: 700; font-family: monospace; }
+.tl-card-pop { font-weight: 600; margin-top: 2px; }
+.tl-card-info { color: var(--text-secondary); margin-top: 2px; }
+.tl-card-status { font-size: 10px; font-weight: 600; margin-top: 3px; padding: 1px 5px; border-radius: 3px; display: inline-block; }
+.tl-card-status.st-recue { background: var(--col-recue); }
+.tl-card-status.st-verif { background: var(--col-verif); }
+.tl-card-status.st-trans { background: var(--col-transmise); }
+.tl-card-status.st-rep { background: var(--col-reponse); }
+.tl-card-status.st-clo { background: var(--col-cloturee); }
+.doc-req-box { font-size: 12px; line-height: 1.6; background: #f0f5ff; border: 1px solid #6a6af4; border-radius: 4px; padding: 10px 12px; color: #1e1e1e; margin-bottom: 12px; }
+.doc-req-box strong { color: #000091; }
+.doc-req-item { display: flex; align-items: center; gap: 6px; margin: 4px 0; }
+.doc-req-item .req-icon { font-size: 14px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Demandes d'Acc&egrave;s &mdash; NOC RIE</h1>
+  <div class="header-stats" id="headerStats"></div>
+</div>
+
+<div class="toolbar">
+  <input type="search" class="search-box" id="searchBox" placeholder="Rechercher (GLPI, POP, prestataire, resume...)">
+  <label>POP:</label>
+  <select id="filterPop"><option value="">Tous</option></select>
+  <label>Type:</label>
+  <select id="filterType">
+    <option value="">Tous</option>
+    <option>Accueil</option>
+    <option>Livraison</option>
+    <option>Geste</option>
+    <option>Autres Travaux</option>
+  </select>
+  <div class="tab-switch">
+    <button class="tab-btn active" id="tabKanban">Kanban</button>
+    <button class="tab-btn" id="tabTimeline">Timeline</button>
+  </div>
+  <button class="btn btn-primary" id="btnNew">+ Nouvelle demande</button>
+</div>
+
+<div class="drop-zone" id="dropZone" tabindex="0">
+  <span class="drop-icon">&#128203;</span>
+  <strong>Glissez-d&eacute;posez un formulaire ici</strong> ou cliquez pour s&eacute;lectionner un fichier
+  <span class="drop-sub">Vous pouvez aussi faire Ctrl+V apr&egrave;s avoir copi&eacute; le contenu (Ctrl+A Ctrl+C)</span>
+  <span class="drop-formats">Formats accept&eacute;s : .xlsx, .xls, .ods, .csv</span>
+  <input type="file" id="fileInput" accept=".xlsx,.xls,.ods,.csv" multiple>
+</div>
+
+<div class="board" id="board">
+  <div class="loading">Chargement des donnees...</div>
+</div>
+
+<div class="timeline-container" id="timelineContainer" style="display:none">
+  <div class="timeline-nav">
+    <button class="btn btn-sm btn-ghost" id="tlPrev">&larr; Sem. prec.</button>
+    <span id="tlRange"></span>
+    <button class="btn btn-sm btn-ghost" id="tlNext">Sem. suiv. &rarr;</button>
+  </div>
+  <div class="timeline-legend">
+    <span class="tl-leg"><span class="tl-dot tl-risk-ok"></span> Dans les temps</span>
+    <span class="tl-leg"><span class="tl-dot tl-risk-warn"></span> A surveiller</span>
+    <span class="tl-leg"><span class="tl-dot tl-risk-danger"></span> Urgence</span>
+    <span class="tl-leg"><span class="tl-dot tl-risk-done"></span> Terminee</span>
+  </div>
+  <div class="timeline-scroll">
+    <div class="timeline-grid" id="tlGrid"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="detailModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="detailTitle">Demande</h2>
+      <button class="modal-close" id="detailClose">&times;</button>
+    </div>
+    <div class="modal-body" id="detailBody"></div>
+    <div class="modal-actions" id="detailActions"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="newModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Nouvelle demande d'acces</h2>
+      <button class="modal-close" id="newClose">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>N&deg; GLPI (optionnel)</label>
+          <input type="text" id="fNumGlpi">
+        </div>
+        <div class="form-group">
+          <label>POP / Site</label>
+          <select id="fPop"></select>
+        </div>
+      </div>
+      <div id="popAlerts" class="card-alerts" style="margin-bottom:12px"></div>
+      <div id="popDocReq"></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Type de demande</label>
+          <select id="fType">
+            <option>Accueil</option>
+            <option>Livraison</option>
+            <option>Geste</option>
+            <option>Autres Travaux</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Prestataire</label>
+          <input type="text" id="fPrestataire">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Heberge</label>
+          <input type="text" id="fHeberge">
+        </div>
+        <div class="form-group">
+          <label>Contact (nom)</label>
+          <input type="text" id="fContactNom">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Contact (tel)</label>
+          <input type="text" id="fContactTel">
+        </div>
+        <div class="form-group">
+          <label>Date souhaitee</label>
+          <input type="date" id="fDateSouhaitee">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Heure arrivee</label>
+          <input type="time" id="fHeureArrivee">
+        </div>
+        <div class="form-group">
+          <label>Duree</label>
+          <input type="text" id="fDuree" placeholder="ex: 2h, 30min">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Plateau(x)</label>
+          <input type="text" id="fPlateau">
+        </div>
+        <div class="form-group">
+          <label>Baie(s)</label>
+          <input type="text" id="fBaie">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Nature de l'intervention</label>
+        <textarea id="fNature"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Resume</label>
+        <textarea id="fResume"></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="btnSaveNew">Enregistrer (statut: Recue)</button>
+      <button class="btn btn-ghost" id="btnCancelNew">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toasts"></div>
+
+<script>
+/* ======================================================================
+   Demandes d'Accès — NOC RIE
+   Migrated from berhalak to GitHub Pages for full browser API access
+   Key addition: drag-and-drop file import via SheetJS
+   ====================================================================== */
+
+var allDemandes = [];
+var popMap = {};
+var hebergeurMap = {};
+var popList = [];
+var tlOffset = 0;
+var currentView = 'kanban';
+var STATUTS = ['Reçue', 'En vérification', 'Transmise', 'Réponse reçue', 'Clôturée', 'Annulée'];
+var SCSS = {
+  'Reçue': 'Recue', 'En vérification': 'Verif', 'Transmise': 'Transmise',
+  'Réponse reçue': 'Reponse', 'Clôturée': 'Cloturee', 'Annulée': 'Annulee'
+};
+var JOURS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+var MOIS = ['janv.', 'fevr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'aout', 'sept.', 'oct.', 'nov.', 'dec.'];
+
+grist.ready({ requiredAccess: 'full' });
+
+function applyAct(actions) {
+  var attempt = 0;
+  function go() {
+    attempt++;
+    return grist.docApi.applyUserActions(actions).catch(function(e) {
+      if (attempt < 2 && (e.message || '').indexOf('write') !== -1) {
+        return new Promise(function(ok) { setTimeout(ok, 500); }).then(go);
+      }
+      throw e;
+    });
+  }
+  return go();
+}
+
+function toast(msg, type) {
+  type = type || 'info';
+  var c = document.getElementById('toasts');
+  var t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(function() { t.remove(); }, 3500);
+}
+
+function fmtDate(ts) {
+  if (!ts) return '';
+  var d = new Date(ts * 1000);
+  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function fmtDateTime(ts) {
+  if (!ts) return '';
+  var d = new Date(ts * 1000);
+  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' +
+    d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function dateToUnix(s) {
+  if (!s) return null;
+  return Math.floor(new Date(s + 'T00:00:00').getTime() / 1000);
+}
+
+function unixToDate(ts) {
+  if (!ts) return '';
+  var d = new Date(ts * 1000);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function nowUnix() { return Math.floor(Date.now() / 1000); }
+function getPopName(id) { return popMap[id] ? popMap[id].Nom : '\u2014'; }
+function getHeb(pid) { var p = popMap[pid]; return p ? (hebergeurMap[p.Hebergeur] || null) : null; }
+function getExig(pid) { var p = popMap[pid]; return p ? (p.Exigences_Specifiques || '') : ''; }
+function isOutreMer(pid) { var p = popMap[pid]; return p ? !!p.Outre_Mer : false; }
+function isCniObligatoire(pid) { var p = popMap[pid]; return p ? !!p.CNI_Obligatoire : false; }
+
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function nl2br(s) { return s ? esc(s).replace(/\n/g, '<br>') : ''; }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+function popOpts(sel) {
+  var h = '<option value="">-- Choisir --</option>';
+  for (var i = 0; i < popList.length; i++) {
+    var s = popList[i].id === sel ? ' selected' : '';
+    var om = popList[i].Outre_Mer ? ' \uD83C\uDF0A' : '';
+    h += '<option value="' + popList[i].id + '"' + s + '>' + esc(popList[i].Nom) + om + '</option>';
+  }
+  return h;
+}
+
+function fg(label, input) { return '<div class="form-group"><label>' + esc(label) + '</label>' + input + '</div>'; }
+function fi(label, val) { return '<div class="field"><span class="field-label">' + esc(label) + '</span><span class="field-value">' + esc(val || '') + '</span></div>'; }
+
+function copyText(text, label) {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(function() { toast(label + ' copie!', 'success'); });
+  } else {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast(label + ' copie!', 'success');
+  }
+}
+
+function getAlerts(d) {
+  var alerts = [];
+  var h = getHeb(d.POP_Ref);
+  var p = popMap[d.POP_Ref];
+  if (!h && !p) return alerts;
+  if (h && h.Criblage_Requis) alerts.push({ l: 'Criblage requis', c: 'criblage' });
+  if (h && h.CPR_Requis) alerts.push({ l: 'CPR requis', c: 'cpr' });
+  if (p && p.CNI_Obligatoire) alerts.push({ l: 'CNI obligatoire (OM)', c: 'cni' });
+  if (h && h.Delai_Min_Jours && d.Date_Souhaitee) {
+    var j = Math.floor((d.Date_Souhaitee - Date.now() / 1000) / 86400);
+    if (j < h.Delai_Min_Jours) alerts.push({ l: 'Delai < ' + h.Delai_Min_Jours + 'j !', c: 'delai' });
+  }
+  return alerts;
+}
+
+function matchFilter(d) {
+  var s = document.getElementById('searchBox').value.toLowerCase();
+  var pf = document.getElementById('filterPop').value;
+  var tf = document.getElementById('filterType').value;
+  if (pf && String(d.POP_Ref) !== pf) return false;
+  if (tf && d.Type_Demande !== tf) return false;
+  if (s) {
+    var hay = [d.Ref_DA, d.Num_GLPI, getPopName(d.POP_Ref), d.Prestataire, d.Resume, d.Heberge, d.Nature_Intervention].join(' ').toLowerCase();
+    if (hay.indexOf(s) === -1) return false;
+  }
+  return true;
+}
+
+function showPopAlerts(popId, divId) {
+  var div = document.getElementById(divId);
+  div.innerHTML = '';
+  if (!popId) { showDocReq(0); return; }
+  var h = getHeb(popId);
+  var p = popMap[popId];
+  if (!h) { showDocReq(0); return; }
+  if (p && p.Outre_Mer) div.innerHTML += '<span class="alert-badge outremer">\uD83C\uDF0A Outre-mer</span>';
+  if (h.Criblage_Requis) div.innerHTML += '<span class="alert-badge criblage">\u26A0 Criblage</span>';
+  if (h.CPR_Requis) div.innerHTML += '<span class="alert-badge cpr">\u26A0 CPR</span>';
+  if (p && p.CNI_Obligatoire) div.innerHTML += '<span class="alert-badge cni">\u26A0 CNI obligatoire</span>';
+  if (h.Notes_Exigences) div.innerHTML += '<div style="font-size:12px;color:#b34000;margin-top:4px">\u2139 ' + esc(h.Notes_Exigences) + '</div>';
+  showDocReq(popId);
+}
+
+function showDocReq(popId) {
+  var el = document.getElementById('popDocReq');
+  if (!el) return;
+  if (!popId) { el.innerHTML = ''; return; }
+  var p = popMap[popId];
+  var h = getHeb(popId);
+  if (!p || !h) { el.innerHTML = ''; return; }
+  var html = '<div class="doc-req-box"><strong>Documents requis pour ce POP :</strong>';
+  html += '<div class="doc-req-item"><span class="req-icon">\u2705</span> Biodata (nom, prenom, DDN, type+n\u00B0 PI) &mdash; <em>toujours obligatoire</em></div>';
+  if (p.CNI_Obligatoire) {
+    html += '<div class="doc-req-item"><span class="req-icon">\uD83C\uDD94</span> Copie CNI &mdash; <em>obligatoire (POP outre-mer)</em></div>';
+  } else {
+    html += '<div class="doc-req-item"><span class="req-icon">\u274C</span> Copie CNI &mdash; <em>non requise (metropole)</em></div>';
+  }
+  if (h.Criblage_Requis) html += '<div class="doc-req-item"><span class="req-icon">\uD83D\uDD0D</span> Criblage requis</div>';
+  if (h.CPR_Requis) html += '<div class="doc-req-item"><span class="req-icon">\uD83D\uDEE1</span> CPR/Controle primaire requis</div>';
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+// ---- MAIL TEMPLATES ----
+function mailAcquittement(d) {
+  var p = getPopName(d.POP_Ref), ds = fmtDate(d.Date_Souhaitee);
+  var obj = '[NOC RIE] [DEMANDE ACCES] ' + (d.Ref_DA || '') + ' - ' + p + (ds ? ' - ' + ds : '');
+  var corps = 'Bonjour,\n\nNous accusons bonne reception de votre demande d\'acces ' + (d.Ref_DA || '') + '.\n\n';
+  corps += 'Site : ' + p + '\n';
+  if (d.Type_Demande) corps += 'Type : ' + d.Type_Demande + '\n';
+  if (ds) corps += 'Date souhaitee : ' + ds + '\n';
+  if (d.Heure_Arrivee) corps += 'Heure : ' + d.Heure_Arrivee + '\n';
+  corps += '\nVotre demande est en cours de traitement.\n\n';
+  var pop = popMap[d.POP_Ref];
+  corps += 'Rappel documents requis :\n';
+  corps += '- Biodata intervenants (nom, prenom, date de naissance, type et numero de piece d\'identite)\n';
+  if (pop && pop.CNI_Obligatoire) {
+    corps += '- Copie CNI (obligatoire pour ce site outre-mer)\n';
+  }
+  corps += '\nCordialement,\nNOC RIE - DINUM';
+  return { o: obj, c: corps };
+}
+
+function mailTransmission(d) {
+  var p = getPopName(d.POP_Ref), ds = fmtDate(d.Date_Souhaitee);
+  var obj = '[NOC RIE] [DEMANDE ACCES] ' + (d.Ref_DA || '') + ' - ' + p + (ds ? ' [' + ds + ']' : '');
+  var corps = 'Bonjour,\n\nNous souhaitons planifier un acces au site ' + p + ' pour le compte de ' + (d.Prestataire || '(prestataire)') + '.\n\n';
+  corps += 'Reference : ' + (d.Ref_DA || '') + '\n';
+  if (d.Heberge) corps += 'Heberge : ' + d.Heberge + '\n';
+  corps += 'Type : ' + (d.Type_Demande || '') + '\n';
+  if (ds) corps += 'Date souhaitee : ' + ds + '\n';
+  if (d.Heure_Arrivee) corps += 'Heure : ' + d.Heure_Arrivee + '\n';
+  if (d.Duree) corps += 'Duree : ' + d.Duree + '\n';
+  if (d.Localisation_Plateau) corps += '\nPlateau(x) : ' + d.Localisation_Plateau + '\n';
+  if (d.Localisation_Baie) corps += 'Baie(s) : ' + d.Localisation_Baie + '\n';
+  if (d.Nature_Intervention) corps += '\nNature : ' + d.Nature_Intervention + '\n';
+  if (d.Contact_Nom) corps += '\nContact : ' + d.Contact_Nom + (d.Contact_Tel ? ' - ' + d.Contact_Tel : '') + '\n';
+  corps += '\nMerci de confirmer la faisabilite.\n\nCordialement,\nNOC RIE - DINUM';
+  return { o: obj, c: corps };
+}
+
+function mailRetour(d) {
+  var p = getPopName(d.POP_Ref), ds = fmtDate(d.Date_Souhaitee);
+  var obj = 'RE: [NOC RIE] [DEMANDE ACCES] ' + (d.Ref_DA || '') + ' - ' + p + (ds ? ' - ' + ds : '');
+  var corps = 'Bonjour,\n\nNous revenons vers vous concernant votre demande ' + (d.Ref_DA || '') + ' au ' + p + '.\n\n';
+  if (d.Reponse_Hebergeur) corps += 'Retour de l\'hebergeur :\n' + d.Reponse_Hebergeur + '\n\n';
+  corps += 'Cordialement,\nNOC RIE - DINUM';
+  return { o: obj, c: corps };
+}
+
+// ---- RENDER KANBAN ----
+function render() {
+  var board = document.getElementById('board');
+  var filtered = allDemandes.filter(matchFilter);
+  var now = Date.now() / 1000;
+  var ac = 0, uc = 0;
+  for (var k = 0; k < allDemandes.length; k++) {
+    var dd = allDemandes[k];
+    if (dd.Statut !== 'Clôturée' && dd.Statut !== 'Annulée') {
+      ac++;
+      if (dd.Date_Souhaitee && (dd.Date_Souhaitee - now) < 3 * 86400) uc++;
+    }
+  }
+  document.getElementById('headerStats').innerHTML =
+    '<div class="stat"><span class="stat-count">' + allDemandes.length + '</span> total</div>' +
+    '<div class="stat"><span class="stat-count">' + ac + '</span> en cours</div>' +
+    (uc ? '<div class="stat" style="background:rgba(206,5,0,.3)"><span class="stat-count">' + uc + '</span> urgent(s)</div>' : '');
+
+  var html = '';
+  for (var si = 0; si < STATUTS.length; si++) {
+    var statut = STATUTS[si];
+    var cls = SCSS[statut];
+    var cards = filtered.filter(function(x) { return x.Statut === statut; });
+    html += '<div class="column col-' + cls + '">';
+    html += '<div class="column-header"><span>' + esc(statut) + '</span><span class="count">' + cards.length + '</span></div>';
+    html += '<div class="column-body">';
+    for (var ci = 0; ci < cards.length; ci++) {
+      var d = cards[ci];
+      var popNom = getPopName(d.POP_Ref);
+      var al = getAlerts(d);
+      var tc = (d.Type_Demande || '').split(' ')[0];
+      var isUrg = d.Date_Souhaitee && (d.Date_Souhaitee - now) < 3 * 86400 && d.Statut !== 'Clôturée' && d.Statut !== 'Annulée';
+      var om = isOutreMer(d.POP_Ref);
+      html += '<div class="card" data-id="' + d.id + '" ' + (isUrg ? 'style="border-left:3px solid #ce0500"' : '') + '>';
+      html += '<div class="card-top"><span class="card-ref">' + esc(d.Ref_DA || '') + (om ? ' \uD83C\uDF0A' : '') + '</span><span class="card-type ' + esc(tc) + '">' + esc(d.Type_Demande || '') + '</span></div>';
+      html += '<div class="card-pop">' + esc(popNom) + '</div>';
+      html += '<div class="card-resume">' + esc(d.Resume || d.Nature_Intervention || '') + '</div>';
+      html += '<div class="card-meta"><span>\uD83C\uDFE2 ' + esc(d.Prestataire || '\u2014') + '</span>';
+      if (d.Date_Souhaitee) html += '<span>\uD83D\uDCC5 ' + fmtDate(d.Date_Souhaitee) + '</span>';
+      if (d.Heure_Arrivee) html += '<span>\uD83D\uDD50 ' + esc(d.Heure_Arrivee) + '</span>';
+      html += '</div>';
+      if (d.Num_GLPI) html += '<div class="card-meta"><span style="font-family:monospace;font-size:10px;opacity:.6">GLPI #' + esc(d.Num_GLPI) + '</span></div>';
+      if (al.length) {
+        html += '<div class="card-alerts">';
+        for (var ai = 0; ai < al.length; ai++) html += '<span class="alert-badge ' + al[ai].c + '">' + esc(al[ai].l) + '</span>';
+        html += '</div>';
+      }
+      html += '</div>';
+    }
+    html += '</div></div>';
+  }
+  board.innerHTML = html;
+  var els = board.querySelectorAll('.card');
+  for (var e = 0; e < els.length; e++) {
+    (function(el) { el.addEventListener('click', function() { openDetail(parseInt(el.getAttribute('data-id'))); }); })(els[e]);
+  }
+}
+
+// ---- TIMELINE ----
+function getRisk(d) {
+  if (d.Statut === 'Clôturée' || d.Statut === 'Annulée') return 'done';
+  if (!d.Date_Souhaitee) return 'warn';
+  var j = Math.floor((d.Date_Souhaitee - Date.now() / 1000) / 86400);
+  var h = getHeb(d.POP_Ref);
+  var dm = h ? (h.Delai_Min_Jours || 2) : 2;
+  if (d.Statut === 'Réponse reçue') return 'ok';
+  if (d.Statut === 'Transmise') return j < 2 ? 'danger' : j < 5 ? 'warn' : 'ok';
+  if (d.Statut === 'En vérification') return j < 3 ? 'danger' : j < dm ? 'warn' : 'ok';
+  return j < dm ? 'danger' : j < dm + 3 ? 'warn' : 'ok';
+}
+
+function statusCss(st) {
+  if (st === 'Reçue') return 'st-recue';
+  if (st === 'En vérification') return 'st-verif';
+  if (st === 'Transmise') return 'st-trans';
+  if (st === 'Réponse reçue') return 'st-rep';
+  return 'st-clo';
+}
+
+function renderTimeline() {
+  var grid = document.getElementById('tlGrid');
+  var filtered = allDemandes.filter(matchFilter);
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var start = new Date(today); start.setDate(start.getDate() - 3 + (tlOffset * 7));
+  var end = new Date(start); end.setDate(end.getDate() + 20);
+  document.getElementById('tlRange').textContent =
+    start.getDate() + ' ' + MOIS[start.getMonth()] + ' \u2014 ' +
+    end.getDate() + ' ' + MOIS[end.getMonth()] + ' ' + end.getFullYear();
+  var dayMap = {};
+  for (var i = 0; i < filtered.length; i++) {
+    var d = filtered[i];
+    if (!d.Date_Souhaitee) continue;
+    var ds = new Date(d.Date_Souhaitee * 1000); ds.setHours(0, 0, 0, 0);
+    if (ds < start || ds > end) continue;
+    var key = ds.toISOString().slice(0, 10);
+    if (!dayMap[key]) dayMap[key] = [];
+    dayMap[key].push(d);
+  }
+  var noDates = filtered.filter(function(d) {
+    return !d.Date_Souhaitee && d.Statut !== 'Clôturée' && d.Statut !== 'Annulée';
+  });
+  var todayKey = today.toISOString().slice(0, 10);
+  var html = '';
+  var cur = new Date(start);
+  for (var di = 0; di < 21; di++) {
+    var k = cur.toISOString().slice(0, 10);
+    var isToday = k === todayKey;
+    var isWeekend = cur.getDay() === 0 || cur.getDay() === 6;
+    html += '<div class="tl-day' + (isToday ? ' tl-today' : '') + (isWeekend ? ' tl-weekend' : '') + '">';
+    html += '<div class="tl-day-header"><div class="tl-dow">' + JOURS[cur.getDay()] + '</div><div class="tl-date">' + cur.getDate() + ' ' + MOIS[cur.getMonth()] + '</div></div>';
+    html += '<div class="tl-day-body">';
+    var cards = dayMap[k] || [];
+    cards.sort(function(a, b) {
+      var ro = { danger: 0, warn: 1, ok: 2, done: 3 };
+      return (ro[getRisk(a)] || 3) - (ro[getRisk(b)] || 3);
+    });
+    for (var ci = 0; ci < cards.length; ci++) {
+      var c = cards[ci];
+      var rk = getRisk(c);
+      html += '<div class="tl-card tl-risk-' + rk + '" data-id="' + c.id + '">';
+      html += '<div class="tl-card-ref">' + esc(c.Ref_DA || '') + (isOutreMer(c.POP_Ref) ? ' \uD83C\uDF0A' : '') + '</div>';
+      html += '<div class="tl-card-pop">' + esc(getPopName(c.POP_Ref)) + '</div>';
+      html += '<div class="tl-card-info">' + esc(c.Prestataire || '') + (c.Heure_Arrivee ? ' \u2022 ' + esc(c.Heure_Arrivee) : '') + '</div>';
+      html += '<span class="tl-card-status ' + statusCss(c.Statut) + '">' + esc(c.Statut) + '</span>';
+      html += '</div>';
+    }
+    html += '</div></div>';
+    cur.setDate(cur.getDate() + 1);
+  }
+  if (noDates.length) {
+    html += '<div class="tl-day"><div class="tl-day-header"><div class="tl-dow">SANS</div><div class="tl-date">date</div></div><div class="tl-day-body">';
+    for (var ni = 0; ni < noDates.length; ni++) {
+      var nd = noDates[ni];
+      html += '<div class="tl-card tl-risk-' + getRisk(nd) + '" data-id="' + nd.id + '">';
+      html += '<div class="tl-card-ref">' + esc(nd.Ref_DA || '') + '</div>';
+      html += '<div class="tl-card-pop">' + esc(getPopName(nd.POP_Ref)) + '</div>';
+      html += '<span class="tl-card-status ' + statusCss(nd.Statut) + '">' + esc(nd.Statut) + '</span>';
+      html += '</div>';
+    }
+    html += '</div></div>';
+  }
+  grid.innerHTML = html;
+  var els = grid.querySelectorAll('.tl-card');
+  for (var e = 0; e < els.length; e++) {
+    (function(el) { el.addEventListener('click', function() { openDetail(parseInt(el.getAttribute('data-id'))); }); })(els[e]);
+  }
+}
+
+function switchView(v) {
+  currentView = v;
+  document.getElementById('tabKanban').classList.toggle('active', v === 'kanban');
+  document.getElementById('tabTimeline').classList.toggle('active', v === 'timeline');
+  document.getElementById('board').style.display = v === 'kanban' ? '' : 'none';
+  document.getElementById('timelineContainer').style.display = v === 'timeline' ? '' : 'none';
+  if (v === 'timeline') renderTimeline();
+}
+
+function renderAll() {
+  render();
+  if (currentView === 'timeline') renderTimeline();
+}
+
+// ---- DETAIL MODAL ----
+function openDetail(id) {
+  var d = allDemandes.find(function(x) { return x.id === id; });
+  if (!d) return;
+  var popNom = getPopName(d.POP_Ref);
+  var heb = getHeb(d.POP_Ref);
+  var hebNom = heb ? heb.Nom : '\u2014';
+  var al = getAlerts(d);
+  var exig = getExig(d.POP_Ref);
+  var pop = popMap[d.POP_Ref];
+  var om = pop ? pop.Outre_Mer : false;
+  var cniReq = pop ? pop.CNI_Obligatoire : false;
+
+  document.getElementById('detailTitle').textContent = (d.Ref_DA || '') + ' \u2014 ' + popNom + (om ? ' \uD83C\uDF0A' : '');
+
+  var si = STATUTS.indexOf(d.Statut);
+  var h = '<div class="status-flow">';
+  for (var i = 0; i < STATUTS.length - 1; i++) {
+    if (i > 0) h += '<span class="status-arrow">\u203A</span>';
+    var scls = i < si ? 'done' : i === si ? 'active' : '';
+    h += '<span class="status-step ' + scls + '">' + esc(STATUTS[i]) + '</span>';
+  }
+  h += '</div>';
+
+  if (al.length || om) {
+    h += '<div class="card-alerts" style="margin-bottom:12px">';
+    if (om) h += '<span class="alert-badge outremer">\uD83C\uDF0A Outre-mer</span>';
+    for (var a = 0; a < al.length; a++) h += '<span class="alert-badge ' + al[a].c + '">\u26A0 ' + esc(al[a].l) + '</span>';
+    h += '</div>';
+  }
+
+  h += '<div class="doc-req-box"><strong>Documents requis :</strong>';
+  h += '<div class="doc-req-item"><span class="req-icon">\u2705</span> Biodata (nom, prenom, DDN, type+n\u00B0 PI)</div>';
+  if (cniReq) {
+    h += '<div class="doc-req-item"><span class="req-icon">\uD83C\uDD94</span> Copie CNI <em>(obligatoire \u2014 POP outre-mer)</em></div>';
+  } else {
+    h += '<div class="doc-req-item"><span class="req-icon">\u2796</span> Copie CNI <em>(non requise)</em></div>';
+  }
+  if (heb && heb.Criblage_Requis) h += '<div class="doc-req-item"><span class="req-icon">\uD83D\uDD0D</span> Criblage</div>';
+  if (heb && heb.CPR_Requis) h += '<div class="doc-req-item"><span class="req-icon">\uD83D\uDEE1</span> CPR/Controle primaire</div>';
+  h += '</div>';
+
+  h += '<div class="modal-section"><h3>Informations</h3><div class="field-grid">';
+  h += fi('Reference', d.Ref_DA) + fi('N GLPI', d.Num_GLPI) + fi('POP', popNom) + fi('Hebergeur', hebNom);
+  h += fi('Type', d.Type_Demande) + fi('Prestataire', d.Prestataire) + fi('Heberge', d.Heberge);
+  h += fi('Contact', (d.Contact_Nom || '') + (d.Contact_Tel ? ' \u2014 ' + d.Contact_Tel : ''));
+  h += '</div></div>';
+
+  h += '<div class="modal-section"><h3>Planification</h3><div class="field-grid">';
+  h += fi('Date demande', fmtDate(d.Date_Demande)) + fi('Date souhaitee', fmtDate(d.Date_Souhaitee));
+  h += fi('Heure', d.Heure_Arrivee) + fi('Duree', d.Duree);
+  h += '</div></div>';
+
+  h += '<div class="modal-section"><h3>Localisation</h3><div class="field-grid">';
+  h += fi('Plateau(x)', d.Localisation_Plateau) + fi('Baie(s)', d.Localisation_Baie);
+  h += fi('Position(s)', d.Localisation_Position) + fi('Equipement(s)', d.Equipements);
+  h += '</div>';
+  if (d.Nature_Intervention) h += '<div class="field" style="margin-top:8px"><span class="field-label">Nature</span><span class="field-value">' + esc(d.Nature_Intervention) + '</span></div>';
+  if (d.Resume) h += '<div class="field" style="margin-top:4px"><span class="field-label">Resume</span><span class="field-value">' + esc(d.Resume) + '</span></div>';
+  h += '</div>';
+
+  if (exig) {
+    h += '<div class="modal-section"><h3>\u26A0 Procedure hebergeur</h3><div class="exigences-box">' + nl2br(exig) + '</div></div>';
+  }
+
+  h += '<div class="modal-section"><h3>Suivi</h3><div class="field-grid">';
+  h += fi('Reception', fmtDateTime(d.Date_Reception)) + fi('Verification', fmtDateTime(d.Date_Verification));
+  h += fi('Transmission', fmtDateTime(d.Date_Transmission)) + fi('Reponse', fmtDateTime(d.Date_Reponse));
+  h += fi('Cloture', fmtDateTime(d.Date_Cloture));
+  h += '</div>';
+  if (d.Reponse_Hebergeur) h += '<div class="field" style="margin-top:8px"><span class="field-label">Reponse hebergeur</span><span class="field-value" style="background:#f6f6f6;padding:8px;border-radius:4px;white-space:pre-wrap">' + esc(d.Reponse_Hebergeur) + '</span></div>';
+  h += '</div>';
+
+  if (d.Notes) h += '<div class="modal-section"><h3>Notes</h3><div style="white-space:pre-wrap;font-size:13px;background:#f6f6f6;padding:8px;border-radius:4px">' + esc(d.Notes) + '</div></div>';
+
+  document.getElementById('detailBody').innerHTML = h;
+
+  var st = d.Statut;
+  var act = '';
+  if (st === 'Reçue') act += '<button class="btn btn-primary" data-a="acq" data-d="' + d.id + '">Acquitter</button>';
+  if (st === 'En vérification') act += '<button class="btn btn-success" data-a="ver" data-d="' + d.id + '">Verifiee et transmettre</button>';
+  if (st === 'Transmise') act += '<button class="btn btn-warning" data-a="rep" data-d="' + d.id + '">Enregistrer reponse</button>';
+  if (st === 'Réponse reçue') act += '<button class="btn btn-success" data-a="clo" data-d="' + d.id + '">Cloturer</button>';
+  act += '<span class="action-sep"></span>';
+  if (st === 'Reçue' || st === 'En vérification') act += '<button class="btn btn-mail" data-a="ma" data-d="' + d.id + '">\u2709 Acquittement</button>';
+  if (st === 'En vérification' || st === 'Transmise') act += '<button class="btn btn-mail" data-a="mt" data-d="' + d.id + '">\u2709 Transmission</button>';
+  if (st === 'Réponse reçue' || st === 'Clôturée') act += '<button class="btn btn-mail" data-a="mr" data-d="' + d.id + '">\u2709 Retour presta</button>';
+  act += '<span class="action-sep"></span>';
+  if (st !== 'Clôturée' && st !== 'Annulée') {
+    act += '<button class="btn btn-ghost" data-a="edit" data-d="' + d.id + '">Modifier</button>';
+    act += '<button class="btn btn-ghost btn-danger-text" data-a="ann" data-d="' + d.id + '">Annuler</button>';
+  }
+  act += '<button class="btn btn-ghost" data-a="x">Fermer</button>';
+
+  var ad = document.getElementById('detailActions');
+  ad.innerHTML = act;
+  var btns = ad.querySelectorAll('button');
+  for (var b = 0; b < btns.length; b++) {
+    (function(btn) {
+      btn.addEventListener('click', function() {
+        var a = btn.getAttribute('data-a');
+        var did = parseInt(btn.getAttribute('data-d'));
+        if (a === 'x') closeModal('detailModal');
+        else if (a === 'acq') changeStatut(did, 'En vérification', 'Date_Reception');
+        else if (a === 'ver') changeStatut(did, 'Transmise', 'Date_Verification');
+        else if (a === 'clo') changeStatut(did, 'Clôturée', 'Date_Cloture');
+        else if (a === 'ann') changeStatut(did, 'Annulée', null);
+        else if (a === 'rep') promptReponse(did);
+        else if (a === 'edit') openEdit(did);
+        else if (a === 'ma') showMail(did, 'a');
+        else if (a === 'mt') showMail(did, 't');
+        else if (a === 'mr') showMail(did, 'r');
+      });
+    })(btns[b]);
+  }
+  document.getElementById('detailModal').classList.add('active');
+}
+
+// ---- MAIL DISPLAY ----
+function showMail(id, type) {
+  var d = allDemandes.find(function(x) { return x.id === id; });
+  if (!d) return;
+  var m, title;
+  if (type === 'a') { m = mailAcquittement(d); title = 'Acquittement (presta)'; }
+  if (type === 't') { m = mailTransmission(d); title = 'Transmission (hebergeur)'; }
+  if (type === 'r') { m = mailRetour(d); title = 'Retour (presta)'; }
+
+  var exig = getExig(d.POP_Ref);
+  var emailHint = '';
+  if (type === 't' && exig) {
+    var em = exig.match(/[\w.+-]+@[\w.-]+\.(?:gouv\.fr|elysee\.fr|intradef\.gouv\.fr)/g);
+    if (em) {
+      var unique = [];
+      for (var i = 0; i < em.length; i++) { if (unique.indexOf(em[i]) === -1) unique.push(em[i]); }
+      emailHint = '<div class="mail-hint"><strong>Dest. hebergeur :</strong><br>' + esc(unique.join(', ')) + '<br><button class="btn btn-sm btn-ghost" id="cpEmails">Copier emails</button></div>';
+    }
+  }
+
+  document.getElementById('detailBody').innerHTML =
+    '<div class="modal-section"><h3>\u2709 ' + esc(title) + '</h3>' + emailHint +
+    '<div class="mail-field"><span class="field-label">Objet</span><div class="mail-box">' + esc(m.o) + '</div><button class="btn btn-sm btn-ghost" id="cpObj">Copier objet</button></div>' +
+    '<div class="mail-field" style="margin-top:12px"><span class="field-label">Corps</span><div class="mail-box" style="white-space:pre-wrap">' + esc(m.c) + '</div><button class="btn btn-sm btn-ghost" id="cpCorps">Copier corps</button></div>' +
+    '<div style="margin-top:12px"><button class="btn btn-primary" id="cpAll">Copier tout</button></div></div>';
+
+  document.getElementById('cpObj').addEventListener('click', function() { copyText(m.o, 'Objet'); });
+  document.getElementById('cpCorps').addEventListener('click', function() { copyText(m.c, 'Corps'); });
+  document.getElementById('cpAll').addEventListener('click', function() { copyText(m.o + '\n\n' + m.c, 'Mail'); });
+
+  if (document.getElementById('cpEmails')) {
+    var em2 = exig.match(/[\w.+-]+@[\w.-]+\.(?:gouv\.fr|elysee\.fr|intradef\.gouv\.fr)/g);
+    if (em2) {
+      var u2 = [];
+      for (var j = 0; j < em2.length; j++) { if (u2.indexOf(em2[j]) === -1) u2.push(em2[j]); }
+      document.getElementById('cpEmails').addEventListener('click', function() { copyText(u2.join('; '), 'Emails'); });
+    }
+  }
+
+  document.getElementById('detailActions').innerHTML = '<button class="btn btn-ghost" id="backBtn">Retour</button>';
+  document.getElementById('backBtn').addEventListener('click', function() { openDetail(id); });
+}
+
+// ---- EDIT ----
+function openEdit(id) {
+  var d = allDemandes.find(function(x) { return x.id === id; });
+  if (!d) return;
+
+  document.getElementById('detailBody').innerHTML =
+    '<div class="form-row">' + fg('N GLPI', '<input type="text" id="eG" value="' + esc(d.Num_GLPI || '') + '">') +
+    fg('POP', '<select id="eP">' + popOpts(d.POP_Ref) + '</select>') + '</div>' +
+    '<div id="eAl" class="card-alerts" style="margin-bottom:12px"></div>' +
+    '<div id="eDocReq"></div>' +
+    '<div class="form-row">' +
+    fg('Type', '<select id="eT"><option' + (d.Type_Demande === 'Accueil' ? ' selected' : '') + '>Accueil</option><option' + (d.Type_Demande === 'Livraison' ? ' selected' : '') + '>Livraison</option><option' + (d.Type_Demande === 'Geste' ? ' selected' : '') + '>Geste</option><option' + (d.Type_Demande === 'Autres Travaux' ? ' selected' : '') + '>Autres Travaux</option></select>') +
+    fg('Prestataire', '<input type="text" id="ePr" value="' + esc(d.Prestataire || '') + '">') + '</div>' +
+    '<div class="form-row">' + fg('Heberge', '<input type="text" id="eH" value="' + esc(d.Heberge || '') + '">') +
+    fg('Contact nom', '<input type="text" id="eCN" value="' + esc(d.Contact_Nom || '') + '">') + '</div>' +
+    '<div class="form-row">' + fg('Contact tel', '<input type="text" id="eCT" value="' + esc(d.Contact_Tel || '') + '">') +
+    fg('Date souhaitee', '<input type="date" id="eDS" value="' + unixToDate(d.Date_Souhaitee) + '">') + '</div>' +
+    '<div class="form-row">' + fg('Heure', '<input type="time" id="eHA" value="' + esc(d.Heure_Arrivee || '') + '">') +
+    fg('Duree', '<input type="text" id="eDu" value="' + esc(d.Duree || '') + '">') + '</div>' +
+    '<div class="form-row">' + fg('Plateau(x)', '<input type="text" id="ePl" value="' + esc(d.Localisation_Plateau || '') + '">') +
+    fg('Baie(s)', '<input type="text" id="eBa" value="' + esc(d.Localisation_Baie || '') + '">') + '</div>' +
+    fg('Nature', '<textarea id="eNa" rows="2">' + esc(d.Nature_Intervention || '') + '</textarea>') +
+    fg('Resume', '<textarea id="eRe" rows="2">' + esc(d.Resume || '') + '</textarea>') +
+    fg('Notes', '<textarea id="eNo" rows="2">' + esc(d.Notes || '') + '</textarea>');
+
+  document.getElementById('eP').addEventListener('change', function() { showPopAlertsEdit(parseInt(this.value)); });
+  showPopAlertsEdit(d.POP_Ref);
+
+  document.getElementById('detailActions').innerHTML = '<button class="btn btn-primary" id="eSave">Enregistrer</button><button class="btn btn-ghost" id="eCancel">Annuler</button>';
+
+  document.getElementById('eSave').addEventListener('click', function() {
+    var pr = parseInt(document.getElementById('eP').value);
+    if (!pr) { toast('POP requis', 'error'); return; }
+    var f = {
+      Num_GLPI: document.getElementById('eG').value.trim(),
+      POP_Ref: pr,
+      Type_Demande: document.getElementById('eT').value,
+      Prestataire: document.getElementById('ePr').value.trim(),
+      Heberge: document.getElementById('eH').value.trim(),
+      Contact_Nom: document.getElementById('eCN').value.trim(),
+      Contact_Tel: document.getElementById('eCT').value.trim(),
+      Heure_Arrivee: document.getElementById('eHA').value,
+      Duree: document.getElementById('eDu').value.trim(),
+      Localisation_Plateau: document.getElementById('ePl').value.trim(),
+      Localisation_Baie: document.getElementById('eBa').value.trim(),
+      Nature_Intervention: document.getElementById('eNa').value.trim(),
+      Resume: document.getElementById('eRe').value.trim(),
+      Notes: document.getElementById('eNo').value.trim()
+    };
+    var ds = document.getElementById('eDS').value;
+    if (ds) f.Date_Souhaitee = dateToUnix(ds);
+    applyAct([['UpdateRecord', 'Demandes', id, f]]).then(function() {
+      toast('Mis a jour', 'success');
+      closeModal('detailModal');
+      loadData();
+    }).catch(function(e) { toast('Erreur: ' + e.message, 'error'); });
+  });
+
+  document.getElementById('eCancel').addEventListener('click', function() { openDetail(id); });
+}
+
+function showPopAlertsEdit(popId) {
+  var div = document.getElementById('eAl');
+  var docDiv = document.getElementById('eDocReq');
+  div.innerHTML = '';
+  if (docDiv) docDiv.innerHTML = '';
+  if (!popId) return;
+  var h = getHeb(popId);
+  var p = popMap[popId];
+  if (!h) return;
+  if (p && p.Outre_Mer) div.innerHTML += '<span class="alert-badge outremer">\uD83C\uDF0A Outre-mer</span>';
+  if (h.Criblage_Requis) div.innerHTML += '<span class="alert-badge criblage">\u26A0 Criblage</span>';
+  if (h.CPR_Requis) div.innerHTML += '<span class="alert-badge cpr">\u26A0 CPR</span>';
+  if (p && p.CNI_Obligatoire) div.innerHTML += '<span class="alert-badge cni">\u26A0 CNI obligatoire</span>';
+  if (h.Notes_Exigences) div.innerHTML += '<div style="font-size:12px;color:#b34000;margin-top:4px">\u2139 ' + esc(h.Notes_Exigences) + '</div>';
+  if (docDiv && p) {
+    var html = '<div class="doc-req-box"><strong>Documents requis :</strong>';
+    html += '<div class="doc-req-item"><span class="req-icon">\u2705</span> Biodata &mdash; <em>toujours obligatoire</em></div>';
+    if (p.CNI_Obligatoire) {
+      html += '<div class="doc-req-item"><span class="req-icon">\uD83C\uDD94</span> Copie CNI &mdash; <em>obligatoire (outre-mer)</em></div>';
+    } else {
+      html += '<div class="doc-req-item"><span class="req-icon">\u274C</span> Copie CNI &mdash; <em>non requise</em></div>';
+    }
+    html += '</div>';
+    docDiv.innerHTML = html;
+  }
+}
+
+// ---- STATUS + REPONSE ----
+function changeStatut(id, ns, df) {
+  var u = { Statut: ns };
+  if (df) u[df] = nowUnix();
+  if (ns === 'Transmise') u.Date_Transmission = nowUnix();
+  applyAct([['UpdateRecord', 'Demandes', id, u]]).then(function() {
+    toast('Statut \u2192 ' + ns, 'success');
+    closeModal('detailModal');
+    loadData();
+  }).catch(function(e) { toast('Erreur: ' + e.message, 'error'); });
+}
+
+function promptReponse(id) {
+  document.getElementById('detailBody').innerHTML = '<div class="form-group"><label>Reponse hebergeur</label><textarea id="repText" rows="5" placeholder="Collez la reponse..."></textarea></div>';
+  document.getElementById('detailActions').innerHTML = '<button class="btn btn-success" id="repOk">Valider</button><button class="btn btn-ghost" id="repBack">Retour</button>';
+  document.getElementById('repOk').addEventListener('click', function() {
+    var t = document.getElementById('repText').value;
+    if (!t.trim()) { toast('Saisissez la reponse', 'error'); return; }
+    applyAct([['UpdateRecord', 'Demandes', id, { Statut: 'Réponse reçue', Date_Reponse: nowUnix(), Reponse_Hebergeur: t.trim() }]]).then(function() {
+      toast('Reponse OK', 'success');
+      closeModal('detailModal');
+      loadData();
+    }).catch(function(e) { toast('Erreur: ' + e.message, 'error'); });
+  });
+  document.getElementById('repBack').addEventListener('click', function() { openDetail(id); });
+}
+
+// ---- NEW DEMAND ----
+function openNew() {
+  document.getElementById('fPop').innerHTML = popOpts(0);
+  var fields = ['fNumGlpi', 'fPrestataire', 'fHeberge', 'fContactNom', 'fContactTel', 'fDateSouhaitee', 'fHeureArrivee', 'fDuree', 'fPlateau', 'fBaie', 'fNature', 'fResume'];
+  for (var i = 0; i < fields.length; i++) document.getElementById(fields[i]).value = '';
+  document.getElementById('fHeberge').value = 'DINUM/RIE';
+  document.getElementById('fType').value = 'Accueil';
+  document.getElementById('popAlerts').innerHTML = '';
+  var docReq = document.getElementById('popDocReq');
+  if (docReq) docReq.innerHTML = '';
+  document.getElementById('newModal').classList.add('active');
+}
+
+function saveNew() {
+  var pr = parseInt(document.getElementById('fPop').value);
+  if (!pr) { toast('POP requis', 'error'); return; }
+  var f = {
+    Num_GLPI: document.getElementById('fNumGlpi').value.trim(),
+    POP_Ref: pr,
+    Type_Demande: document.getElementById('fType').value,
+    Statut: 'Reçue',
+    Prestataire: document.getElementById('fPrestataire').value.trim(),
+    Heberge: document.getElementById('fHeberge').value.trim(),
+    Contact_Nom: document.getElementById('fContactNom').value.trim(),
+    Contact_Tel: document.getElementById('fContactTel').value.trim(),
+    Date_Demande: nowUnix(),
+    Heure_Arrivee: document.getElementById('fHeureArrivee').value,
+    Duree: document.getElementById('fDuree').value.trim(),
+    Localisation_Plateau: document.getElementById('fPlateau').value.trim(),
+    Localisation_Baie: document.getElementById('fBaie').value.trim(),
+    Nature_Intervention: document.getElementById('fNature').value.trim(),
+    Resume: document.getElementById('fResume').value.trim(),
+    Date_Reception: nowUnix()
+  };
+  var ds = document.getElementById('fDateSouhaitee').value;
+  if (ds) f.Date_Souhaitee = dateToUnix(ds);
+  applyAct([['AddRecord', 'Demandes', null, f]]).then(function() {
+    toast('Demande creee', 'success');
+    closeModal('newModal');
+    loadData();
+  }).catch(function(e) { toast('Erreur: ' + e.message, 'error'); });
+}
+
+// ---- DATA LOADING ----
+function loadData() {
+  Promise.all([
+    grist.docApi.fetchTable('Hebergeurs'),
+    grist.docApi.fetchTable('POP'),
+    grist.docApi.fetchTable('Demandes')
+  ]).then(function(results) {
+    var hd = results[0], pd = results[1], dd = results[2];
+    hebergeurMap = {};
+    if (hd && hd.id) {
+      for (var i = 0; i < hd.id.length; i++) {
+        hebergeurMap[hd.id[i]] = {
+          Nom: hd.Nom[i],
+          Criblage_Requis: hd.Criblage_Requis[i],
+          CPR_Requis: hd.CPR_Requis[i],
+          CNI_obligatoire_legacy: hd.CNI_obligatoire_legacy_[i],
+          Delai_Min_Jours: hd.Delai_Min_Jours[i],
+          Notes_Exigences: hd.Notes_Exigences[i]
+        };
+      }
+    }
+    popMap = {};
+    popList = [];
+    if (pd && pd.id) {
+      for (var j = 0; j < pd.id.length; j++) {
+        var p = {
+          id: pd.id[j],
+          Nom: pd.Nom[j],
+          Hebergeur: pd.Hebergeur[j],
+          Departement: pd.Departement[j],
+          Exigences_Specifiques: pd.Exigences_Specifiques[j],
+          Outre_Mer: pd.Outre_Mer[j],
+          CNI_Obligatoire: pd.CNI_Obligatoire[j]
+        };
+        popMap[p.id] = p;
+        popList.push(p);
+      }
+      popList.sort(function(a, b) { return a.Nom.localeCompare(b.Nom); });
+    }
+    var fp = document.getElementById('filterPop');
+    var cv = fp.value;
+    fp.innerHTML = '<option value="">Tous les POP</option>';
+    for (var x = 0; x < popList.length; x++) {
+      var omTag = popList[x].Outre_Mer ? ' \uD83C\uDF0A' : '';
+      fp.innerHTML += '<option value="' + popList[x].id + '">' + esc(popList[x].Nom) + omTag + '</option>';
+    }
+    fp.value = cv;
+    allDemandes = [];
+    if (dd && dd.id) {
+      var cols = Object.keys(dd);
+      for (var di = 0; di < dd.id.length; di++) {
+        var row = {};
+        for (var ci = 0; ci < cols.length; ci++) {
+          if (cols[ci] !== 'manualSort') row[cols[ci]] = dd[cols[ci]][di];
+        }
+        allDemandes.push(row);
+      }
+    }
+    renderAll();
+  }).catch(function(e) {
+    document.getElementById('board').innerHTML = '<div class="loading" style="color:#ce0500">Erreur: ' + esc(e.message) + '</div>';
+  });
+}
+
+// ==================================================================
+//  CLIPBOARD & FILE IMPORT — parser logic (preserved from original)
+// ==================================================================
+
+function findPopByName(name) {
+  if (!name) return 0;
+  var raw = normText(name);
+  var lower = normCmp(raw);
+  var variants = [lower];
+  variants.push(lower.replace(/\b(DATACENTER|SITE D INTERVENTION|SITE|PIB\/POM|PIB|POM)\b/g, '').replace(/\s+/g, ' ').trim());
+  var codeMatches = raw.match(/\b[A-Z]{1,6}[ -]?\d{1,4}\b/g);
+  if (codeMatches) {
+    for (var cm = 0; cm < codeMatches.length; cm++) {
+      variants.push(normCmp(codeMatches[cm].replace(/\s+/g, '')));
+      variants.push(normCmp(codeMatches[cm].replace(/-/g, ' ')));
+      variants.push(normCmp(codeMatches[cm]));
+    }
+  }
+  for (var i = 0; i < popList.length; i++) {
+    var popNorm = normCmp(popList[i].Nom);
+    for (var v = 0; v < variants.length; v++) {
+      var needle = variants[v];
+      if (!needle) continue;
+      if (popNorm === needle) return popList[i].id;
+    }
+  }
+  for (var j = 0; j < popList.length; j++) {
+    var popNorm2 = normCmp(popList[j].Nom);
+    for (var v2 = 0; v2 < variants.length; v2++) {
+      var needle2 = variants[v2];
+      if (!needle2) continue;
+      if (popNorm2.indexOf(needle2) !== -1 || needle2.indexOf(popNorm2) !== -1) return popList[j].id;
+    }
+  }
+  var words = lower.split(/\s+/).filter(function(w) {
+    return w && w.length >= 3 && ['DATACENTER', 'SITE', 'INTERVENTION', 'PIB', 'POM'].indexOf(w) === -1;
+  });
+  for (var k = 0; k < popList.length; k++) {
+    var popNorm3 = normCmp(popList[k].Nom);
+    var score = 0;
+    for (var wi = 0; wi < words.length; wi++) {
+      if (popNorm3.indexOf(words[wi]) !== -1) score++;
+    }
+    if (score >= 2) return popList[k].id;
+  }
+  return 0;
+}
+
+function cleanCell(rows, r, c) {
+  if (!rows[r]) return '';
+  if (c >= rows[r].length) return '';
+  var v = rows[r][c];
+  if (v === undefined || v === null) return '';
+  return String(v).trim();
+}
+
+function normText(s) {
+  if (s === undefined || s === null) return '';
+  return String(s).replace(/\u00A0/g, ' ').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function normCmp(s) {
+  var t = normText(s).toUpperCase();
+  if (t.normalize) t = t.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return t.replace(/['']/g, "'").replace(/\s+/g, ' ').trim();
+}
+
+function isMeaningful(v) {
+  var t = normText(v);
+  return !!t && t.toUpperCase() !== 'NAN';
+}
+
+function isMarker(v) {
+  var t = normCmp(v);
+  return t === 'X' || t === 'XX' || t === 'XXX' || t === 'OUI' || t === 'YES' || t === 'TRUE';
+}
+
+function isNoValue(v) {
+  var t = normCmp(v);
+  return t === 'NON' || t === 'NO' || t === 'FALSE';
+}
+
+function isLabelLike(v) {
+  var t = normCmp(v);
+  if (!t) return false;
+  return [
+    'PLATEAU', 'PLATEAU(X)', 'BAIE', 'BAIE(S)', 'POSITION', 'POSITION(S)',
+    'NOM EQUIPEMENT', 'NOM EQUIPEMENT(S)', 'NOM(S) EQUIPEMENT(S)',
+    'NATURE DE L INTERVENTION', 'LIBELLE EXPLICITE', 'MATERIEL ENTRANT :',
+    'MATERIEL SORTANT :', 'DUREE', 'HEBERGE', 'NOM CONTACT', 'TELEPHONE CONTACT'
+  ].indexOf(t) !== -1;
+}
+
+function parseDateFR(s) {
+  if (!s) return '';
+  s = normText(s);
+  var m = s.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return m[1] + '-' + String(m[2]).padStart(2, '0') + '-' + String(m[3]).padStart(2, '0');
+  m = s.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/);
+  if (m) {
+    var a = parseInt(m[1], 10), b = parseInt(m[2], 10), y = m[3];
+    var day = a, month = b;
+    if (a <= 12 && b > 12) { month = a; day = b; }
+    else if (a > 12 && b <= 12) { day = a; month = b; }
+    return y + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+  }
+  return '';
+}
+
+function parseTime(s) {
+  if (!s) return '';
+  s = normText(s);
+  var m = s.match(/(\d{1,2})\s*[:hH]\s*(\d{1,2})(?::\d{1,2})?\s*(AM|PM)?/i);
+  if (m) {
+    var hh = parseInt(m[1], 10), mm = parseInt(m[2], 10);
+    var ap = (m[3] || '').toUpperCase();
+    if (ap === 'PM' && hh < 12) hh += 12;
+    if (ap === 'AM' && hh === 12) hh = 0;
+    return String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+  }
+  m = s.match(/(\d{1,2})\s*(AM|PM)/i);
+  if (m) {
+    var h2 = parseInt(m[1], 10);
+    var ap2 = (m[2] || '').toUpperCase();
+    if (ap2 === 'PM' && h2 < 12) h2 += 12;
+    if (ap2 === 'AM' && h2 === 12) h2 = 0;
+    return String(h2).padStart(2, '0') + ':00';
+  }
+  return '';
+}
+
+function detectVersion(rows) {
+  var top = normCmp(cleanCell(rows, 0, 0));
+  if (top.indexOf('DATACENTER') !== -1) return 1;
+  if (top.indexOf('SITE D INTERVENTION') !== -1 || normCmp(cleanCell(rows, 0, 4)).indexOf('PIB/POM') !== -1) return 2;
+  if (rows[4] && normCmp(cleanCell(rows, 4, 0)).indexOf('ACCUEIL') !== -1) return 1;
+  if (rows[11] && normCmp(cleanCell(rows, 11, 0)).indexOf('INTERVENTION') !== -1) return 2;
+  return 2;
+}
+
+function findCell(rows, labels, opts) {
+  opts = opts || {};
+  if (typeof labels === 'string') labels = [labels];
+  var nlabels = [];
+  for (var i = 0; i < labels.length; i++) nlabels.push(normCmp(labels[i]));
+  var fromRow = opts.fromRow || 0;
+  var toRow = opts.toRow != null ? opts.toRow : rows.length - 1;
+  for (var r = fromRow; r <= toRow && r < rows.length; r++) {
+    for (var c = 0; c < rows[r].length; c++) {
+      var cell = normCmp(cleanCell(rows, r, c));
+      if (!cell) continue;
+      for (var j = 0; j < nlabels.length; j++) {
+        if (opts.exact ? cell === nlabels[j] : cell.indexOf(nlabels[j]) !== -1) {
+          return { r: r, c: c, text: cleanCell(rows, r, c) };
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function rowContainsAnyLabel(rows, r, labels) {
+  if (!rows[r]) return false;
+  for (var c = 0; c < rows[r].length; c++) {
+    var cell = normCmp(cleanCell(rows, r, c));
+    if (!cell) continue;
+    for (var i = 0; i < labels.length; i++) {
+      if (cell.indexOf(normCmp(labels[i])) !== -1) return true;
+    }
+  }
+  return false;
+}
+
+function firstValueRight(rows, r, c, opts) {
+  opts = opts || {};
+  var maxDistance = opts.maxDistance != null ? opts.maxDistance : 6;
+  for (var cc = c + 1; cc < rows[r].length && cc <= c + maxDistance; cc++) {
+    var raw = cleanCell(rows, r, cc);
+    var val = normText(raw);
+    if (!isMeaningful(val)) continue;
+    if (opts.skipMarkers && (isMarker(val) || isNoValue(val))) continue;
+    if (opts.skipLabels && isLabelLike(val)) continue;
+    if (opts.skip && opts.skip(val, cc)) continue;
+    return val;
+  }
+  return '';
+}
+
+function firstValueBelow(rows, r, c, opts) {
+  opts = opts || {};
+  var maxDistance = opts.maxDistance != null ? opts.maxDistance : 4;
+  for (var rr = r + 1; rr < rows.length && rr <= r + maxDistance; rr++) {
+    var raw = cleanCell(rows, rr, c);
+    var val = normText(raw);
+    if (!isMeaningful(val)) continue;
+    if (opts.skipMarkers && (isMarker(val) || isNoValue(val))) continue;
+    if (opts.skipLabels && isLabelLike(val)) continue;
+    if (opts.skip && opts.skip(val, rr)) continue;
+    return val;
+  }
+  return '';
+}
+
+function extractRightOfLabel(rows, labels, opts) {
+  var cell = findCell(rows, labels, opts);
+  if (!cell) return '';
+  return firstValueRight(rows, cell.r, cell.c, opts);
+}
+
+function extractDateByLabel(rows, labels) {
+  var cell = findCell(rows, labels);
+  if (!cell) return '';
+  for (var cc = cell.c + 1; cc < rows[cell.r].length; cc++) {
+    var d = parseDateFR(cleanCell(rows, cell.r, cc));
+    if (d) return d;
+  }
+  return '';
+}
+
+function extractTimeByLabel(rows, labels) {
+  var cell = findCell(rows, labels);
+  if (!cell) return '';
+  for (var cc = cell.c + 1; cc < rows[cell.r].length; cc++) {
+    var t = parseTime(cleanCell(rows, cell.r, cc));
+    if (t) return t;
+  }
+  return '';
+}
+
+function extractLocationValue(rows, labels) {
+  var cell = findCell(rows, labels, { exact: false });
+  if (!cell) return '';
+  return firstValueRight(rows, cell.r, cell.c, {
+    maxDistance: 2, skipMarkers: true, skipLabels: true,
+    skip: function(val) { return isLabelLike(val); }
+  });
+}
+
+function extractPopName(rows, version) {
+  var cell, val;
+  cell = findCell(rows, 'PIB/POM');
+  if (cell) {
+    val = firstValueRight(rows, cell.r, cell.c, { maxDistance: 3, skipLabels: true, skipMarkers: true });
+    if (val) return val;
+  }
+  if (version === 1) {
+    val = normText(cleanCell(rows, 0, 0));
+    if (val) return val;
+  }
+  cell = findCell(rows, ['Site d\u2019intervention', 'Site d intervention', 'SITE D\u2019INTERVENTION', 'SITE D INTERVENTION']);
+  if (cell) {
+    for (var c = cell.c + 1; c < rows[cell.r].length; c++) {
+      if (isMarker(cleanCell(rows, cell.r, c))) {
+        for (var cc = c - 1; cc > cell.c; cc--) {
+          val = normText(cleanCell(rows, cell.r, cc));
+          if (isMeaningful(val) && !isLabelLike(val) && !isMarker(val) && !isNoValue(val)) return val;
+        }
+      }
+    }
+    val = firstValueRight(rows, cell.r, cell.c, { maxDistance: 6, skipLabels: true, skipMarkers: true });
+    if (val) return val;
+  }
+  return '';
+}
+
+function detectType(rows, version) {
+  var defaultType = 'Accueil';
+  var rowIndex = 4;
+  if (!rows[rowIndex]) return defaultType;
+  var options = [
+    { label: 'ACCUEIL', value: 'Accueil' },
+    { label: 'LIVRAISON', value: 'Livraison' },
+    { label: 'GESTE', value: 'Geste' },
+    { label: 'AUTRES TRAVAUX', value: 'Autres Travaux' }
+  ];
+  for (var o = 0; o < options.length; o++) {
+    for (var c = 0; c < rows[rowIndex].length; c++) {
+      var cell = normCmp(cleanCell(rows, rowIndex, c));
+      if (cell.indexOf(normCmp(options[o].label)) !== -1) {
+        var after = normText(cleanCell(rows, rowIndex, c + 1));
+        var before = normText(cleanCell(rows, rowIndex, c - 1));
+        if (isMarker(after) || isMarker(before)) return options[o].value;
+      }
+    }
+  }
+  var sec = findCell(rows, 'AUTRES TRAVAUX');
+  if (sec) {
+    var secRow = rows[sec.r + 1] || [];
+    for (var i = 0; i < secRow.length; i++) {
+      var v = normCmp(secRow[i]);
+      if (v === 'OUI' || v === 'X' || v === 'XXX') return 'Autres Travaux';
+    }
+  }
+  return defaultType;
+}
+
+function isSectionBoundaryRow(rows, r) {
+  return rowContainsAnyLabel(rows, r, [
+    'V\u00e9hicule', 'Vehicule', 'Localisation', 'Nature de l\u2019intervention', 'Nature de l intervention',
+    'Tests \u00e9lectriques', 'Tests electriques', 'R\u00e9tention', 'Retention',
+    'LIVRAISON', 'GESTE', 'AUTRES TRAVAUX', 'Exp\u00e9diteur', 'Expediteur', 'Contact'
+  ]);
+}
+
+function extractIntervenants(rows) {
+  var header = null;
+  for (var r = 0; r < rows.length; r++) {
+    if (rowContainsAnyLabel(rows, r, ['Soci\u00e9t\u00e9', 'Societe']) && rowContainsAnyLabel(rows, r, ['Nom', 'Nom, Pr\u00e9nom', 'Nom, Prenom'])) {
+      header = { r: r }; break;
+    }
+  }
+  if (!header) return [];
+  var nameCol = -1, socCol = -1;
+  for (var c = 0; c < rows[header.r].length; c++) {
+    var cell = normCmp(cleanCell(rows, header.r, c));
+    if (nameCol === -1 && (cell.indexOf('NOM') !== -1 || cell.indexOf('PRENOM') !== -1)) nameCol = c;
+    if (socCol === -1 && cell.indexOf('SOCIETE') !== -1) socCol = c;
+  }
+  if (nameCol === -1 || socCol === -1) return [];
+  var intervenants = [], emptyCount = 0;
+  for (var rr = header.r + 1; rr < rows.length; rr++) {
+    if (isSectionBoundaryRow(rows, rr)) break;
+    var nom = normText(cleanCell(rows, rr, nameCol));
+    var soc = normText(cleanCell(rows, rr, socCol));
+    if (!nom && !soc) { emptyCount++; if (emptyCount >= 3) break; continue; }
+    emptyCount = 0;
+    if (!nom || isNoValue(nom) || isMarker(nom) || normCmp(nom).indexOf('PRECISER ICI') !== -1) continue;
+    if (normCmp(nom).indexOf('NOM') !== -1 && normCmp(soc).indexOf('SOCIETE') !== -1) continue;
+    intervenants.push(nom + (soc ? ' (' + soc + ')' : ''));
+  }
+  return intervenants;
+}
+
+function deducePrestataire(intervenants) {
+  var count = {}, best = '', bestN = 0;
+  for (var i = 0; i < intervenants.length; i++) {
+    var m = intervenants[i].match(/\(([^)]+)\)\s*$/);
+    if (!m) continue;
+    var soc = normText(m[1]);
+    if (!soc) continue;
+    count[soc] = (count[soc] || 0) + 1;
+    if (count[soc] > bestN) { bestN = count[soc]; best = soc; }
+  }
+  return best;
+}
+
+function buildImportedResume(data) {
+  var parts = [], loc = [], mat = [];
+  if (data.nature) parts.push(data.nature);
+  if (data.plateau) loc.push('Plateau: ' + data.plateau);
+  if (data.baie) loc.push('Baie: ' + data.baie);
+  if (data.position) loc.push('Position: ' + data.position);
+  if (data.equipements) loc.push('\u00c9quipements: ' + data.equipements);
+  if (loc.length) parts.push(loc.join(' / '));
+  if (data.matEntrant) mat.push('Entrant: ' + data.matEntrant);
+  if (data.matSortant) mat.push('Sortant: ' + data.matSortant);
+  if (mat.length) parts.push(mat.join(' / '));
+  if (data.intervenants && data.intervenants.length) parts.push('Interv: ' + data.intervenants.join(', '));
+  return parts.join(' | ');
+}
+
+function parseForm(rows) {
+  var version = detectVersion(rows);
+  var data = {
+    version: version,
+    popName: extractPopName(rows, version),
+    type: detectType(rows, version),
+    heberge: extractRightOfLabel(rows, ['H\u00e9berg\u00e9', 'Heberge'], { maxDistance: 3, skipMarkers: true, skipLabels: true }),
+    contactNom: extractRightOfLabel(rows, ['Nom Contact'], { maxDistance: 3, skipMarkers: true, skipLabels: true }),
+    contactTel: extractRightOfLabel(rows, ['T\u00e9l\u00e9phone contact', 'Telephone contact'], { maxDistance: 3, skipMarkers: true, skipLabels: true }),
+    dateSouhaitee: extractDateByLabel(rows, ['Date souhait\u00e9e', 'Date souhaitee']),
+    heureArrivee: extractTimeByLabel(rows, ['Heure d\u2019arriv\u00e9e', 'Heure d\'arriv\u00e9e', 'Heure arrivee']),
+    duree: extractRightOfLabel(rows, ['Dur\u00e9e', 'Duree'], { maxDistance: 3, skipMarkers: true, skipLabels: true }),
+    plateau: extractLocationValue(rows, ['Plateau(x)', 'Plateau']),
+    baie: extractLocationValue(rows, ['Baie(s)', 'Baie']),
+    position: extractLocationValue(rows, ['Position(s)', 'Position']),
+    equipements: extractLocationValue(rows, ['Nom(s) \u00e9quipement(s)', 'Nom(s) equipement(s)', 'Nom \u00e9quipement', 'Nom equipement']),
+    nature: extractRightOfLabel(rows, ['Nature de l\u2019intervention', 'Nature de l\'intervention', 'Nature de l intervention'], { maxDistance: 4, skipMarkers: true, skipLabels: true }),
+    matEntrant: extractRightOfLabel(rows, ['Mat\u00e9riel entrant :', 'Materiel entrant :'], { maxDistance: 4, skipMarkers: true, skipLabels: true }),
+    matSortant: extractRightOfLabel(rows, ['Mat\u00e9riel sortant :', 'Materiel sortant :'], { maxDistance: 4, skipMarkers: true, skipLabels: true }),
+    intervenants: []
+  };
+  if (!data.nature) {
+    data.nature = extractRightOfLabel(rows, ['Libell\u00e9 explicite', 'Libelle explicite'], { maxDistance: 4, skipMarkers: true, skipLabels: true });
+  }
+  data.intervenants = extractIntervenants(rows);
+  data.prestataire = deducePrestataire(data.intervenants);
+  data.resume = buildImportedResume(data);
+  return data;
+}
+
+// ==================================================================
+//  IMPORT — unified handler for rows (from clipboard or file)
+// ==================================================================
+function processImportRows(rows, source) {
+  var data = parseForm(rows);
+  var popId = findPopByName(data.popName);
+
+  openNewWithData({
+    popId: popId,
+    type: data.type,
+    prestataire: data.prestataire,
+    heberge: data.heberge || 'DINUM/RIE',
+    contactNom: data.contactNom,
+    contactTel: data.contactTel,
+    dateSouhaitee: data.dateSouhaitee,
+    heureArrivee: data.heureArrivee,
+    duree: data.duree,
+    plateau: data.plateau,
+    baie: data.baie,
+    nature: data.nature,
+    resume: data.resume
+  });
+
+  var msg = 'Formulaire V' + data.version + ' importe (' + source + ')';
+  if (!popId && data.popName) msg += ' — POP non reconnu: ' + data.popName;
+  if (!popId && !data.popName) msg += ' — POP non reconnu';
+  toast(msg, popId ? 'success' : 'info');
+}
+
+// ---- CLIPBOARD PASTE HANDLER ----
+function handlePaste(e) {
+  var text = '';
+  if (e.clipboardData) {
+    text = e.clipboardData.getData('text/plain') || e.clipboardData.getData('text');
+  }
+  if (!text || text.length < 20) {
+    toast('Rien a importer — faites Ctrl+A Ctrl+C dans le fichier', 'error');
+    return;
+  }
+  e.preventDefault();
+  var lines = text.replace(/\r/g, '').split('\n');
+  var rows = [];
+  for (var i = 0; i < lines.length; i++) {
+    rows.push(lines[i].split('\t'));
+  }
+  processImportRows(rows, 'clipboard');
+}
+
+// ==================================================================
+//  FILE DRAG-AND-DROP HANDLER (new — requires SheetJS + GitHub Pages)
+// ==================================================================
+function handleFiles(files) {
+  if (!files || !files.length) return;
+
+  // Process each file (supports dropping multiple forms at once)
+  for (var i = 0; i < files.length; i++) {
+    (function(file) {
+      var ext = file.name.split('.').pop().toLowerCase();
+      if (['xlsx', 'xls', 'ods', 'csv'].indexOf(ext) === -1) {
+        toast('Format non supporte: ' + file.name + ' — utilisez .xlsx, .xls, .ods ou .csv', 'error');
+        return;
+      }
+
+      toast('Lecture de ' + file.name + '...', 'info');
+
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          var data = new Uint8Array(e.target.result);
+          var workbook = XLSX.read(data, { type: 'array', cellDates: false, raw: true });
+
+          // Use the first sheet
+          var sheetName = workbook.SheetNames[0];
+          var sheet = workbook.Sheets[sheetName];
+
+          // Convert to array-of-arrays (same format as clipboard tab-separated rows)
+          var rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+          if (!rows || rows.length < 3) {
+            toast('Fichier vide ou trop court: ' + file.name, 'error');
+            return;
+          }
+
+          // Stringify all cells (SheetJS may return numbers, dates, etc.)
+          for (var r = 0; r < rows.length; r++) {
+            for (var c = 0; c < rows[r].length; c++) {
+              var v = rows[r][c];
+              if (v === null || v === undefined) {
+                rows[r][c] = '';
+              } else if (typeof v === 'number') {
+                // Check if it could be a date serial (Excel date serials > 30000 are dates)
+                // But we keep numbers as-is; date parsing happens in parseDateFR
+                rows[r][c] = String(v);
+              } else {
+                rows[r][c] = String(v);
+              }
+            }
+          }
+
+          processImportRows(rows, file.name);
+        } catch (err) {
+          toast('Erreur lecture ' + file.name + ': ' + err.message, 'error');
+          console.error('SheetJS parse error:', err);
+        }
+      };
+      reader.onerror = function() {
+        toast('Erreur lecture fichier: ' + file.name, 'error');
+      };
+      reader.readAsArrayBuffer(file);
+    })(files[i]);
+  }
+}
+
+function openNewWithData(data) {
+  document.getElementById('fPop').innerHTML = popOpts(data.popId || 0);
+  document.getElementById('fNumGlpi').value = '';
+  document.getElementById('fType').value = data.type || 'Accueil';
+  document.getElementById('fPrestataire').value = data.prestataire || '';
+  document.getElementById('fHeberge').value = data.heberge || 'DINUM/RIE';
+  document.getElementById('fContactNom').value = data.contactNom || '';
+  document.getElementById('fContactTel').value = data.contactTel || '';
+  document.getElementById('fDateSouhaitee').value = data.dateSouhaitee || '';
+  document.getElementById('fHeureArrivee').value = data.heureArrivee || '';
+  document.getElementById('fDuree').value = data.duree || '';
+  document.getElementById('fPlateau').value = data.plateau || '';
+  document.getElementById('fBaie').value = data.baie || '';
+  document.getElementById('fNature').value = data.nature || '';
+  document.getElementById('fResume').value = data.resume || '';
+  if (data.popId) showPopAlerts(data.popId, 'popAlerts');
+  else {
+    document.getElementById('popAlerts').innerHTML = '';
+    var docReq = document.getElementById('popDocReq');
+    if (docReq) docReq.innerHTML = '';
+  }
+  document.getElementById('newModal').classList.add('active');
+}
+
+// ---- EVENTS ----
+(function() {
+  document.getElementById('btnNew').addEventListener('click', openNew);
+  document.getElementById('btnSaveNew').addEventListener('click', saveNew);
+  document.getElementById('btnCancelNew').addEventListener('click', function() { closeModal('newModal'); });
+  document.getElementById('newClose').addEventListener('click', function() { closeModal('newModal'); });
+  document.getElementById('detailClose').addEventListener('click', function() { closeModal('detailModal'); });
+  document.getElementById('detailModal').addEventListener('click', function(e) { if (e.target === this) closeModal('detailModal'); });
+  document.getElementById('newModal').addEventListener('click', function(e) { if (e.target === this) closeModal('newModal'); });
+  document.getElementById('searchBox').addEventListener('input', renderAll);
+  document.getElementById('filterPop').addEventListener('change', renderAll);
+  document.getElementById('filterType').addEventListener('change', renderAll);
+  document.getElementById('fPop').addEventListener('change', function() { showPopAlerts(parseInt(this.value), 'popAlerts'); });
+  document.getElementById('tabKanban').addEventListener('click', function() { switchView('kanban'); });
+  document.getElementById('tabTimeline').addEventListener('click', function() { switchView('timeline'); });
+  document.getElementById('tlPrev').addEventListener('click', function() { tlOffset--; renderTimeline(); });
+  document.getElementById('tlNext').addEventListener('click', function() { tlOffset++; renderTimeline(); });
+
+  // ---- DROP ZONE: drag-and-drop + click-to-browse + paste ----
+  var dz = document.getElementById('dropZone');
+  var fi = document.getElementById('fileInput');
+
+  // Drag-and-drop events
+  dz.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    dz.classList.add('dragover');
+  });
+  dz.addEventListener('dragenter', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    dz.classList.add('dragover');
+  });
+  dz.addEventListener('dragleave', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    dz.classList.remove('dragover');
+  });
+  dz.addEventListener('drop', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    dz.classList.remove('dragover');
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+      handleFiles(e.dataTransfer.files);
+    }
+  });
+
+  // Click-to-browse via hidden file input
+  fi.addEventListener('change', function() {
+    if (fi.files && fi.files.length) {
+      handleFiles(fi.files);
+      fi.value = ''; // reset so same file can be re-imported
+    }
+  });
+
+  // Clipboard paste (fallback)
+  dz.addEventListener('paste', handlePaste);
+  // Also allow paste anywhere on the page when drop zone is focused
+  document.addEventListener('paste', function(e) {
+    // Only trigger if no modal is open and no input is focused
+    var active = document.activeElement;
+    var tag = active ? active.tagName : '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (document.getElementById('newModal').classList.contains('active')) return;
+    if (document.getElementById('detailModal').classList.contains('active')) return;
+    handlePaste(e);
+  });
+})();
+
+loadData();
+setInterval(loadData, 60000);
+</script>
+</body>
+</html>
