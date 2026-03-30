@@ -323,6 +323,28 @@ body { font-family: 'Marianne', system-ui, sans-serif; background: var(--bg); co
 <div class="toast-container" id="toasts"></div>
 
 <script>
+
+/* === DEBUG BLOCK === */
+window.onerror = function(msg, src, line, col, err) {
+  var b = document.getElementById('board');
+  if (b) b.innerHTML = '<div style="color:#ce0500;padding:20px;font-size:14px"><strong>JS Error:</strong><br>' +
+    msg + '<br>Source: ' + src + '<br>Line: ' + line + '</div>';
+  return false;
+};
+window.addEventListener('unhandledrejection', function(e) {
+  var b = document.getElementById('board');
+  if (b) b.innerHTML = '<div style="color:#ce0500;padding:20px;font-size:14px"><strong>Promise Error:</strong><br>' +
+    (e.reason ? (e.reason.message || e.reason) : 'unknown') + '</div>';
+});
+console.log('[DA] Script loaded, grist available:', typeof grist !== 'undefined');
+if (typeof grist === 'undefined') {
+  document.addEventListener('DOMContentLoaded', function() {
+    var b = document.getElementById('board');
+    if (b) b.innerHTML = '<div style="color:#ce0500;padding:20px"><strong>grist-plugin-api.js non charge!</strong><br>L\'objet grist n\'est pas disponible.</div>';
+  });
+}
+/* === END DEBUG === */
+
 /* ======================================================================
    Demandes d'Accès — NOC RIE
    Migrated from berhalak to GitHub Pages for full browser API access
@@ -343,7 +365,9 @@ var SCSS = {
 var JOURS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 var MOIS = ['janv.', 'fevr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'aout', 'sept.', 'oct.', 'nov.', 'dec.'];
 
+console.log('[DA] Calling grist.ready...');
 grist.ready({ requiredAccess: 'full' });
+console.log('[DA] grist.ready() called OK');
 
 function applyAct(actions) {
   var attempt = 0;
@@ -1687,8 +1711,14 @@ function openNewWithData(data) {
   });
 })();
 
-loadData();
-setInterval(loadData, 60000);
+console.log('[DA] Calling loadData..., grist type:', typeof grist);
+try {
+  loadData();
+  setInterval(loadData, 60000);
+} catch(e) {
+  console.error('[DA] loadData crash:', e);
+  document.getElementById('board').innerHTML = '<div style="color:#ce0500;padding:20px"><strong>loadData error:</strong><br>' + e.message + '</div>';
+}
 </script>
 </body>
 </html>
