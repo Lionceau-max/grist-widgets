@@ -6,7 +6,7 @@
 <title>Demandes d'Accès — NOC RIE</title>
 <link rel="stylesheet" href="https://unpkg.com/@gouvfr/dsfr@1.11.2/dist/dsfr.min.css">
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<script src="./xlsx.full.min.js"></script>
 <style>
 :root {
   --bg: #f6f6f6; --card-bg: #fff; --border: #e5e5e5; --text: #1e1e1e; --text-secondary: #666;
@@ -385,6 +385,7 @@ function ensureXlsx() {
   if (xlsxLoader) return xlsxLoader;
 
   var sources = [
+    './xlsx.full.min.js',
     'https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js',
     'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js',
     'https://unpkg.com/xlsx/dist/xlsx.full.min.js'
