@@ -367,6 +367,43 @@ var MOIS = ['janv.', 'fevr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'aout', 's
 
 grist.ready({ requiredAccess: 'full' });
 
+var xlsxLoader = null;
+
+function loadScript(src) {
+  return new Promise(function(resolve, reject) {
+    var s = document.createElement('script');
+    s.src = src;
+    s.async = true;
+    s.onload = function() { resolve(); };
+    s.onerror = function() { reject(new Error('Chargement impossible: ' + src)); };
+    document.head.appendChild(s);
+  });
+}
+
+function ensureXlsx() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  if (xlsxLoader) return xlsxLoader;
+
+  var sources = [
+    'https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js',
+    'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js',
+    'https://unpkg.com/xlsx/dist/xlsx.full.min.js'
+  ];
+
+  xlsxLoader = (function tryNext(i) {
+    if (window.XLSX) return Promise.resolve(window.XLSX);
+    if (i >= sources.length) return Promise.reject(new Error('La librairie XLSX est indisponible'));
+    return loadScript(sources[i]).then(function() {
+      if (window.XLSX) return window.XLSX;
+      return tryNext(i + 1);
+    }).catch(function() {
+      return tryNext(i + 1);
+    });
+  })(0);
+
+  return xlsxLoader;
+}
+
 function applyAct(actions) {
   var attempt = 0;
   function go() {
@@ -1572,64 +1609,67 @@ function handlePaste(e) {
 // ==================================================================
 function handleFiles(files) {
   if (!files || !files.length) return;
+  ensureXlsx().then(function() {
+    // Process each file (supports dropping multiple forms at once)
+    for (var i = 0; i < files.length; i++) {
+      (function(file) {
+        var ext = file.name.split('.').pop().toLowerCase();
+        if (['xlsx', 'xls', 'ods', 'csv'].indexOf(ext) === -1) {
+          toast('Format non supporte: ' + file.name + ' — utilisez .xlsx, .xls, .ods ou .csv', 'error');
+          return;
+        }
 
-  // Process each file (supports dropping multiple forms at once)
-  for (var i = 0; i < files.length; i++) {
-    (function(file) {
-      var ext = file.name.split('.').pop().toLowerCase();
-      if (['xlsx', 'xls', 'ods', 'csv'].indexOf(ext) === -1) {
-        toast('Format non supporte: ' + file.name + ' — utilisez .xlsx, .xls, .ods ou .csv', 'error');
-        return;
-      }
+        toast('Lecture de ' + file.name + '...', 'info');
 
-      toast('Lecture de ' + file.name + '...', 'info');
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            var data = new Uint8Array(e.target.result);
+            var workbook = XLSX.read(data, { type: 'array', cellDates: false, raw: true });
 
-      var reader = new FileReader();
-      reader.onload = function(e) {
-        try {
-          var data = new Uint8Array(e.target.result);
-          var workbook = XLSX.read(data, { type: 'array', cellDates: false, raw: true });
+            // Use the first sheet
+            var sheetName = workbook.SheetNames[0];
+            var sheet = workbook.Sheets[sheetName];
 
-          // Use the first sheet
-          var sheetName = workbook.SheetNames[0];
-          var sheet = workbook.Sheets[sheetName];
+            // Convert to array-of-arrays (same format as clipboard tab-separated rows)
+            var rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
 
-          // Convert to array-of-arrays (same format as clipboard tab-separated rows)
-          var rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+            if (!rows || rows.length < 3) {
+              toast('Fichier vide ou trop court: ' + file.name, 'error');
+              return;
+            }
 
-          if (!rows || rows.length < 3) {
-            toast('Fichier vide ou trop court: ' + file.name, 'error');
-            return;
-          }
-
-          // Stringify all cells (SheetJS may return numbers, dates, etc.)
-          for (var r = 0; r < rows.length; r++) {
-            for (var c = 0; c < rows[r].length; c++) {
-              var v = rows[r][c];
-              if (v === null || v === undefined) {
-                rows[r][c] = '';
-              } else if (typeof v === 'number') {
-                // Check if it could be a date serial (Excel date serials > 30000 are dates)
-                // But we keep numbers as-is; date parsing happens in parseDateFR
-                rows[r][c] = String(v);
-              } else {
-                rows[r][c] = String(v);
+            // Stringify all cells (SheetJS may return numbers, dates, etc.)
+            for (var r = 0; r < rows.length; r++) {
+              for (var c = 0; c < rows[r].length; c++) {
+                var v = rows[r][c];
+                if (v === null || v === undefined) {
+                  rows[r][c] = '';
+                } else if (typeof v === 'number') {
+                  // Check if it could be a date serial (Excel date serials > 30000 are dates)
+                  // But we keep numbers as-is; date parsing happens in parseDateFR
+                  rows[r][c] = String(v);
+                } else {
+                  rows[r][c] = String(v);
+                }
               }
             }
-          }
 
-          processImportRows(rows, file.name);
-        } catch (err) {
-          toast('Erreur lecture ' + file.name + ': ' + err.message, 'error');
-          console.error('SheetJS parse error:', err);
-        }
-      };
-      reader.onerror = function() {
-        toast('Erreur lecture fichier: ' + file.name, 'error');
-      };
-      reader.readAsArrayBuffer(file);
-    })(files[i]);
-  }
+            processImportRows(rows, file.name);
+          } catch (err) {
+            toast('Erreur lecture ' + file.name + ': ' + err.message, 'error');
+            console.error('SheetJS parse error:', err);
+          }
+        };
+        reader.onerror = function() {
+          toast('Erreur lecture fichier: ' + file.name, 'error');
+        };
+        reader.readAsArrayBuffer(file);
+      })(files[i]);
+    }
+  }).catch(function(err) {
+    toast('Import indisponible: ' + err.message, 'error');
+  });
 }
 
 function openNewWithData(data) {
