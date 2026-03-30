@@ -304,9 +304,29 @@ body { font-family: 'Marianne', system-ui, sans-serif; background: var(--bg); co
           <input type="text" id="fBaie">
         </div>
       </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Position(s)</label>
+          <input type="text" id="fPosition">
+        </div>
+        <div class="form-group">
+          <label>Equipement(s)</label>
+          <input type="text" id="fEquipements">
+        </div>
+      </div>
       <div class="form-group">
         <label>Nature de l'intervention</label>
         <textarea id="fNature"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Materiel entrant</label>
+          <textarea id="fMatEntrant"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Materiel sortant</label>
+          <textarea id="fMatSortant"></textarea>
+        </div>
       </div>
       <div class="form-group">
         <label>Resume</label>
@@ -891,7 +911,11 @@ function openEdit(id) {
     fg('Duree', '<input type="text" id="eDu" value="' + esc(d.Duree || '') + '">') + '</div>' +
     '<div class="form-row">' + fg('Plateau(x)', '<input type="text" id="ePl" value="' + esc(d.Localisation_Plateau || '') + '">') +
     fg('Baie(s)', '<input type="text" id="eBa" value="' + esc(d.Localisation_Baie || '') + '">') + '</div>' +
+    '<div class="form-row">' + fg('Position(s)', '<input type="text" id="ePo" value="' + esc(d.Localisation_Position || '') + '">') +
+    fg('Equipement(s)', '<input type="text" id="eEq" value="' + esc(d.Equipements || '') + '">') + '</div>' +
     fg('Nature', '<textarea id="eNa" rows="2">' + esc(d.Nature_Intervention || '') + '</textarea>') +
+    '<div class="form-row">' + fg('Materiel entrant', '<textarea id="eME" rows="2">' + esc(d.Materiel_Entrant || '') + '</textarea>') +
+    fg('Materiel sortant', '<textarea id="eMS" rows="2">' + esc(d.Materiel_Sortant || '') + '</textarea>') + '</div>' +
     fg('Resume', '<textarea id="eRe" rows="2">' + esc(d.Resume || '') + '</textarea>') +
     fg('Notes', '<textarea id="eNo" rows="2">' + esc(d.Notes || '') + '</textarea>');
 
@@ -915,7 +939,11 @@ function openEdit(id) {
       Duree: document.getElementById('eDu').value.trim(),
       Localisation_Plateau: document.getElementById('ePl').value.trim(),
       Localisation_Baie: document.getElementById('eBa').value.trim(),
+      Localisation_Position: document.getElementById('ePo').value.trim(),
+      Equipements: document.getElementById('eEq').value.trim(),
       Nature_Intervention: document.getElementById('eNa').value.trim(),
+      Materiel_Entrant: document.getElementById('eME').value.trim(),
+      Materiel_Sortant: document.getElementById('eMS').value.trim(),
       Resume: document.getElementById('eRe').value.trim(),
       Notes: document.getElementById('eNo').value.trim()
     };
@@ -988,7 +1016,7 @@ function promptReponse(id) {
 // ---- NEW DEMAND ----
 function openNew() {
   document.getElementById('fPop').innerHTML = popOpts(0);
-  var fields = ['fNumGlpi', 'fPrestataire', 'fHeberge', 'fContactNom', 'fContactTel', 'fDateSouhaitee', 'fHeureArrivee', 'fDuree', 'fPlateau', 'fBaie', 'fNature', 'fResume'];
+  var fields = ['fNumGlpi', 'fPrestataire', 'fHeberge', 'fContactNom', 'fContactTel', 'fDateSouhaitee', 'fHeureArrivee', 'fDuree', 'fPlateau', 'fBaie', 'fPosition', 'fEquipements', 'fNature', 'fMatEntrant', 'fMatSortant', 'fResume'];
   for (var i = 0; i < fields.length; i++) document.getElementById(fields[i]).value = '';
   document.getElementById('fHeberge').value = 'DINUM/RIE';
   document.getElementById('fType').value = 'Accueil';
@@ -1015,7 +1043,11 @@ function saveNew() {
     Duree: document.getElementById('fDuree').value.trim(),
     Localisation_Plateau: document.getElementById('fPlateau').value.trim(),
     Localisation_Baie: document.getElementById('fBaie').value.trim(),
+    Localisation_Position: document.getElementById('fPosition').value.trim(),
+    Equipements: document.getElementById('fEquipements').value.trim(),
     Nature_Intervention: document.getElementById('fNature').value.trim(),
+    Materiel_Entrant: document.getElementById('fMatEntrant').value.trim(),
+    Materiel_Sortant: document.getElementById('fMatSortant').value.trim(),
     Resume: document.getElementById('fResume').value.trim(),
     Date_Reception: nowUnix()
   };
@@ -1502,7 +1534,11 @@ function processImportRows(rows, source) {
     duree: data.duree,
     plateau: data.plateau,
     baie: data.baie,
+    position: data.position,
+    equipements: data.equipements,
     nature: data.nature,
+    matEntrant: data.matEntrant,
+    matSortant: data.matSortant,
     resume: data.resume
   });
 
@@ -1609,7 +1645,11 @@ function openNewWithData(data) {
   document.getElementById('fDuree').value = data.duree || '';
   document.getElementById('fPlateau').value = data.plateau || '';
   document.getElementById('fBaie').value = data.baie || '';
+  document.getElementById('fPosition').value = data.position || '';
+  document.getElementById('fEquipements').value = data.equipements || '';
   document.getElementById('fNature').value = data.nature || '';
+  document.getElementById('fMatEntrant').value = data.matEntrant || '';
+  document.getElementById('fMatSortant').value = data.matSortant || '';
   document.getElementById('fResume').value = data.resume || '';
   if (data.popId) showPopAlerts(data.popId, 'popAlerts');
   else {
