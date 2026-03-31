@@ -1346,8 +1346,9 @@ function parseTime(s) {
 function detectVersion(rows) {
   var top = normCmp(cleanCell(rows, 0, 0));
   if (top.indexOf('DATACENTER') !== -1) return 1;
-  if (top.indexOf('SITE D INTERVENTION') !== -1 || normCmp(cleanCell(rows, 0, 4)).indexOf('PIB/POM') !== -1) return 2;
+  if (top.indexOf('SITE D INTERVENTION') !== -1 || normCmp(cleanCell(rows, 0, 4)).indexOf('SITE D INTERVENTION') !== -1 || normCmp(cleanCell(rows, 0, 4)).indexOf('PIB/POM') !== -1 || normCmp(cleanCell(rows, 0, 6)).indexOf('PIB/POM') !== -1) return 2;
   if (rows[4] && normCmp(cleanCell(rows, 4, 0)).indexOf('ACCUEIL') !== -1) return 1;
+  if (rows[3] && normCmp(cleanCell(rows, 3, 0)).indexOf('ACCUEIL') !== -1) return 2;
   if (rows[11] && normCmp(cleanCell(rows, 11, 0)).indexOf('INTERVENTION') !== -1) return 2;
   return 2;
 }
@@ -1490,10 +1491,42 @@ function extractPopName(rows, version) {
   return '';
 }
 
+function rowHasSelectionMarker(rows, r, labels) {
+  var cell = findCell(rows, labels, { fromRow: r, toRow: r });
+  if (!cell) return false;
+  var val = firstValueRight(rows, cell.r, cell.c, {
+    maxDistance: 2,
+    skipLabels: true,
+    skipMarkers: false
+  });
+  return isMarker(val);
+}
+
+function hasAccueilData(rows) {
+  return extractIntervenants(rows).length > 0;
+}
+
+function isSectionedFormV2(rows) {
+  return !!(rows[3] && rows[9] &&
+    normCmp(cleanCell(rows, 3, 0)).indexOf('ACCUEIL') !== -1 &&
+    normCmp(cleanCell(rows, 9, 0)).indexOf('ACCUEIL') !== -1);
+}
+
 function detectType(rows, version) {
   var defaultType = 'Accueil';
   var rowIndex = 4;
   if (!rows[rowIndex]) return defaultType;
+  if (version === 2 && isSectionedFormV2(rows)) {
+    if (rowHasSelectionMarker(rows, 32, ['LIVRAISON'])) return 'Livraison';
+    if (rowHasSelectionMarker(rows, 36, ['REPRISE'])) return 'Livraison';
+    if (rowHasSelectionMarker(rows, 43, ['Arrêt/Marche équipement', 'Arret/Marche equipement', 'Contrôle visuel', 'Controle visuel', 'Déconnexion/reconnexion', 'Deconnexion/reconnexion'])) return 'Geste';
+    if (rowHasSelectionMarker(rows, 44, ['Changement de disque', 'Changement module SFP', 'Changement FO', 'Inversion FO'])) return 'Geste';
+    if (rowHasSelectionMarker(rows, 49, ['Etudes', 'Travaux électriques', 'Travaux electriques', 'Autres travaux'])) return 'Autres Travaux';
+    if (rowHasSelectionMarker(rows, 54, ['Décommissionnement et/ou dépollution', 'Decommissionnement et/ou depollution', 'Destruction de disques', 'Retrait fibre / câble filaire', 'Retrait fibre / cable filaire'])) return 'Autres Travaux';
+    if (rowHasSelectionMarker(rows, 55, ['Destruction matériel', 'Destruction materiel', 'Destruction mémoires', 'Destruction memoires', 'Stockage en attente de reprise'])) return 'Autres Travaux';
+    if (rowHasSelectionMarker(rows, 56, ['Tirage de câbles', 'Tirage de cables', 'Pose de chemin de câbles', 'Pose de chemin de cables', 'Lame de couloir'])) return 'Autres Travaux';
+    if (hasAccueilData(rows)) return 'Accueil';
+  }
   var interventionCell = findCell(rows, 'INTERVENTION', { fromRow: rowIndex, toRow: rowIndex });
   if (interventionCell) {
     var interventionMarker = firstValueRight(rows, interventionCell.r, interventionCell.c, {
