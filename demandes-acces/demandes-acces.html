@@ -935,6 +935,10 @@ function openDetail(id) {
       var e = exchanges[ex];
       h += '<div style="border:1px solid #e5e7eb;border-radius:8px;padding:10px;margin-bottom:8px;background:#fafafa">';
       h += '<div style="font-size:12px;color:#4b5563;margin-bottom:6px"><strong>' + esc(e.Type_Echange || 'Echange') + '</strong> • ' + esc(e.Expediteur || '?') + ' → ' + esc(e.Destinataire || '?') + ' • ' + esc(fmtDateTime(e.Date_Heure)) + '</div>';
+      h += '<div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:6px">' +
+        '<button class="btn btn-sm btn-ghost" data-a="ex-edit" data-d="' + d.id + '" data-ex="' + e.id + '">Modifier</button>' +
+        '<button class="btn btn-sm btn-ghost btn-danger-text" data-a="ex-del" data-d="' + d.id + '" data-ex="' + e.id + '">Supprimer</button>' +
+        '</div>';
       if (e.Message) h += '<div style="white-space:pre-wrap;font-size:13px">' + esc(e.Message) + '</div>';
       if (e.Action_Attendue) h += '<div style="font-size:12px;color:#7c2d12;margin-top:6px"><strong>Action attendue :</strong> ' + esc(e.Action_Attendue) + '</div>';
       if (e.Statut_Apres_Echange || e.Attente_De) h += '<div style="font-size:12px;color:#4b5563;margin-top:6px"><strong>Apres echange :</strong> ' + esc(e.Statut_Apres_Echange || '') + (e.Attente_De ? ' • attente ' + esc((e.Attente_De || '').toLowerCase()) : '') + '</div>';
@@ -981,6 +985,8 @@ function openDetail(id) {
         else if (a === 'rep') promptReponse(did);
         else if (a === 'resend') promptResend(did);
         else if (a === 'edit') openEdit(did);
+        else if (a === 'ex-edit') openEditExchange(did, parseInt(btn.getAttribute('data-ex')));
+        else if (a === 'ex-del') deleteExchange(did, parseInt(btn.getAttribute('data-ex')));
         else if (a === 'ma') showMail(did, 'a');
         else if (a === 'mt') showMail(did, 't');
         else if (a === 'mr') showMail(did, 'r');
@@ -1289,6 +1295,44 @@ function promptResend(id) {
     }).catch(function(e) { toast('Erreur: ' + e.message, 'error'); });
   });
   document.getElementById('resBack').addEventListener('click', function() { openDetail(id); });
+}
+
+function openEditExchange(demandeId, exchangeId) {
+  var e = allEchanges.find(function(x) { return x.id === exchangeId; });
+  if (!e) { toast('Echange introuvable', 'error'); return; }
+  document.getElementById('detailBody').innerHTML =
+    '<div class="form-row">' +
+    fg('Expediteur', '<input type="text" value="' + esc(e.Expediteur || '') + '" disabled>') +
+    fg('Destinataire', '<input type="text" value="' + esc(e.Destinataire || '') + '" disabled>') +
+    '</div>' +
+    fg('Message', '<textarea id="exMsg" rows="8">' + esc(e.Message || '') + '</textarea>') +
+    fg('Action attendue', '<textarea id="exAction" rows="3">' + esc(e.Action_Attendue || '') + '</textarea>');
+  document.getElementById('detailActions').innerHTML = '<button class="btn btn-primary" id="exSave">Enregistrer</button><button class="btn btn-ghost" id="exBack">Retour</button>';
+  document.getElementById('exSave').addEventListener('click', function() {
+    var msg = document.getElementById('exMsg').value.trim();
+    var action = document.getElementById('exAction').value.trim();
+    if (!msg) { toast('Message requis', 'error'); return; }
+    applyAct([['UpdateRecord', 'Echanges', exchangeId, {
+      Message: msg,
+      Action_Attendue: action
+    }]]).then(function() {
+      toast('Echange mis a jour', 'success');
+      loadData();
+      setTimeout(function() { openDetail(demandeId); }, 150);
+    }).catch(function(err) { toast('Erreur: ' + err.message, 'error'); });
+  });
+  document.getElementById('exBack').addEventListener('click', function() { openDetail(demandeId); });
+}
+
+function deleteExchange(demandeId, exchangeId) {
+  var e = allEchanges.find(function(x) { return x.id === exchangeId; });
+  if (!e) { toast('Echange introuvable', 'error'); return; }
+  if (!window.confirm('Supprimer cet echange ?')) return;
+  applyAct([['RemoveRecord', 'Echanges', exchangeId]]).then(function() {
+    toast('Echange supprime', 'success');
+    loadData();
+    setTimeout(function() { openDetail(demandeId); }, 150);
+  }).catch(function(err) { toast('Erreur: ' + err.message, 'error'); });
 }
 
 // ---- NEW DEMAND ----
