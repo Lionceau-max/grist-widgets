@@ -376,16 +376,17 @@ body { font-family: 'Marianne', system-ui, sans-serif; background: var(--bg); co
    ====================================================================== */
 
 var allDemandes = [];
+var allEchanges = [];
 var popMap = {};
 var hebergeurMap = {};
 var popList = [];
 var tlOffset = 0;
 var currentView = 'kanban';
 var ASSET_BASE = 'https://lionceau-max.github.io/grist-widgets/demandes-acces/';
-var STATUTS = ['Reçue', 'En vérification', 'Transmise', 'Complément demandé', 'Accord reçu', 'Refus reçu', 'Clôturée', 'Annulée'];
+var STATUTS = ['Reçue', 'En vérification', 'Transmise', 'Complément demandé', 'En attente hébergeur', 'Accord reçu', 'Refus reçu', 'Clôturée', 'Annulée'];
 var SCSS = {
   'Reçue': 'Recue', 'En vérification': 'Verif', 'Transmise': 'Transmise',
-  'Complément demandé': 'Reponse', 'Accord reçu': 'Transmise', 'Refus reçu': 'Reponse',
+  'Complément demandé': 'Reponse', 'En attente hébergeur': 'Verif', 'Accord reçu': 'Transmise', 'Refus reçu': 'Reponse',
   'Réponse reçue': 'Reponse', 'Clôturée': 'Cloturee', 'Annulée': 'Annulee'
 };
 var JOURS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
@@ -412,6 +413,12 @@ function getDisplayStatut(d) {
     return 'Accord reçu';
   }
   return d.Statut;
+}
+
+function getDemandEchanges(demandeId) {
+  var list = allEchanges.filter(function(x) { return x.Demande === demandeId; });
+  list.sort(function(a, b) { return (b.Date_Heure || 0) - (a.Date_Heure || 0); });
+  return list;
 }
 
 grist.ready({ requiredAccess: 'full' });
@@ -568,8 +575,8 @@ function getAlerts(d) {
   if (h && h.Criblage_Requis) alerts.push({ l: 'Criblage requis', c: 'criblage' });
   if (h && h.CPR_Requis) alerts.push({ l: 'CPR requis', c: 'cpr' });
   if (p && p.CNI_Obligatoire) alerts.push({ l: 'CNI obligatoire (OM)', c: 'cni' });
-  if (st === 'Complément demandé') {
-    alerts.push({ l: 'Attente ' + esc((d.Blocage_Actuel || 'suivi').toLowerCase()), c: 'info' });
+  if (st === 'Complément demandé' || st === 'En attente hébergeur') {
+    alerts.push({ l: 'Attente ' + esc((d.Attente_De || d.Blocage_Actuel || 'suivi').toLowerCase()), c: 'info' });
   }
   if (h && h.Delai_Min_Jours && d.Date_Souhaitee) {
     var j = Math.floor((d.Date_Souhaitee - Date.now() / 1000) / 86400);
@@ -666,7 +673,7 @@ function mailRetour(d) {
   var nature = getEffectiveNature(d);
   var obj = 'RE: [NOC RIE] [DEMANDE ACCES] ' + (d.Ref_DA || '') + ' - ' + p + (ds ? ' - ' + ds : '');
   var corps = 'Bonjour,\n\nNous revenons vers vous concernant votre demande ' + (d.Ref_DA || '') + ' au ' + p + '.\n\n';
-  if (nature === 'Complément' || st === 'Complément demandé') {
+  if (nature === 'Complément' || st === 'Complément demandé' || st === 'En attente hébergeur') {
     corps += 'L\'hébergeur nous demande des informations complémentaires avant validation.\n\n';
     if (d.Infos_Manquantes) corps += 'Compléments attendus :\n' + d.Infos_Manquantes + '\n\n';
     if (d.Prochaine_Action) corps += 'Prochaine action attendue : ' + d.Prochaine_Action + '\n\n';
@@ -746,7 +753,7 @@ function getRisk(d) {
   var dm = h ? (h.Delai_Min_Jours || 2) : 2;
   if (st === 'Accord reçu') return 'ok';
   if (st === 'Refus reçu') return 'done';
-  if (st === 'Complément demandé') return j < 2 ? 'danger' : 'warn';
+  if (st === 'Complément demandé' || st === 'En attente hébergeur') return j < 2 ? 'danger' : 'warn';
   if (st === 'Transmise') return j < 2 ? 'danger' : j < 5 ? 'warn' : 'ok';
   if (st === 'En vérification') return j < 3 ? 'danger' : j < dm ? 'warn' : 'ok';
   return j < dm ? 'danger' : j < dm + 3 ? 'warn' : 'ok';
@@ -756,7 +763,7 @@ function statusCss(st) {
   if (st === 'Reçue') return 'st-recue';
   if (st === 'En vérification') return 'st-verif';
   if (st === 'Transmise') return 'st-trans';
-  if (st === 'Complément demandé' || st === 'Accord reçu' || st === 'Refus reçu' || st === 'Réponse reçue') return 'st-rep';
+  if (st === 'Complément demandé' || st === 'En attente hébergeur' || st === 'Accord reçu' || st === 'Refus reçu' || st === 'Réponse reçue') return 'st-rep';
   return 'st-clo';
 }
 
@@ -914,12 +921,27 @@ function openDetail(id) {
   h += fi('Reception', fmtDateTime(d.Date_Reception)) + fi('Verification', fmtDateTime(d.Date_Verification));
   h += fi('Transmission', fmtDateTime(d.Date_Transmission)) + fi('Reponse', fmtDateTime(d.Date_Reponse));
   h += fi('Cloture', fmtDateTime(d.Date_Cloture)) + fi('Nature réponse', d.Nature_Reponse || getEffectiveNature(d));
-  h += fi('Blocage actuel', d.Blocage_Actuel) + fi('Dernier échange', fmtDateTime(d.Date_Dernier_Echange));
+  h += fi('Blocage actuel', d.Blocage_Actuel) + fi('Attente de', d.Attente_De);
+  h += fi('Dernier échange', fmtDateTime(d.Date_Dernier_Echange)) + fi('Prochaine action', d.Prochaine_Action);
   h += '</div>';
   if (d.Reponse_Hebergeur) h += '<div class="field" style="margin-top:8px"><span class="field-label">Reponse hebergeur</span><span class="field-value" style="background:#f6f6f6;padding:8px;border-radius:4px;white-space:pre-wrap">' + esc(d.Reponse_Hebergeur) + '</span></div>';
   if (d.Infos_Manquantes) h += '<div class="field" style="margin-top:8px"><span class="field-label">Infos manquantes</span><span class="field-value" style="background:#fff4e5;padding:8px;border-radius:4px;white-space:pre-wrap">' + esc(d.Infos_Manquantes) + '</span></div>';
-  if (d.Prochaine_Action) h += '<div class="field" style="margin-top:8px"><span class="field-label">Prochaine action</span><span class="field-value">' + esc(d.Prochaine_Action) + '</span></div>';
   h += '</div>';
+
+  var exchanges = getDemandEchanges(d.id);
+  if (exchanges.length) {
+    h += '<div class="modal-section"><h3>Echanges</h3>';
+    for (var ex = 0; ex < exchanges.length && ex < 8; ex++) {
+      var e = exchanges[ex];
+      h += '<div style="border:1px solid #e5e7eb;border-radius:8px;padding:10px;margin-bottom:8px;background:#fafafa">';
+      h += '<div style="font-size:12px;color:#4b5563;margin-bottom:6px"><strong>' + esc(e.Type_Echange || 'Echange') + '</strong> • ' + esc(e.Expediteur || '?') + ' → ' + esc(e.Destinataire || '?') + ' • ' + esc(fmtDateTime(e.Date_Heure)) + '</div>';
+      if (e.Message) h += '<div style="white-space:pre-wrap;font-size:13px">' + esc(e.Message) + '</div>';
+      if (e.Action_Attendue) h += '<div style="font-size:12px;color:#7c2d12;margin-top:6px"><strong>Action attendue :</strong> ' + esc(e.Action_Attendue) + '</div>';
+      if (e.Statut_Apres_Echange || e.Attente_De) h += '<div style="font-size:12px;color:#4b5563;margin-top:6px"><strong>Apres echange :</strong> ' + esc(e.Statut_Apres_Echange || '') + (e.Attente_De ? ' • attente ' + esc((e.Attente_De || '').toLowerCase()) : '') + '</div>';
+      h += '</div>';
+    }
+    h += '</div>';
+  }
 
   if (d.Notes) h += '<div class="modal-section"><h3>Notes</h3><div style="white-space:pre-wrap;font-size:13px;background:#f6f6f6;padding:8px;border-radius:4px">' + esc(d.Notes) + '</div></div>';
 
@@ -930,12 +952,12 @@ function openDetail(id) {
   if (st === 'Reçue') act += '<button class="btn btn-primary" data-a="acq" data-d="' + d.id + '">Acquitter</button>';
   if (st === 'En vérification') act += '<button class="btn btn-success" data-a="ver" data-d="' + d.id + '">Verifiee et transmettre</button>';
   if (st === 'Transmise') act += '<button class="btn btn-warning" data-a="rep" data-d="' + d.id + '">Enregistrer reponse</button>';
-  if (st === 'Complément demandé') act += '<button class="btn btn-warning" data-a="resend" data-d="' + d.id + '">Retransmettre compléments</button>';
+  if (st === 'Complément demandé' || st === 'En attente hébergeur') act += '<button class="btn btn-warning" data-a="resend" data-d="' + d.id + '">Consigner echange</button>';
   if (st === 'Accord reçu' || st === 'Refus reçu') act += '<button class="btn btn-success" data-a="clo" data-d="' + d.id + '">Cloturer</button>';
   act += '<span class="action-sep"></span>';
   if (st === 'Reçue' || st === 'En vérification') act += '<button class="btn btn-mail" data-a="ma" data-d="' + d.id + '">\u2709 Acquittement</button>';
   if (st === 'En vérification' || st === 'Transmise') act += '<button class="btn btn-mail" data-a="mt" data-d="' + d.id + '">\u2709 Transmission</button>';
-  if (st === 'Complément demandé' || st === 'Accord reçu' || st === 'Refus reçu' || st === 'Clôturée') act += '<button class="btn btn-mail" data-a="mr" data-d="' + d.id + '">\u2709 Retour presta</button>';
+  if (st === 'Complément demandé' || st === 'En attente hébergeur' || st === 'Accord reçu' || st === 'Refus reçu' || st === 'Clôturée') act += '<button class="btn btn-mail" data-a="mr" data-d="' + d.id + '">\u2709 Retour presta</button>';
   act += '<span class="action-sep"></span>';
   if (st !== 'Clôturée' && st !== 'Annulée') {
     act += '<button class="btn btn-ghost" data-a="edit" data-d="' + d.id + '">Modifier</button>';
@@ -1022,11 +1044,14 @@ function openEdit(id) {
     '<div id="eAl" class="card-alerts" style="margin-bottom:12px"></div>' +
     '<div id="eDocReq"></div>' +
     '<div class="form-row">' +
-    fg('Statut', '<select id="eSt"><option' + (getDisplayStatut(d) === 'Reçue' ? ' selected' : '') + '>Reçue</option><option' + (getDisplayStatut(d) === 'En vérification' ? ' selected' : '') + '>En vérification</option><option' + (getDisplayStatut(d) === 'Transmise' ? ' selected' : '') + '>Transmise</option><option' + (getDisplayStatut(d) === 'Complément demandé' ? ' selected' : '') + '>Complément demandé</option><option' + (getDisplayStatut(d) === 'Accord reçu' ? ' selected' : '') + '>Accord reçu</option><option' + (getDisplayStatut(d) === 'Refus reçu' ? ' selected' : '') + '>Refus reçu</option><option' + (getDisplayStatut(d) === 'Clôturée' ? ' selected' : '') + '>Clôturée</option><option' + (getDisplayStatut(d) === 'Annulée' ? ' selected' : '') + '>Annulée</option></select>') +
+    fg('Statut', '<select id="eSt"><option' + (getDisplayStatut(d) === 'Reçue' ? ' selected' : '') + '>Reçue</option><option' + (getDisplayStatut(d) === 'En vérification' ? ' selected' : '') + '>En vérification</option><option' + (getDisplayStatut(d) === 'Transmise' ? ' selected' : '') + '>Transmise</option><option' + (getDisplayStatut(d) === 'Complément demandé' ? ' selected' : '') + '>Complément demandé</option><option' + (getDisplayStatut(d) === 'En attente hébergeur' ? ' selected' : '') + '>En attente hébergeur</option><option' + (getDisplayStatut(d) === 'Accord reçu' ? ' selected' : '') + '>Accord reçu</option><option' + (getDisplayStatut(d) === 'Refus reçu' ? ' selected' : '') + '>Refus reçu</option><option' + (getDisplayStatut(d) === 'Clôturée' ? ' selected' : '') + '>Clôturée</option><option' + (getDisplayStatut(d) === 'Annulée' ? ' selected' : '') + '>Annulée</option></select>') +
     fg('Nature réponse', '<select id="eNr"><option value=""></option><option value="Accord"' + (getEffectiveNature(d) === 'Accord' ? ' selected' : '') + '>Accord</option><option value="Complément"' + (getEffectiveNature(d) === 'Complément' ? ' selected' : '') + '>Complément</option><option value="Refus"' + (getEffectiveNature(d) === 'Refus' ? ' selected' : '') + '>Refus</option></select>') +
     '</div>' +
     '<div class="form-row">' +
     fg('Blocage actuel', '<select id="eBl"><option value=""></option><option value="Prestataire"' + (d.Blocage_Actuel === 'Prestataire' ? ' selected' : '') + '>Prestataire</option><option value="NOC"' + (d.Blocage_Actuel === 'NOC' ? ' selected' : '') + '>NOC</option><option value="Hébergeur"' + (d.Blocage_Actuel === 'Hébergeur' ? ' selected' : '') + '>Hébergeur</option></select>') +
+    fg('Attente de', '<select id="eAt"><option value=""></option><option value="Prestataire"' + (d.Attente_De === 'Prestataire' ? ' selected' : '') + '>Prestataire</option><option value="NOC"' + (d.Attente_De === 'NOC' ? ' selected' : '') + '>NOC</option><option value="Hébergeur"' + (d.Attente_De === 'Hébergeur' ? ' selected' : '') + '>Hébergeur</option></select>') +
+    '</div>' +
+    '<div class="form-row">' +
     fg('Dernier échange', '<input type="text" value="' + esc(fmtDateTime(d.Date_Dernier_Echange)) + '" disabled>') +
     '</div>' +
     fg('Infos manquantes', '<textarea id="eIm" rows="3">' + esc(d.Infos_Manquantes || '') + '</textarea>') +
@@ -1064,6 +1089,7 @@ function openEdit(id) {
       Statut: document.getElementById('eSt').value,
       Nature_Reponse: document.getElementById('eNr').value,
       Blocage_Actuel: document.getElementById('eBl').value,
+      Attente_De: document.getElementById('eAt').value,
       Infos_Manquantes: document.getElementById('eIm').value.trim(),
       Prochaine_Action: document.getElementById('ePa').value.trim(),
       Type_Demande: document.getElementById('eT').value,
@@ -1085,7 +1111,7 @@ function openEdit(id) {
     };
     var ds = document.getElementById('eDS').value;
     if (ds) f.Date_Souhaitee = dateToUnix(ds);
-    if (f.Statut === 'Complément demandé' || f.Statut === 'Accord reçu' || f.Statut === 'Refus reçu') {
+    if (f.Statut === 'Complément demandé' || f.Statut === 'En attente hébergeur' || f.Statut === 'Accord reçu' || f.Statut === 'Refus reçu') {
       f.Date_Dernier_Echange = nowUnix();
     }
     applyAct([['UpdateRecord', 'Demandes', id, f]]).then(function() {
@@ -1130,8 +1156,15 @@ function showPopAlertsEdit(popId) {
 function changeStatut(id, ns, df) {
   var u = { Statut: ns };
   if (df) u[df] = nowUnix();
-  if (ns === 'Transmise') u.Date_Transmission = nowUnix();
-  if (ns === 'Clôturée') u.Prochaine_Action = '';
+  if (ns === 'Transmise') {
+    u.Date_Transmission = nowUnix();
+    u.Attente_De = 'Hébergeur';
+  }
+  if (ns === 'Clôturée') {
+    u.Prochaine_Action = '';
+    u.Attente_De = '';
+    u.Blocage_Actuel = '';
+  }
   applyAct([['UpdateRecord', 'Demandes', id, u]]).then(function() {
     toast('Statut \u2192 ' + ns, 'success');
     closeModal('detailModal');
@@ -1169,10 +1202,25 @@ function promptReponse(id) {
       Date_Dernier_Echange: nowUnix(),
       Reponse_Hebergeur: t.trim(),
       Blocage_Actuel: kind === 'Complément' ? wait : '',
+      Attente_De: kind === 'Complément' ? wait : '',
       Infos_Manquantes: kind === 'Complément' ? missing : '',
       Prochaine_Action: next
     };
-    applyAct([['UpdateRecord', 'Demandes', id, payload]]).then(function() {
+    applyAct([
+      ['AddRecord', 'Echanges', null, {
+        Demande: id,
+        Date_Heure: nowUnix(),
+        Expediteur: 'Hébergeur',
+        Destinataire: 'NOC',
+        Canal: 'Mail',
+        Type_Echange: kind === 'Accord' ? 'Accord' : (kind === 'Refus' ? 'Refus' : 'Demande de complément'),
+        Message: t.trim(),
+        Action_Attendue: next || missing,
+        Statut_Apres_Echange: status,
+        Attente_De: kind === 'Complément' ? wait : ''
+      }],
+      ['UpdateRecord', 'Demandes', id, payload]
+    ]).then(function() {
       toast('Reponse OK', 'success');
       closeModal('detailModal');
       loadData();
@@ -1184,25 +1232,58 @@ function promptReponse(id) {
 
 function promptResend(id) {
   document.getElementById('detailBody').innerHTML =
-    fg('Compléments retransmis / message envoyé', '<textarea id="resMsg" rows="4" placeholder="Précisez ce qui a été renvoyé à l\'hébergeur"></textarea>') +
-    fg('Prochaine action', '<textarea id="resNext" rows="2" placeholder="Ex: Attente retour hébergeur"></textarea>');
+    '<div class="form-row">' +
+    fg('Expediteur', '<select id="resFrom"><option value="NOC">NOC</option><option value="Prestataire">Prestataire</option><option value="Hébergeur">Hébergeur</option></select>') +
+    fg('Destinataire', '<select id="resTo"><option value="Hébergeur">Hébergeur</option><option value="Prestataire">Prestataire</option><option value="NOC">NOC</option></select>') +
+    '</div>' +
+    '<div class="form-row">' +
+    fg('Type d\'echange', '<select id="resType"><option value="Clarification">Clarification</option><option value="Demande de complément">Demande de complément</option><option value="Réponse">Réponse</option><option value="Relance">Relance</option><option value="Accord">Accord</option><option value="Refus">Refus</option></select>') +
+    fg('Statut après échange', '<select id="resStatus"><option value="En attente hébergeur">En attente hébergeur</option><option value="Complément demandé">Complément demandé</option><option value="Accord reçu">Accord reçu</option><option value="Refus reçu">Refus reçu</option></select>') +
+    '</div>' +
+    fg('Message', '<textarea id="resMsg" rows="5" placeholder="Ex: Vous trouverez le nom du technicien dans le fichier transmis..."></textarea>') +
+    fg('Action attendue', '<textarea id="resAction" rows="2" placeholder="Ex: Précision sur l\'habilitation demandée"></textarea>') +
+    '<div class="form-row">' +
+    fg('Attente de', '<select id="resWait"><option value="Hébergeur">Hébergeur</option><option value="Prestataire">Prestataire</option><option value="NOC">NOC</option><option value=""></option></select>') +
+    fg('Prochaine action', '<textarea id="resNext" rows="2" placeholder="Ex: Attente retour hébergeur"></textarea>') +
+    '</div>';
   document.getElementById('detailActions').innerHTML = '<button class="btn btn-success" id="resOk">Valider</button><button class="btn btn-ghost" id="resBack">Retour</button>';
   document.getElementById('resOk').addEventListener('click', function() {
     var msg = document.getElementById('resMsg').value.trim();
-    var next = document.getElementById('resNext').value.trim() || 'Attente retour hébergeur';
-    var d = allDemandes.find(function(x) { return x.id === id; });
-    var notes = d && d.Notes ? d.Notes + '\n\n' : '';
-    if (msg) notes += '[' + new Date().toLocaleString('fr-FR') + '] Compléments retransmis :\n' + msg;
+    if (!msg) { toast('Saisissez le message ou le résumé de l\'échange', 'error'); return; }
+    var from = document.getElementById('resFrom').value;
+    var to = document.getElementById('resTo').value;
+    var type = document.getElementById('resType').value;
+    var status = document.getElementById('resStatus').value;
+    var action = document.getElementById('resAction').value.trim();
+    var wait = document.getElementById('resWait').value;
+    var next = document.getElementById('resNext').value.trim() || (wait ? 'Attente retour ' + wait.toLowerCase() : '');
     var payload = {
-      Statut: 'Complément demandé',
-      Nature_Reponse: 'Complément',
-      Blocage_Actuel: 'Hébergeur',
+      Statut: status,
+      Nature_Reponse: status === 'Accord reçu' ? 'Accord' : (status === 'Refus reçu' ? 'Refus' : 'Complément'),
+      Blocage_Actuel: wait,
+      Attente_De: wait,
       Date_Dernier_Echange: nowUnix(),
       Prochaine_Action: next
     };
-    if (msg) payload.Notes = notes;
-    applyAct([['UpdateRecord', 'Demandes', id, payload]]).then(function() {
-      toast('Compléments retransmis', 'success');
+    if (type === 'Accord' || status === 'Accord reçu') payload.Date_Reponse = nowUnix();
+    if (type === 'Refus' || status === 'Refus reçu') payload.Date_Reponse = nowUnix();
+    if (wait === 'Prestataire' || wait === 'NOC') payload.Infos_Manquantes = action;
+    applyAct([
+      ['AddRecord', 'Echanges', null, {
+        Demande: id,
+        Date_Heure: nowUnix(),
+        Expediteur: from,
+        Destinataire: to,
+        Canal: 'Mail',
+        Type_Echange: type,
+        Message: msg,
+        Action_Attendue: action,
+        Statut_Apres_Echange: status,
+        Attente_De: wait
+      }],
+      ['UpdateRecord', 'Demandes', id, payload]
+    ]).then(function() {
+      toast('Echange consigne', 'success');
       closeModal('detailModal');
       loadData();
     }).catch(function(e) { toast('Erreur: ' + e.message, 'error'); });
@@ -1262,9 +1343,10 @@ function loadData() {
   Promise.all([
     grist.docApi.fetchTable('Hebergeurs'),
     grist.docApi.fetchTable('POP'),
-    grist.docApi.fetchTable('Demandes')
+    grist.docApi.fetchTable('Demandes'),
+    grist.docApi.fetchTable('Echanges').catch(function() { return null; })
   ]).then(function(results) {
-    var hd = results[0], pd = results[1], dd = results[2];
+    var hd = results[0], pd = results[1], dd = results[2], ed = results[3];
     hebergeurMap = {};
     if (hd && hd.id) {
       for (var i = 0; i < hd.id.length; i++) {
@@ -1313,6 +1395,17 @@ function loadData() {
           if (cols[ci] !== 'manualSort') row[cols[ci]] = dd[cols[ci]][di];
         }
         allDemandes.push(row);
+      }
+    }
+    allEchanges = [];
+    if (ed && ed.id) {
+      var ecols = Object.keys(ed);
+      for (var ei = 0; ei < ed.id.length; ei++) {
+        var erow = {};
+        for (var eci = 0; eci < ecols.length; eci++) {
+          if (ecols[eci] !== 'manualSort') erow[ecols[eci]] = ed[ecols[eci]][ei];
+        }
+        allEchanges.push(erow);
       }
     }
     renderAll();
