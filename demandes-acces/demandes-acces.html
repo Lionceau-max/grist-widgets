@@ -383,6 +383,7 @@ var allEchanges = [];
 var popMap = {};
 var hebergeurMap = {};
 var popList = [];
+var pendingImportedIntervenants = [];
 var tlOffset = 0;
 var currentView = 'kanban';
 var ASSET_BASE = 'https://lionceau-max.github.io/grist-widgets/demandes-acces/';
@@ -515,6 +516,14 @@ function unixToDate(ts) {
 function nowUnix() { return Math.floor(Date.now() / 1000); }
 function getPopName(id) { return popMap[id] ? popMap[id].Nom : '\u2014'; }
 function getHeb(pid) { var p = popMap[pid]; return p ? (hebergeurMap[p.Hebergeur] || null) : null; }
+function isRosnyProcedurePop(pid) {
+  var p = popMap[pid];
+  var n = normCmp(p && p.Nom ? p.Nom : '');
+  return !!n && n.indexOf('PARIS3') !== -1 && /\b(B03|B015)\b/.test(n);
+}
+function getRosnyProcedureText() {
+  return 'Acces zone technique Rosny/Gendarmerie: completer le tableau Rosny et le retourner a bf-ch-acc-gestion-sites-dc@interieur.gouv.fr. Plus de copie de CNI. Carte grise uniquement si vehicule pour materiel volumineux/lourd.';
+}
 function isB015SirFamily(pid) {
   var p = popMap[pid];
   return !!(p && /B015\/SIR\//i.test(p.Nom || ''));
@@ -629,6 +638,7 @@ function showPopAlerts(popId, divId) {
   if (p && p.CNI_Obligatoire) div.innerHTML += '<span class="alert-badge cni">\u26A0 CNI obligatoire</span>';
   var hostNotes = sanitizeAccessNotes(h.Notes_Exigences, popId);
   if (hostNotes) div.innerHTML += '<div style="font-size:12px;color:#b34000;margin-top:4px">\u2139 ' + esc(hostNotes) + '</div>';
+  if (isRosnyProcedurePop(popId)) div.innerHTML += '<div style="font-size:12px;color:#b34000;margin-top:4px">\u2139 ' + esc(getRosnyProcedureText()) + '</div>';
   showDocReq(popId);
 }
 
@@ -648,6 +658,11 @@ function showDocReq(popId) {
   }
   if (h.Criblage_Requis) html += '<div class="doc-req-item"><span class="req-icon">\uD83D\uDD0D</span> Criblage requis</div>';
   if (h.CPR_Requis) html += '<div class="doc-req-item"><span class="req-icon">\uD83D\uDEE1</span> CPR/Controle primaire requis</div>';
+  if (isRosnyProcedurePop(popId)) {
+    html += '<div class="doc-req-item"><span class="req-icon">\uD83D\uDCC4</span> Tableau Rosny a completer et renvoyer a <em>bf-ch-acc-gestion-sites-dc@interieur.gouv.fr</em></div>';
+    html += '<div class="doc-req-item"><span class="req-icon">\u274C</span> Photocopie CNI non demandee</div>';
+    html += '<div class="doc-req-item"><span class="req-icon">\uD83D\uDE97</span> Carte grise uniquement si vehicule pour materiel volumineux/lourd</div>';
+  }
   html += '</div>';
   el.innerHTML = html;
 }
@@ -994,6 +1009,7 @@ function openDetail(id) {
   if (st === 'Reçue' || st === 'En vérification') act += '<button class="btn btn-mail" data-a="ma" data-d="' + d.id + '">\u2709 Acquittement</button>';
   if (st === 'En vérification' || st === 'Transmise') act += '<button class="btn btn-mail" data-a="mt" data-d="' + d.id + '">\u2709 Transmission</button>';
   if (st === 'Complément demandé' || st === 'En attente hébergeur' || st === 'Accord reçu' || st === 'Refus reçu' || st === 'Clôturée') act += '<button class="btn btn-mail" data-a="mr" data-d="' + d.id + '">\u2709 Retour presta</button>';
+  if (isRosnyProcedurePop(d.POP_Ref)) act += '<button class="btn btn-ghost" data-a="rosny" data-d="' + d.id + '">Fiche Rosny</button>';
   act += '<span class="action-sep"></span>';
   if (st !== 'Clôturée' && st !== 'Annulée') {
     act += '<button class="btn btn-ghost" data-a="edit" data-d="' + d.id + '">Modifier</button>';
@@ -1022,6 +1038,7 @@ function openDetail(id) {
         else if (a === 'ma') showMail(did, 'a');
         else if (a === 'mt') showMail(did, 't');
         else if (a === 'mr') showMail(did, 'r');
+        else if (a === 'rosny') downloadRosnyForm(did);
       });
     })(btns[b]);
   }
@@ -1039,6 +1056,9 @@ function showMail(id, type) {
 
   var exig = getExig(d.POP_Ref);
   var emailHint = '';
+  if (type === 't' && isRosnyProcedurePop(d.POP_Ref)) {
+    emailHint = '<div class="mail-hint"><strong>Dest. hebergeur :</strong><br>bf-ch-acc-gestion-sites-dc@interieur.gouv.fr<br><button class="btn btn-sm btn-ghost" id="cpEmails">Copier emails</button></div>';
+  }
   if (type === 't' && exig) {
     var em = exig.match(/[\w.+-]+@[\w.-]+\.(?:gouv\.fr|elysee\.fr|intradef\.gouv\.fr)/g);
     if (em) {
@@ -1059,7 +1079,7 @@ function showMail(id, type) {
   document.getElementById('cpAll').addEventListener('click', function() { copyText(m.o + '\n\n' + m.c, 'Mail'); });
 
   if (document.getElementById('cpEmails')) {
-    var em2 = exig.match(/[\w.+-]+@[\w.-]+\.(?:gouv\.fr|elysee\.fr|intradef\.gouv\.fr)/g);
+    var em2 = isRosnyProcedurePop(d.POP_Ref) ? ['bf-ch-acc-gestion-sites-dc@interieur.gouv.fr'] : ((exig || '').match(/[\w.+-]+@[\w.-]+\.(?:gouv\.fr|elysee\.fr|intradef\.gouv\.fr)/g) || []);
     if (em2) {
       var u2 = [];
       for (var j = 0; j < em2.length; j++) { if (u2.indexOf(em2[j]) === -1) u2.push(em2[j]); }
@@ -1069,6 +1089,86 @@ function showMail(id, type) {
 
   document.getElementById('detailActions').innerHTML = '<button class="btn btn-ghost" id="backBtn">Retour</button>';
   document.getElementById('backBtn').addEventListener('click', function() { openDetail(id); });
+}
+
+function parseStoredIntervenants(d) {
+  if (!d || !d.Intervenants_JSON) return [];
+  try {
+    var parsed = JSON.parse(d.Intervenants_JSON);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function formatDateSlash(ts) {
+  if (!ts) return '';
+  var d = new Date(ts * 1000);
+  return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
+}
+
+function triggerDownload(bytes, filename) {
+  var blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+}
+
+function downloadRosnyForm(id) {
+  var d = allDemandes.find(function(x) { return x.id === id; });
+  if (!d) return;
+  ensureXlsx().then(function() {
+    return fetch(ASSET_BASE + 'A_RENOMMER_SOCIETE_NOM.xlsx').then(function(res) {
+      if (!res.ok) throw new Error('Template Rosny introuvable');
+      return res.arrayBuffer();
+    });
+  }).then(function(buf) {
+    var wb = XLSX.read(buf, { type: 'array' });
+    var ws = wb.Sheets[wb.SheetNames[0]];
+    var rows = parseStoredIntervenants(d);
+    var period = formatDateSlash(d.Date_Souhaitee || d.Date_Cloture);
+    if (!rows.length) {
+      rows = [{ societe: d.Prestataire || '', nom: '', prenom: '', pieceIdentite: '', vehiculeImmat: '', periodeAcces: period }];
+    }
+    var missing = [];
+    var dataRows = [];
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i] || {};
+      var soc = r.societe || d.Prestataire || '';
+      var piece = /^(OUI|NON)$/i.test(normText(r.pieceIdentite || '')) ? '' : (r.pieceIdentite || '');
+      var row = [
+        soc,
+        r.periodeAcces || period,
+        r.nom || '',
+        r.prenom || '',
+        r.sexe || '',
+        r.dateNaissance || '',
+        r.villeNaissance || '',
+        r.codePostalNaissance || '',
+        r.paysNaissance || '',
+        r.nationalite || '',
+        piece,
+        r.vehiculeImmat || ''
+      ];
+      if (!row[2] || !row[3]) missing.push('nom/prenom');
+      if (!row[4] || !row[5] || !row[6] || !row[9]) missing.push('biodata');
+      dataRows.push(row);
+    }
+    XLSX.utils.sheet_add_aoa(ws, dataRows, { origin: 'A14' });
+    var first = rows[0] || {};
+    var base = (first.societe || d.Prestataire || 'SOCIETE').replace(/[^\w-]+/g, '_');
+    var nom = (first.nom || 'NOM').replace(/[^\w-]+/g, '_');
+    triggerDownload(XLSX.write(wb, { bookType: 'xlsx', type: 'array' }), base + '_' + nom + '.xlsx');
+    if (missing.length) toast('Fiche Rosny generee, avec champs restant a completer manuellement', 'info');
+    else toast('Fiche Rosny generee', 'success');
+  }).catch(function(e) {
+    toast('Erreur generation fiche Rosny: ' + e.message, 'error');
+  });
 }
 
 // ---- EDIT ----
@@ -1177,6 +1277,7 @@ function showPopAlertsEdit(popId) {
   if (p && p.CNI_Obligatoire) div.innerHTML += '<span class="alert-badge cni">\u26A0 CNI obligatoire</span>';
   var hostNotes = sanitizeAccessNotes(h.Notes_Exigences, popId);
   if (hostNotes) div.innerHTML += '<div style="font-size:12px;color:#b34000;margin-top:4px">\u2139 ' + esc(hostNotes) + '</div>';
+  if (isRosnyProcedurePop(popId)) div.innerHTML += '<div style="font-size:12px;color:#b34000;margin-top:4px">\u2139 ' + esc(getRosnyProcedureText()) + '</div>';
   if (docDiv && p) {
     var html = '<div class="doc-req-box"><strong>Documents requis :</strong>';
     html += '<div class="doc-req-item"><span class="req-icon">\u2705</span> Biodata &mdash; <em>toujours obligatoire</em></div>';
@@ -1184,6 +1285,10 @@ function showPopAlertsEdit(popId) {
       html += '<div class="doc-req-item"><span class="req-icon">\uD83C\uDD94</span> Copie CNI &mdash; <em>obligatoire (outre-mer)</em></div>';
     } else {
       html += '<div class="doc-req-item"><span class="req-icon">\u274C</span> Copie CNI &mdash; <em>non requise</em></div>';
+    }
+    if (isRosnyProcedurePop(popId)) {
+      html += '<div class="doc-req-item"><span class="req-icon">\uD83D\uDCC4</span> Tableau Rosny a completer et renvoyer</div>';
+      html += '<div class="doc-req-item"><span class="req-icon">\uD83D\uDE97</span> Carte grise si vehicule avec materiel volumineux/lourd</div>';
     }
     html += '</div>';
     docDiv.innerHTML = html;
@@ -1369,6 +1474,7 @@ function deleteExchange(demandeId, exchangeId) {
 
 // ---- NEW DEMAND ----
 function openNew() {
+  pendingImportedIntervenants = [];
   document.getElementById('fPop').innerHTML = popOpts(0);
   var fields = ['fNumGlpi', 'fPrestataire', 'fHeberge', 'fContactNom', 'fContactTel', 'fDateSouhaitee', 'fHeureArrivee', 'fDuree', 'fPlateau', 'fBaie', 'fPosition', 'fEquipements', 'fNature', 'fMatEntrant', 'fMatSortant', 'fResume'];
   for (var i = 0; i < fields.length; i++) document.getElementById(fields[i]).value = '';
@@ -1405,10 +1511,14 @@ function saveNew() {
     Resume: document.getElementById('fResume').value.trim(),
     Date_Reception: nowUnix()
   };
+  if (pendingImportedIntervenants && pendingImportedIntervenants.length) {
+    f.Intervenants_JSON = JSON.stringify(pendingImportedIntervenants);
+  }
   var ds = document.getElementById('fDateSouhaitee').value;
   if (ds) f.Date_Souhaitee = dateToUnix(ds);
   applyAct([['AddRecord', 'Demandes', null, f]]).then(function() {
     toast('Demande creee', 'success');
+    pendingImportedIntervenants = [];
     closeModal('newModal');
     loadData();
   }).catch(function(e) { toast('Erreur: ' + e.message, 'error'); });
@@ -1874,6 +1984,39 @@ function isSectionBoundaryRow(rows, r) {
 }
 
 function extractIntervenants(rows) {
+  var detailed = extractIntervenantsDetailed(rows);
+  var intervenants = [];
+  for (var i = 0; i < detailed.length; i++) {
+    intervenants.push(detailed[i].nomComplet + (detailed[i].societe ? ' (' + detailed[i].societe + ')' : ''));
+  }
+  return intervenants;
+}
+
+function splitFullName(fullName) {
+  var raw = normText(fullName);
+  if (!raw) return { nom: '', prenom: '', nomComplet: '' };
+  if (raw.indexOf(',') !== -1) {
+    var parts = raw.split(',');
+    return { nom: normText(parts[0]), prenom: normText(parts.slice(1).join(' ')), nomComplet: raw };
+  }
+  var words = raw.split(/\s+/);
+  var nom = [], prenom = [];
+  for (var i = 0; i < words.length; i++) {
+    if (words[i] === words[i].toUpperCase() && /[A-Z]/.test(words[i])) nom.push(words[i]);
+    else prenom.push(words[i]);
+  }
+  if (!nom.length && words.length) {
+    nom.push(words[0]);
+    prenom = words.slice(1);
+  }
+  if (!prenom.length && words.length > 1) {
+    prenom.push(words[words.length - 1]);
+    nom = words.slice(0, words.length - 1);
+  }
+  return { nom: normText(nom.join(' ')), prenom: normText(prenom.join(' ')), nomComplet: raw };
+}
+
+function extractIntervenantsDetailed(rows) {
   var header = null;
   for (var r = 0; r < rows.length; r++) {
     if (rowContainsAnyLabel(rows, r, ['Soci\u00e9t\u00e9', 'Societe']) && rowContainsAnyLabel(rows, r, ['Nom', 'Nom, Pr\u00e9nom', 'Nom, Prenom'])) {
@@ -1881,13 +2024,30 @@ function extractIntervenants(rows) {
     }
   }
   if (!header) return [];
-  var nameCol = -1, socCol = -1;
+  var nameCol = -1, socCol = -1, pieceCol = -1, extraCol = -1;
   for (var c = 0; c < rows[header.r].length; c++) {
     var cell = normCmp(cleanCell(rows, header.r, c));
     if (nameCol === -1 && (cell.indexOf('NOM') !== -1 || cell.indexOf('PRENOM') !== -1)) nameCol = c;
     if (socCol === -1 && cell.indexOf('SOCIETE') !== -1) socCol = c;
+    if (pieceCol === -1 && cell.indexOf('PIECE IDENTITE') !== -1) pieceCol = c;
+    if (extraCol === -1 && cell.indexOf('INFORMATIONS REQUISES') !== -1) extraCol = c;
   }
   if (nameCol === -1 || socCol === -1) return [];
+
+  var vehHeader = null;
+  for (var vr = header.r + 1; vr < rows.length; vr++) {
+    if (rowContainsAnyLabel(rows, vr, ['V\u00e9hicule', 'Vehicule'])) { vehHeader = vr; break; }
+  }
+  var vMarqueCol = -1, vImmatCol = -1, vCertifCol = -1;
+  if (vehHeader != null) {
+    for (var vc = 0; vc < rows[vehHeader].length; vc++) {
+      var vcell = normCmp(cleanCell(rows, vehHeader, vc));
+      if (vMarqueCol === -1 && vcell.indexOf('MARQUE') !== -1) vMarqueCol = vc;
+      if (vImmatCol === -1 && vcell.indexOf('IMMATRICULATION') !== -1) vImmatCol = vc;
+      if (vCertifCol === -1 && vcell.indexOf('CERTIF') !== -1) vCertifCol = vc;
+    }
+  }
+
   var intervenants = [], emptyCount = 0;
   for (var rr = header.r + 1; rr < rows.length; rr++) {
     if (isSectionBoundaryRow(rows, rr)) break;
@@ -1897,7 +2057,19 @@ function extractIntervenants(rows) {
     emptyCount = 0;
     if (!nom || isNoValue(nom) || isMarker(nom) || normCmp(nom).indexOf('PRECISER ICI') !== -1) continue;
     if (normCmp(nom).indexOf('NOM') !== -1 && normCmp(soc).indexOf('SOCIETE') !== -1) continue;
-    intervenants.push(nom + (soc ? ' (' + soc + ')' : ''));
+    var parts = splitFullName(nom);
+    var vehRow = vehHeader != null ? vehHeader + 1 + (rr - (header.r + 1)) : -1;
+    var vehicleImmat = vehRow >= 0 ? normText(cleanCell(rows, vehRow, vImmatCol)) : '';
+    intervenants.push({
+      nomComplet: parts.nomComplet,
+      nom: parts.nom,
+      prenom: parts.prenom,
+      societe: soc,
+      pieceIdentite: pieceCol >= 0 ? normText(cleanCell(rows, rr, pieceCol)) : '',
+      informationsComplementaires: extraCol >= 0 ? normText(cleanCell(rows, rr, extraCol)) : '',
+      vehiculeImmat: vehicleImmat,
+      periodeAcces: ''
+    });
   }
   return intervenants;
 }
@@ -1949,12 +2121,17 @@ function parseForm(rows) {
     nature: extractRightOfLabel(rows, ['Nature de l\u2019intervention', 'Nature de l\'intervention', 'Nature de l intervention'], { maxDistance: 4, skipMarkers: true, skipLabels: true }),
     matEntrant: extractRightOfLabel(rows, ['Mat\u00e9riel entrant :', 'Materiel entrant :'], { maxDistance: 4, skipMarkers: true, skipLabels: true }),
     matSortant: extractRightOfLabel(rows, ['Mat\u00e9riel sortant :', 'Materiel sortant :'], { maxDistance: 4, skipMarkers: true, skipLabels: true }),
-    intervenants: []
+    intervenants: [],
+    intervenantDetails: []
   };
   if (!data.nature) {
     data.nature = extractRightOfLabel(rows, ['Libell\u00e9 explicite', 'Libelle explicite'], { maxDistance: 4, skipMarkers: true, skipLabels: true });
   }
+  data.intervenantDetails = extractIntervenantsDetailed(rows);
   data.intervenants = extractIntervenants(rows);
+  for (var ii = 0; ii < data.intervenantDetails.length; ii++) {
+    data.intervenantDetails[ii].periodeAcces = data.dateSouhaitee || '';
+  }
   data.prestataire = deducePrestataire(data.intervenants);
   if (!data.prestataire) data.prestataire = extractPrestataireFromRows(rows);
   data.resume = buildImportedResume(data);
@@ -1967,6 +2144,7 @@ function parseForm(rows) {
 function processImportRows(rows, source) {
   var data = parseForm(rows);
   var popId = findPopByName(data.popName);
+  pendingImportedIntervenants = data.intervenantDetails || [];
 
   openNewWithData({
     popId: popId,
