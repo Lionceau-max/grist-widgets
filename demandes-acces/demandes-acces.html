@@ -593,12 +593,20 @@ function showArchived() {
   return !!(el && el.checked);
 }
 
+function isArchivedByDefault(d) {
+  var st = getDisplayStatut(d);
+  if (st === 'Annulée') return true;
+  if (st !== 'Clôturée') return false;
+  var refDate = d.Date_Souhaitee || d.Date_Cloture;
+  if (!refDate) return false;
+  return refDate < (Date.now() / 1000) - (7 * 86400);
+}
+
 function matchFilter(d) {
   var s = document.getElementById('searchBox').value.toLowerCase();
   var pf = document.getElementById('filterPop').value;
   var tf = document.getElementById('filterType').value;
-  var st = getDisplayStatut(d);
-  if (!showArchived() && (st === 'Clôturée' || st === 'Annulée')) return false;
+  if (!showArchived() && isArchivedByDefault(d)) return false;
   if (pf && String(d.POP_Ref) !== pf) return false;
   if (tf && d.Type_Demande !== tf) return false;
   if (s) {
@@ -701,12 +709,11 @@ function render() {
   var ac = 0, uc = 0, archived = 0;
   for (var k = 0; k < allDemandes.length; k++) {
     var dd = allDemandes[k];
-    var ddStatut = getDisplayStatut(dd);
-    if (ddStatut !== 'Clôturée' && ddStatut !== 'Annulée') {
+    if (isArchivedByDefault(dd)) {
+      archived++;
+    } else {
       ac++;
       if (dd.Date_Souhaitee && (dd.Date_Souhaitee - now) < 3 * 86400) uc++;
-    } else {
-      archived++;
     }
   }
   document.getElementById('headerStats').innerHTML =
