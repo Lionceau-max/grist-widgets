@@ -481,7 +481,22 @@ function unixToDate(ts) {
 function nowUnix() { return Math.floor(Date.now() / 1000); }
 function getPopName(id) { return popMap[id] ? popMap[id].Nom : '\u2014'; }
 function getHeb(pid) { var p = popMap[pid]; return p ? (hebergeurMap[p.Hebergeur] || null) : null; }
-function getExig(pid) { var p = popMap[pid]; return p ? (p.Exigences_Specifiques || '') : ''; }
+function isB015SirFamily(pid) {
+  var p = popMap[pid];
+  return !!(p && /B015\/SIR\//i.test(p.Nom || ''));
+}
+function sanitizeAccessNotes(text, pid) {
+  if (!text) return '';
+  if (!isB015SirFamily(pid)) return text;
+  return text
+    .replace(/Annexe 2\s*\(ponctuel\s*<\s*5j\)\s*ou\s*Annexe 1\s*\(>=\s*5j\)\.\s*/i, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+function getExig(pid) {
+  var p = popMap[pid];
+  return p ? sanitizeAccessNotes(p.Exigences_Specifiques || '', pid) : '';
+}
 function isOutreMer(pid) { var p = popMap[pid]; return p ? !!p.Outre_Mer : false; }
 function isCniObligatoire(pid) { var p = popMap[pid]; return p ? !!p.CNI_Obligatoire : false; }
 
@@ -559,7 +574,8 @@ function showPopAlerts(popId, divId) {
   if (h.Criblage_Requis) div.innerHTML += '<span class="alert-badge criblage">\u26A0 Criblage</span>';
   if (h.CPR_Requis) div.innerHTML += '<span class="alert-badge cpr">\u26A0 CPR</span>';
   if (p && p.CNI_Obligatoire) div.innerHTML += '<span class="alert-badge cni">\u26A0 CNI obligatoire</span>';
-  if (h.Notes_Exigences) div.innerHTML += '<div style="font-size:12px;color:#b34000;margin-top:4px">\u2139 ' + esc(h.Notes_Exigences) + '</div>';
+  var hostNotes = sanitizeAccessNotes(h.Notes_Exigences, popId);
+  if (hostNotes) div.innerHTML += '<div style="font-size:12px;color:#b34000;margin-top:4px">\u2139 ' + esc(hostNotes) + '</div>';
   showDocReq(popId);
 }
 
@@ -1035,7 +1051,8 @@ function showPopAlertsEdit(popId) {
   if (h.Criblage_Requis) div.innerHTML += '<span class="alert-badge criblage">\u26A0 Criblage</span>';
   if (h.CPR_Requis) div.innerHTML += '<span class="alert-badge cpr">\u26A0 CPR</span>';
   if (p && p.CNI_Obligatoire) div.innerHTML += '<span class="alert-badge cni">\u26A0 CNI obligatoire</span>';
-  if (h.Notes_Exigences) div.innerHTML += '<div style="font-size:12px;color:#b34000;margin-top:4px">\u2139 ' + esc(h.Notes_Exigences) + '</div>';
+  var hostNotes = sanitizeAccessNotes(h.Notes_Exigences, popId);
+  if (hostNotes) div.innerHTML += '<div style="font-size:12px;color:#b34000;margin-top:4px">\u2139 ' + esc(hostNotes) + '</div>';
   if (docDiv && p) {
     var html = '<div class="doc-req-box"><strong>Documents requis :</strong>';
     html += '<div class="doc-req-item"><span class="req-icon">\u2705</span> Biodata &mdash; <em>toujours obligatoire</em></div>';
