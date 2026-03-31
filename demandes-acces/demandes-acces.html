@@ -53,6 +53,8 @@ body { font-family: 'Marianne', system-ui, sans-serif; background: var(--bg); co
 .toolbar select, .toolbar input { font-family: inherit; font-size: 13px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 4px; background: #fff; }
 .toolbar .search-box { flex: 1; min-width: 200px; }
 .toolbar label { font-size: 12px; color: var(--text-secondary); margin-right: 4px; }
+.toolbar .toggle-inline { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.toolbar .toggle-inline input { width: auto; margin: 0; }
 .btn { font-family: inherit; font-size: 13px; padding: 7px 14px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; transition: all .15s; }
 .btn-primary { background: #000091; color: #fff; }
 .btn-primary:hover { background: #1212ff; }
@@ -211,6 +213,7 @@ body { font-family: 'Marianne', system-ui, sans-serif; background: var(--bg); co
     <button class="tab-btn active" id="tabKanban">Kanban</button>
     <button class="tab-btn" id="tabTimeline">Timeline</button>
   </div>
+  <label class="toggle-inline"><input type="checkbox" id="toggleArchived"> Afficher clôturées / annulées</label>
   <button class="btn btn-primary" id="btnNew">+ Nouvelle demande</button>
 </div>
 
@@ -585,10 +588,17 @@ function getAlerts(d) {
   return alerts;
 }
 
+function showArchived() {
+  var el = document.getElementById('toggleArchived');
+  return !!(el && el.checked);
+}
+
 function matchFilter(d) {
   var s = document.getElementById('searchBox').value.toLowerCase();
   var pf = document.getElementById('filterPop').value;
   var tf = document.getElementById('filterType').value;
+  var st = getDisplayStatut(d);
+  if (!showArchived() && (st === 'Clôturée' || st === 'Annulée')) return false;
   if (pf && String(d.POP_Ref) !== pf) return false;
   if (tf && d.Type_Demande !== tf) return false;
   if (s) {
@@ -688,18 +698,21 @@ function render() {
   var board = document.getElementById('board');
   var filtered = allDemandes.filter(matchFilter);
   var now = Date.now() / 1000;
-  var ac = 0, uc = 0;
+  var ac = 0, uc = 0, archived = 0;
   for (var k = 0; k < allDemandes.length; k++) {
     var dd = allDemandes[k];
     var ddStatut = getDisplayStatut(dd);
     if (ddStatut !== 'Clôturée' && ddStatut !== 'Annulée') {
       ac++;
       if (dd.Date_Souhaitee && (dd.Date_Souhaitee - now) < 3 * 86400) uc++;
+    } else {
+      archived++;
     }
   }
   document.getElementById('headerStats').innerHTML =
     '<div class="stat"><span class="stat-count">' + allDemandes.length + '</span> total</div>' +
     '<div class="stat"><span class="stat-count">' + ac + '</span> en cours</div>' +
+    (!showArchived() && archived ? '<div class="stat"><span class="stat-count">' + archived + '</span> archivees masquees</div>' : '') +
     (uc ? '<div class="stat" style="background:rgba(206,5,0,.3)"><span class="stat-count">' + uc + '</span> urgent(s)</div>' : '');
 
   var html = '';
@@ -2101,6 +2114,7 @@ function openNewWithData(data) {
   document.getElementById('searchBox').addEventListener('input', renderAll);
   document.getElementById('filterPop').addEventListener('change', renderAll);
   document.getElementById('filterType').addEventListener('change', renderAll);
+  document.getElementById('toggleArchived').addEventListener('change', renderAll);
   document.getElementById('fPop').addEventListener('change', function() { showPopAlerts(parseInt(this.value), 'popAlerts'); });
   document.getElementById('tabKanban').addEventListener('click', function() { switchView('kanban'); });
   document.getElementById('tabTimeline').addEventListener('click', function() { switchView('timeline'); });
