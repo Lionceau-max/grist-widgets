@@ -382,13 +382,37 @@ var popList = [];
 var tlOffset = 0;
 var currentView = 'kanban';
 var ASSET_BASE = 'https://lionceau-max.github.io/grist-widgets/demandes-acces/';
-var STATUTS = ['Reçue', 'En vérification', 'Transmise', 'Réponse reçue', 'Clôturée', 'Annulée'];
+var STATUTS = ['Reçue', 'En vérification', 'Transmise', 'Complément demandé', 'Accord reçu', 'Refus reçu', 'Clôturée', 'Annulée'];
 var SCSS = {
   'Reçue': 'Recue', 'En vérification': 'Verif', 'Transmise': 'Transmise',
+  'Complément demandé': 'Reponse', 'Accord reçu': 'Transmise', 'Refus reçu': 'Reponse',
   'Réponse reçue': 'Reponse', 'Clôturée': 'Cloturee', 'Annulée': 'Annulee'
 };
 var JOURS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 var MOIS = ['janv.', 'fevr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'aout', 'sept.', 'oct.', 'nov.', 'dec.'];
+
+function inferNatureFromResponseText(text) {
+  var t = normCmp(text);
+  if (!t) return '';
+  if (/(FOURNIR|COMPLEMENT|COMPL[EÉ]MENT|CONFIRMER|EN ATTENTE|HABILITATION)/.test(t)) return 'Complément';
+  if (/(REFUS|IMPOSSIBLE|DEFAVORABLE|DÉFAVORABLE|REJET)/.test(t)) return 'Refus';
+  return 'Accord';
+}
+
+function getEffectiveNature(d) {
+  return d.Nature_Reponse || inferNatureFromResponseText(d.Reponse_Hebergeur || '');
+}
+
+function getDisplayStatut(d) {
+  if (!d) return '';
+  if (d.Statut === 'Réponse reçue') {
+    var nature = getEffectiveNature(d);
+    if (nature === 'Complément') return 'Complément demandé';
+    if (nature === 'Refus') return 'Refus reçu';
+    return 'Accord reçu';
+  }
+  return d.Statut;
+}
 
 grist.ready({ requiredAccess: 'full' });
 
@@ -539,10 +563,14 @@ function getAlerts(d) {
   var alerts = [];
   var h = getHeb(d.POP_Ref);
   var p = popMap[d.POP_Ref];
+  var st = getDisplayStatut(d);
   if (!h && !p) return alerts;
   if (h && h.Criblage_Requis) alerts.push({ l: 'Criblage requis', c: 'criblage' });
   if (h && h.CPR_Requis) alerts.push({ l: 'CPR requis', c: 'cpr' });
   if (p && p.CNI_Obligatoire) alerts.push({ l: 'CNI obligatoire (OM)', c: 'cni' });
+  if (st === 'Complément demandé') {
+    alerts.push({ l: 'Attente ' + esc((d.Blocage_Actuel || 'suivi').toLowerCase()), c: 'info' });
+  }
   if (h && h.Delai_Min_Jours && d.Date_Souhaitee) {
     var j = Math.floor((d.Date_Souhaitee - Date.now() / 1000) / 86400);
     if (j < h.Delai_Min_Jours) alerts.push({ l: 'Delai < ' + h.Delai_Min_Jours + 'j !', c: 'delai' });
@@ -634,8 +662,15 @@ function mailTransmission(d) {
 
 function mailRetour(d) {
   var p = getPopName(d.POP_Ref), ds = fmtDate(d.Date_Souhaitee);
+  var st = getDisplayStatut(d);
+  var nature = getEffectiveNature(d);
   var obj = 'RE: [NOC RIE] [DEMANDE ACCES] ' + (d.Ref_DA || '') + ' - ' + p + (ds ? ' - ' + ds : '');
   var corps = 'Bonjour,\n\nNous revenons vers vous concernant votre demande ' + (d.Ref_DA || '') + ' au ' + p + '.\n\n';
+  if (nature === 'Complément' || st === 'Complément demandé') {
+    corps += 'L\'hébergeur nous demande des informations complémentaires avant validation.\n\n';
+    if (d.Infos_Manquantes) corps += 'Compléments attendus :\n' + d.Infos_Manquantes + '\n\n';
+    if (d.Prochaine_Action) corps += 'Prochaine action attendue : ' + d.Prochaine_Action + '\n\n';
+  }
   if (d.Reponse_Hebergeur) corps += 'Retour de l\'hebergeur :\n' + d.Reponse_Hebergeur + '\n\n';
   corps += 'Cordialement,\nNOC RIE - DINUM';
   return { o: obj, c: corps };
@@ -649,7 +684,8 @@ function render() {
   var ac = 0, uc = 0;
   for (var k = 0; k < allDemandes.length; k++) {
     var dd = allDemandes[k];
-    if (dd.Statut !== 'Clôturée' && dd.Statut !== 'Annulée') {
+    var ddStatut = getDisplayStatut(dd);
+    if (ddStatut !== 'Clôturée' && ddStatut !== 'Annulée') {
       ac++;
       if (dd.Date_Souhaitee && (dd.Date_Souhaitee - now) < 3 * 86400) uc++;
     }
@@ -663,7 +699,7 @@ function render() {
   for (var si = 0; si < STATUTS.length; si++) {
     var statut = STATUTS[si];
     var cls = SCSS[statut];
-    var cards = filtered.filter(function(x) { return x.Statut === statut; });
+    var cards = filtered.filter(function(x) { return getDisplayStatut(x) === statut; });
     html += '<div class="column col-' + cls + '">';
     html += '<div class="column-header"><span>' + esc(statut) + '</span><span class="count">' + cards.length + '</span></div>';
     html += '<div class="column-body">';
@@ -672,7 +708,8 @@ function render() {
       var popNom = getPopName(d.POP_Ref);
       var al = getAlerts(d);
       var tc = (d.Type_Demande || '').split(' ')[0];
-      var isUrg = d.Date_Souhaitee && (d.Date_Souhaitee - now) < 3 * 86400 && d.Statut !== 'Clôturée' && d.Statut !== 'Annulée';
+      var dStatut = getDisplayStatut(d);
+      var isUrg = d.Date_Souhaitee && (d.Date_Souhaitee - now) < 3 * 86400 && dStatut !== 'Clôturée' && dStatut !== 'Annulée';
       var om = isOutreMer(d.POP_Ref);
       html += '<div class="card" data-id="' + d.id + '" ' + (isUrg ? 'style="border-left:3px solid #ce0500"' : '') + '>';
       html += '<div class="card-top"><span class="card-ref">' + esc(d.Ref_DA || '') + (om ? ' \uD83C\uDF0A' : '') + '</span><span class="card-type ' + esc(tc) + '">' + esc(d.Type_Demande || '') + '</span></div>';
@@ -701,14 +738,17 @@ function render() {
 
 // ---- TIMELINE ----
 function getRisk(d) {
-  if (d.Statut === 'Clôturée' || d.Statut === 'Annulée') return 'done';
+  var st = getDisplayStatut(d);
+  if (st === 'Clôturée' || st === 'Annulée') return 'done';
   if (!d.Date_Souhaitee) return 'warn';
   var j = Math.floor((d.Date_Souhaitee - Date.now() / 1000) / 86400);
   var h = getHeb(d.POP_Ref);
   var dm = h ? (h.Delai_Min_Jours || 2) : 2;
-  if (d.Statut === 'Réponse reçue') return 'ok';
-  if (d.Statut === 'Transmise') return j < 2 ? 'danger' : j < 5 ? 'warn' : 'ok';
-  if (d.Statut === 'En vérification') return j < 3 ? 'danger' : j < dm ? 'warn' : 'ok';
+  if (st === 'Accord reçu') return 'ok';
+  if (st === 'Refus reçu') return 'done';
+  if (st === 'Complément demandé') return j < 2 ? 'danger' : 'warn';
+  if (st === 'Transmise') return j < 2 ? 'danger' : j < 5 ? 'warn' : 'ok';
+  if (st === 'En vérification') return j < 3 ? 'danger' : j < dm ? 'warn' : 'ok';
   return j < dm ? 'danger' : j < dm + 3 ? 'warn' : 'ok';
 }
 
@@ -716,7 +756,7 @@ function statusCss(st) {
   if (st === 'Reçue') return 'st-recue';
   if (st === 'En vérification') return 'st-verif';
   if (st === 'Transmise') return 'st-trans';
-  if (st === 'Réponse reçue') return 'st-rep';
+  if (st === 'Complément demandé' || st === 'Accord reçu' || st === 'Refus reçu' || st === 'Réponse reçue') return 'st-rep';
   return 'st-clo';
 }
 
@@ -740,7 +780,8 @@ function renderTimeline() {
     dayMap[key].push(d);
   }
   var noDates = filtered.filter(function(d) {
-    return !d.Date_Souhaitee && d.Statut !== 'Clôturée' && d.Statut !== 'Annulée';
+    var st = getDisplayStatut(d);
+    return !d.Date_Souhaitee && st !== 'Clôturée' && st !== 'Annulée';
   });
   var todayKey = today.toISOString().slice(0, 10);
   var html = '';
@@ -764,7 +805,7 @@ function renderTimeline() {
       html += '<div class="tl-card-ref">' + esc(c.Ref_DA || '') + (isOutreMer(c.POP_Ref) ? ' \uD83C\uDF0A' : '') + '</div>';
       html += '<div class="tl-card-pop">' + esc(getPopName(c.POP_Ref)) + '</div>';
       html += '<div class="tl-card-info">' + esc(c.Prestataire || '') + (c.Heure_Arrivee ? ' \u2022 ' + esc(c.Heure_Arrivee) : '') + '</div>';
-      html += '<span class="tl-card-status ' + statusCss(c.Statut) + '">' + esc(c.Statut) + '</span>';
+      html += '<span class="tl-card-status ' + statusCss(getDisplayStatut(c)) + '">' + esc(getDisplayStatut(c)) + '</span>';
       html += '</div>';
     }
     html += '</div></div>';
@@ -777,7 +818,7 @@ function renderTimeline() {
       html += '<div class="tl-card tl-risk-' + getRisk(nd) + '" data-id="' + nd.id + '">';
       html += '<div class="tl-card-ref">' + esc(nd.Ref_DA || '') + '</div>';
       html += '<div class="tl-card-pop">' + esc(getPopName(nd.POP_Ref)) + '</div>';
-      html += '<span class="tl-card-status ' + statusCss(nd.Statut) + '">' + esc(nd.Statut) + '</span>';
+      html += '<span class="tl-card-status ' + statusCss(getDisplayStatut(nd)) + '">' + esc(getDisplayStatut(nd)) + '</span>';
       html += '</div>';
     }
     html += '</div></div>';
@@ -818,7 +859,8 @@ function openDetail(id) {
 
   document.getElementById('detailTitle').textContent = (d.Ref_DA || '') + ' \u2014 ' + popNom + (om ? ' \uD83C\uDF0A' : '');
 
-  var si = STATUTS.indexOf(d.Statut);
+  var currentStatut = getDisplayStatut(d);
+  var si = STATUTS.indexOf(currentStatut);
   var h = '<div class="status-flow">';
   for (var i = 0; i < STATUTS.length - 1; i++) {
     if (i > 0) h += '<span class="status-arrow">\u203A</span>';
@@ -871,25 +913,29 @@ function openDetail(id) {
   h += '<div class="modal-section"><h3>Suivi</h3><div class="field-grid">';
   h += fi('Reception', fmtDateTime(d.Date_Reception)) + fi('Verification', fmtDateTime(d.Date_Verification));
   h += fi('Transmission', fmtDateTime(d.Date_Transmission)) + fi('Reponse', fmtDateTime(d.Date_Reponse));
-  h += fi('Cloture', fmtDateTime(d.Date_Cloture));
+  h += fi('Cloture', fmtDateTime(d.Date_Cloture)) + fi('Nature réponse', d.Nature_Reponse || getEffectiveNature(d));
+  h += fi('Blocage actuel', d.Blocage_Actuel) + fi('Dernier échange', fmtDateTime(d.Date_Dernier_Echange));
   h += '</div>';
   if (d.Reponse_Hebergeur) h += '<div class="field" style="margin-top:8px"><span class="field-label">Reponse hebergeur</span><span class="field-value" style="background:#f6f6f6;padding:8px;border-radius:4px;white-space:pre-wrap">' + esc(d.Reponse_Hebergeur) + '</span></div>';
+  if (d.Infos_Manquantes) h += '<div class="field" style="margin-top:8px"><span class="field-label">Infos manquantes</span><span class="field-value" style="background:#fff4e5;padding:8px;border-radius:4px;white-space:pre-wrap">' + esc(d.Infos_Manquantes) + '</span></div>';
+  if (d.Prochaine_Action) h += '<div class="field" style="margin-top:8px"><span class="field-label">Prochaine action</span><span class="field-value">' + esc(d.Prochaine_Action) + '</span></div>';
   h += '</div>';
 
   if (d.Notes) h += '<div class="modal-section"><h3>Notes</h3><div style="white-space:pre-wrap;font-size:13px;background:#f6f6f6;padding:8px;border-radius:4px">' + esc(d.Notes) + '</div></div>';
 
   document.getElementById('detailBody').innerHTML = h;
 
-  var st = d.Statut;
+  var st = currentStatut;
   var act = '';
   if (st === 'Reçue') act += '<button class="btn btn-primary" data-a="acq" data-d="' + d.id + '">Acquitter</button>';
   if (st === 'En vérification') act += '<button class="btn btn-success" data-a="ver" data-d="' + d.id + '">Verifiee et transmettre</button>';
   if (st === 'Transmise') act += '<button class="btn btn-warning" data-a="rep" data-d="' + d.id + '">Enregistrer reponse</button>';
-  if (st === 'Réponse reçue') act += '<button class="btn btn-success" data-a="clo" data-d="' + d.id + '">Cloturer</button>';
+  if (st === 'Complément demandé') act += '<button class="btn btn-warning" data-a="resend" data-d="' + d.id + '">Retransmettre compléments</button>';
+  if (st === 'Accord reçu' || st === 'Refus reçu') act += '<button class="btn btn-success" data-a="clo" data-d="' + d.id + '">Cloturer</button>';
   act += '<span class="action-sep"></span>';
   if (st === 'Reçue' || st === 'En vérification') act += '<button class="btn btn-mail" data-a="ma" data-d="' + d.id + '">\u2709 Acquittement</button>';
   if (st === 'En vérification' || st === 'Transmise') act += '<button class="btn btn-mail" data-a="mt" data-d="' + d.id + '">\u2709 Transmission</button>';
-  if (st === 'Réponse reçue' || st === 'Clôturée') act += '<button class="btn btn-mail" data-a="mr" data-d="' + d.id + '">\u2709 Retour presta</button>';
+  if (st === 'Complément demandé' || st === 'Accord reçu' || st === 'Refus reçu' || st === 'Clôturée') act += '<button class="btn btn-mail" data-a="mr" data-d="' + d.id + '">\u2709 Retour presta</button>';
   act += '<span class="action-sep"></span>';
   if (st !== 'Clôturée' && st !== 'Annulée') {
     act += '<button class="btn btn-ghost" data-a="edit" data-d="' + d.id + '">Modifier</button>';
@@ -911,6 +957,7 @@ function openDetail(id) {
         else if (a === 'clo') changeStatut(did, 'Clôturée', 'Date_Cloture');
         else if (a === 'ann') changeStatut(did, 'Annulée', null);
         else if (a === 'rep') promptReponse(did);
+        else if (a === 'resend') promptResend(did);
         else if (a === 'edit') openEdit(did);
         else if (a === 'ma') showMail(did, 'a');
         else if (a === 'mt') showMail(did, 't');
@@ -1066,6 +1113,7 @@ function changeStatut(id, ns, df) {
   var u = { Statut: ns };
   if (df) u[df] = nowUnix();
   if (ns === 'Transmise') u.Date_Transmission = nowUnix();
+  if (ns === 'Clôturée') u.Prochaine_Action = '';
   applyAct([['UpdateRecord', 'Demandes', id, u]]).then(function() {
     toast('Statut \u2192 ' + ns, 'success');
     closeModal('detailModal');
@@ -1074,18 +1122,74 @@ function changeStatut(id, ns, df) {
 }
 
 function promptReponse(id) {
-  document.getElementById('detailBody').innerHTML = '<div class="form-group"><label>Reponse hebergeur</label><textarea id="repText" rows="5" placeholder="Collez la reponse..."></textarea></div>';
+  document.getElementById('detailBody').innerHTML =
+    '<div class="form-group"><label>Réponse hébergeur</label><textarea id="repText" rows="6" placeholder="Collez la réponse..."></textarea></div>' +
+    '<div class="form-row">' +
+    fg('Nature réponse', '<select id="repKind"><option value="Accord">Accord</option><option value="Complément">Complément demandé</option><option value="Refus">Refus</option></select>') +
+    fg('Blocage actuel', '<select id="repWait"><option value="Prestataire">Prestataire</option><option value="NOC">NOC</option><option value="Hébergeur">Hébergeur</option></select>') +
+    '</div>' +
+    fg('Informations manquantes / attendues', '<textarea id="repMissing" rows="4" placeholder="Liste des éléments demandés par l\'hébergeur"></textarea>') +
+    fg('Prochaine action', '<textarea id="repNext" rows="2" placeholder="Ex: Relancer AXIONE pour CNI et habilitation"></textarea>');
   document.getElementById('detailActions').innerHTML = '<button class="btn btn-success" id="repOk">Valider</button><button class="btn btn-ghost" id="repBack">Retour</button>';
+  document.getElementById('repKind').addEventListener('change', function() {
+    var isComplement = this.value === 'Complément';
+    document.getElementById('repWait').disabled = !isComplement;
+    document.getElementById('repMissing').disabled = !isComplement;
+  });
   document.getElementById('repOk').addEventListener('click', function() {
     var t = document.getElementById('repText').value;
     if (!t.trim()) { toast('Saisissez la reponse', 'error'); return; }
-    applyAct([['UpdateRecord', 'Demandes', id, { Statut: 'Réponse reçue', Date_Reponse: nowUnix(), Reponse_Hebergeur: t.trim() }]]).then(function() {
+    var kind = document.getElementById('repKind').value;
+    var wait = document.getElementById('repWait').value;
+    var missing = document.getElementById('repMissing').value.trim();
+    var next = document.getElementById('repNext').value.trim();
+    var status = kind === 'Accord' ? 'Accord reçu' : (kind === 'Refus' ? 'Refus reçu' : 'Complément demandé');
+    var payload = {
+      Statut: status,
+      Nature_Reponse: kind,
+      Date_Reponse: nowUnix(),
+      Date_Dernier_Echange: nowUnix(),
+      Reponse_Hebergeur: t.trim(),
+      Blocage_Actuel: kind === 'Complément' ? wait : '',
+      Infos_Manquantes: kind === 'Complément' ? missing : '',
+      Prochaine_Action: next
+    };
+    applyAct([['UpdateRecord', 'Demandes', id, payload]]).then(function() {
       toast('Reponse OK', 'success');
       closeModal('detailModal');
       loadData();
     }).catch(function(e) { toast('Erreur: ' + e.message, 'error'); });
   });
   document.getElementById('repBack').addEventListener('click', function() { openDetail(id); });
+  document.getElementById('repKind').dispatchEvent(new Event('change'));
+}
+
+function promptResend(id) {
+  document.getElementById('detailBody').innerHTML =
+    fg('Compléments retransmis / message envoyé', '<textarea id="resMsg" rows="4" placeholder="Précisez ce qui a été renvoyé à l\'hébergeur"></textarea>') +
+    fg('Prochaine action', '<textarea id="resNext" rows="2" placeholder="Ex: Attente retour hébergeur"></textarea>');
+  document.getElementById('detailActions').innerHTML = '<button class="btn btn-success" id="resOk">Valider</button><button class="btn btn-ghost" id="resBack">Retour</button>';
+  document.getElementById('resOk').addEventListener('click', function() {
+    var msg = document.getElementById('resMsg').value.trim();
+    var next = document.getElementById('resNext').value.trim() || 'Attente retour hébergeur';
+    var d = allDemandes.find(function(x) { return x.id === id; });
+    var notes = d && d.Notes ? d.Notes + '\n\n' : '';
+    if (msg) notes += '[' + new Date().toLocaleString('fr-FR') + '] Compléments retransmis :\n' + msg;
+    var payload = {
+      Statut: 'Complément demandé',
+      Nature_Reponse: 'Complément',
+      Blocage_Actuel: 'Hébergeur',
+      Date_Dernier_Echange: nowUnix(),
+      Prochaine_Action: next
+    };
+    if (msg) payload.Notes = notes;
+    applyAct([['UpdateRecord', 'Demandes', id, payload]]).then(function() {
+      toast('Compléments retransmis', 'success');
+      closeModal('detailModal');
+      loadData();
+    }).catch(function(e) { toast('Erreur: ' + e.message, 'error'); });
+  });
+  document.getElementById('resBack').addEventListener('click', function() { openDetail(id); });
 }
 
 // ---- NEW DEMAND ----
