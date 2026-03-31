@@ -1022,6 +1022,16 @@ function openEdit(id) {
     '<div id="eAl" class="card-alerts" style="margin-bottom:12px"></div>' +
     '<div id="eDocReq"></div>' +
     '<div class="form-row">' +
+    fg('Statut', '<select id="eSt"><option' + (getDisplayStatut(d) === 'Reçue' ? ' selected' : '') + '>Reçue</option><option' + (getDisplayStatut(d) === 'En vérification' ? ' selected' : '') + '>En vérification</option><option' + (getDisplayStatut(d) === 'Transmise' ? ' selected' : '') + '>Transmise</option><option' + (getDisplayStatut(d) === 'Complément demandé' ? ' selected' : '') + '>Complément demandé</option><option' + (getDisplayStatut(d) === 'Accord reçu' ? ' selected' : '') + '>Accord reçu</option><option' + (getDisplayStatut(d) === 'Refus reçu' ? ' selected' : '') + '>Refus reçu</option><option' + (getDisplayStatut(d) === 'Clôturée' ? ' selected' : '') + '>Clôturée</option><option' + (getDisplayStatut(d) === 'Annulée' ? ' selected' : '') + '>Annulée</option></select>') +
+    fg('Nature réponse', '<select id="eNr"><option value=""></option><option value="Accord"' + (getEffectiveNature(d) === 'Accord' ? ' selected' : '') + '>Accord</option><option value="Complément"' + (getEffectiveNature(d) === 'Complément' ? ' selected' : '') + '>Complément</option><option value="Refus"' + (getEffectiveNature(d) === 'Refus' ? ' selected' : '') + '>Refus</option></select>') +
+    '</div>' +
+    '<div class="form-row">' +
+    fg('Blocage actuel', '<select id="eBl"><option value=""></option><option value="Prestataire"' + (d.Blocage_Actuel === 'Prestataire' ? ' selected' : '') + '>Prestataire</option><option value="NOC"' + (d.Blocage_Actuel === 'NOC' ? ' selected' : '') + '>NOC</option><option value="Hébergeur"' + (d.Blocage_Actuel === 'Hébergeur' ? ' selected' : '') + '>Hébergeur</option></select>') +
+    fg('Dernier échange', '<input type="text" value="' + esc(fmtDateTime(d.Date_Dernier_Echange)) + '" disabled>') +
+    '</div>' +
+    fg('Infos manquantes', '<textarea id="eIm" rows="3">' + esc(d.Infos_Manquantes || '') + '</textarea>') +
+    fg('Prochaine action', '<textarea id="ePa" rows="2">' + esc(d.Prochaine_Action || '') + '</textarea>') +
+    '<div class="form-row">' +
     fg('Type', '<select id="eT"><option' + (d.Type_Demande === 'Accueil' ? ' selected' : '') + '>Accueil</option><option' + (d.Type_Demande === 'Livraison' ? ' selected' : '') + '>Livraison</option><option' + (d.Type_Demande === 'Geste' ? ' selected' : '') + '>Geste</option><option' + (d.Type_Demande === 'Autres Travaux' ? ' selected' : '') + '>Autres Travaux</option></select>') +
     fg('Prestataire', '<input type="text" id="ePr" value="' + esc(d.Prestataire || '') + '">') + '</div>' +
     '<div class="form-row">' + fg('Heberge', '<input type="text" id="eH" value="' + esc(d.Heberge || '') + '">') +
@@ -1051,6 +1061,11 @@ function openEdit(id) {
     var f = {
       Num_GLPI: document.getElementById('eG').value.trim(),
       POP_Ref: pr,
+      Statut: document.getElementById('eSt').value,
+      Nature_Reponse: document.getElementById('eNr').value,
+      Blocage_Actuel: document.getElementById('eBl').value,
+      Infos_Manquantes: document.getElementById('eIm').value.trim(),
+      Prochaine_Action: document.getElementById('ePa').value.trim(),
       Type_Demande: document.getElementById('eT').value,
       Prestataire: document.getElementById('ePr').value.trim(),
       Heberge: document.getElementById('eH').value.trim(),
@@ -1070,6 +1085,9 @@ function openEdit(id) {
     };
     var ds = document.getElementById('eDS').value;
     if (ds) f.Date_Souhaitee = dateToUnix(ds);
+    if (f.Statut === 'Complément demandé' || f.Statut === 'Accord reçu' || f.Statut === 'Refus reçu') {
+      f.Date_Dernier_Echange = nowUnix();
+    }
     applyAct([['UpdateRecord', 'Demandes', id, f]]).then(function() {
       toast('Mis a jour', 'success');
       closeModal('detailModal');
