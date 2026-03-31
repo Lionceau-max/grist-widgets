@@ -608,14 +608,9 @@ function mailAcquittement(d) {
   if (d.Type_Demande) corps += 'Type : ' + d.Type_Demande + '\n';
   if (ds) corps += 'Date souhaitee : ' + ds + '\n';
   if (d.Heure_Arrivee) corps += 'Heure : ' + d.Heure_Arrivee + '\n';
+  if (d.Duree) corps += 'Duree : ' + d.Duree + '\n';
   corps += '\nVotre demande est en cours de traitement.\n\n';
-  var pop = popMap[d.POP_Ref];
-  corps += 'Rappel documents requis :\n';
-  corps += '- Biodata intervenants (nom, prenom, date de naissance, type et numero de piece d\'identite)\n';
-  if (pop && pop.CNI_Obligatoire) {
-    corps += '- Copie CNI (obligatoire pour ce site outre-mer)\n';
-  }
-  corps += '\nCordialement,\nNOC RIE - DINUM';
+  corps += 'Cordialement,\nNOC RIE - DINUM';
   return { o: obj, c: corps };
 }
 
@@ -1499,6 +1494,15 @@ function detectType(rows, version) {
   var defaultType = 'Accueil';
   var rowIndex = 4;
   if (!rows[rowIndex]) return defaultType;
+  var interventionCell = findCell(rows, 'INTERVENTION', { fromRow: rowIndex, toRow: rowIndex });
+  if (interventionCell) {
+    var interventionMarker = firstValueRight(rows, interventionCell.r, interventionCell.c, {
+      maxDistance: 2,
+      skipLabels: true,
+      skipMarkers: false
+    });
+    if (isMarker(interventionMarker)) return 'Accueil';
+  }
   var options = [
     { label: 'ACCUEIL', value: 'Accueil' },
     { label: 'LIVRAISON', value: 'Livraison' },
@@ -1509,9 +1513,12 @@ function detectType(rows, version) {
     for (var c = 0; c < rows[rowIndex].length; c++) {
       var cell = normCmp(cleanCell(rows, rowIndex, c));
       if (cell.indexOf(normCmp(options[o].label)) !== -1) {
-        var after = normText(cleanCell(rows, rowIndex, c + 1));
-        var before = normText(cleanCell(rows, rowIndex, c - 1));
-        if (isMarker(after) || isMarker(before)) return options[o].value;
+        var after = firstValueRight(rows, rowIndex, c, {
+          maxDistance: 2,
+          skipLabels: true,
+          skipMarkers: false
+        });
+        if (isMarker(after)) return options[o].value;
       }
     }
   }
