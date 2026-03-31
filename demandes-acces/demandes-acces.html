@@ -1266,6 +1266,14 @@ function normCmp(s) {
   return t.replace(/['']/g, "'").replace(/\s+/g, ' ').trim();
 }
 
+function normalizePhoneNumber(v) {
+  var t = normText(v);
+  if (!t) return '';
+  var digits = t.replace(/\D/g, '');
+  if (digits.length === 9 && digits.charAt(0) !== '0') return '0' + digits;
+  return t;
+}
+
 function isMeaningful(v) {
   var t = normText(v);
   return !!t && t.toUpperCase() !== 'NAN';
@@ -1639,7 +1647,7 @@ function parseForm(rows) {
     type: detectType(rows, version),
     heberge: extractRightOfLabel(rows, ['H\u00e9berg\u00e9', 'Heberge'], { maxDistance: 3, skipMarkers: true, skipLabels: true }),
     contactNom: extractRightOfLabel(rows, ['Nom Contact'], { maxDistance: 3, skipMarkers: true, skipLabels: true }),
-    contactTel: extractRightOfLabel(rows, ['T\u00e9l\u00e9phone contact', 'Telephone contact'], { maxDistance: 3, skipMarkers: true, skipLabels: true }),
+    contactTel: normalizePhoneNumber(extractRightOfLabel(rows, ['T\u00e9l\u00e9phone contact', 'Telephone contact'], { maxDistance: 3, skipMarkers: true, skipLabels: true })),
     dateSouhaitee: extractDateByLabel(rows, ['Date souhait\u00e9e', 'Date souhaitee']),
     heureArrivee: extractTimeByLabel(rows, ['Heure d\u2019arriv\u00e9e', 'Heure d\'arriv\u00e9e', 'Heure arrivee']),
     duree: extractRightOfLabel(rows, ['Dur\u00e9e', 'Duree'], { maxDistance: 3, skipMarkers: true, skipLabels: true }),
