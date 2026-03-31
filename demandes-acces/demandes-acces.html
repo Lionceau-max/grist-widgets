@@ -951,6 +951,18 @@ function openDetail(id) {
 
   document.getElementById('detailBody').innerHTML = h;
 
+  var bodyBtns = document.getElementById('detailBody').querySelectorAll('button[data-a]');
+  for (var bb = 0; bb < bodyBtns.length; bb++) {
+    (function(btn) {
+      btn.addEventListener('click', function() {
+        var a = btn.getAttribute('data-a');
+        var did = parseInt(btn.getAttribute('data-d'));
+        if (a === 'ex-edit') openEditExchange(did, parseInt(btn.getAttribute('data-ex')));
+        else if (a === 'ex-del') deleteExchange(did, parseInt(btn.getAttribute('data-ex')));
+      });
+    })(bodyBtns[bb]);
+  }
+
   var st = currentStatut;
   var act = '';
   if (st === 'Reçue') act += '<button class="btn btn-primary" data-a="acq" data-d="' + d.id + '">Acquitter</button>';
