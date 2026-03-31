@@ -1119,14 +1119,29 @@ function triggerDownload(bytes, filename) {
   setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
 }
 
+function fetchRosnyTemplate() {
+  var urls = [
+    ASSET_BASE + 'A_RENOMMER_SOCIETE_NOM.xlsx',
+    (window.location.href || '').replace(/demandes-acces\.html.*$/i, 'A_RENOMMER_SOCIETE_NOM.xlsx'),
+    './A_RENOMMER_SOCIETE_NOM.xlsx'
+  ];
+  function tryFetch(i) {
+    if (i >= urls.length) return Promise.reject(new Error('Template Rosny introuvable'));
+    return fetch(urls[i]).then(function(res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.arrayBuffer();
+    }).catch(function() {
+      return tryFetch(i + 1);
+    });
+  }
+  return tryFetch(0);
+}
+
 function downloadRosnyForm(id) {
   var d = allDemandes.find(function(x) { return x.id === id; });
   if (!d) return;
   ensureXlsx().then(function() {
-    return fetch(ASSET_BASE + 'A_RENOMMER_SOCIETE_NOM.xlsx').then(function(res) {
-      if (!res.ok) throw new Error('Template Rosny introuvable');
-      return res.arrayBuffer();
-    });
+    return fetchRosnyTemplate();
   }).then(function(buf) {
     var wb = XLSX.read(buf, { type: 'array' });
     var ws = wb.Sheets[wb.SheetNames[0]];
