@@ -1169,8 +1169,9 @@ async function generateCR() {
       sections: [{ properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 851, right: 1134, bottom: 851, left: 1134 } } }, children }],
     });
 
-    // Generate DOCX buffer
-    const buffer = await Packer.toBuffer(doc);
+    // Generate DOCX blob then read as ArrayBuffer for JSZip
+    const blob0 = await Packer.toBlob(doc);
+    const buffer = await blob0.arrayBuffer();
 
     // Post-process with JSZip to inject watermark header
     const zip = await JSZip.loadAsync(buffer);
