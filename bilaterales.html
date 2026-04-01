@@ -6,6 +6,7 @@
 <title>Bilatérales RIE</title>
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
 <script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -1013,7 +1014,7 @@ async function generateCR() {
     const benCourt = benShort(b.Beneficiaire);
     const noBorder = { style: BorderStyle.NIL };
     const peachBorderFn = () => ({ style: BorderStyle.SINGLE, size: 22, space: 0, color: 'FDE9D9' });
-    const ap = (runs, opts = {}) => new Paragraph({ children: runs, spacing: { after: 80 }, ...opts });
+    const ap = (runs, opts = {}) => new Paragraph({ children: runs, spacing: { after: 80, line: 276, lineRule: 'auto' }, ...opts });
     const tr = (text, opts = {}) => new TextRun({ text, font: 'Calibri', size: 22, ...opts });
 
     const blueBanner = (text) => new Paragraph({
@@ -1043,7 +1044,7 @@ async function generateCR() {
           borders: { top:noBorder, bottom:noBorder, left:noBorder, right:noBorder },
           verticalAlign: VerticalAlign.CENTER,
           children: [new Paragraph({ alignment: AlignmentType.LEFT, spacing:{after:0}, children: [
-            new ImageRun({ data: b64ToBytes(LOGO_PM_B64), transformation: { width: 130, height: 57 }, type: 'png' }),
+            new ImageRun({ data: b64ToBytes(LOGO_PM_B64), transformation: { width: 164, height: 72 }, type: 'png' }),
           ]})],
         }),
         // Title center
@@ -1063,7 +1064,7 @@ async function generateCR() {
           borders: { top:noBorder, bottom:noBorder, left:noBorder, right:noBorder },
           verticalAlign: VerticalAlign.CENTER,
           children: [new Paragraph({ alignment: AlignmentType.RIGHT, spacing:{after:0}, children: [
-            new ImageRun({ data: b64ToBytes(LOGO_DINUM_B64), transformation: { width: 62, height: 60 }, type: 'png' }),
+            new ImageRun({ data: b64ToBytes(LOGO_DINUM_B64), transformation: { width: 80, height: 77 }, type: 'png' }),
           ]})],
         }),
       ]})],
@@ -1082,8 +1083,8 @@ async function generateCR() {
           verticalAlign: VerticalAlign.CENTER,
           borders: { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder },
           children: [
-            new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 0 }, children: [new TextRun({ text: 'Diffusion', bold: true, color: 'FFFFFF', font: 'Verdana', size: 22 })] }),
-            new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 0 }, children: [new TextRun({ text: 'interne', bold: true, color: 'FFFFFF', font: 'Verdana', size: 22 })] }),
+            new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 0 }, children: [new TextRun({ text: 'Diffusion', bold: true, color: '000000', font: 'Verdana', size: 22 })] }),
+            new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 0 }, children: [new TextRun({ text: 'interne', bold: true, color: '000000', font: 'Verdana', size: 22 })] }),
           ],
         }),
         new TableCell({
@@ -1104,9 +1105,9 @@ async function generateCR() {
 
     // Participants
     children.push(ap([tr('Participants ' + benCourt, { bold: true })], { spacing: { after: 20 } }));
-    children.push(ap([tr(b.Participants_beneficiaire || '—')], { spacing: { after: 100 } }));
+    children.push(ap([tr(b.Participants_beneficiaire || '—')], { spacing: { after: 160 } }));
     children.push(ap([tr('Participants DINUM/ISO', { bold: true })], { spacing: { after: 20 } }));
-    children.push(ap([tr(b.Participants_DINUM || '—')], { spacing: { after: 100 } }));
+    children.push(ap([tr(b.Participants_DINUM || '—')], { spacing: { after: 160 } }));
     children.push(ap([tr('Date : ', { bold: true }), tr(fmtDate(b.Date))], { spacing: { after: 60 } }));
     children.push(ap([tr('Lieu : ', { bold: true })], { spacing: { after: 0 } }));
     children.push(ap([tr('Webconf.numerique', { bold: true })], { spacing: { after: 60 } }));
@@ -1168,8 +1169,74 @@ async function generateCR() {
       sections: [{ properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 851, right: 1134, bottom: 851, left: 1134 } } }, children }],
     });
 
-    const blob = await Packer.toBlob(doc);
-    const url = URL.createObjectURL(blob);
+    // Generate DOCX buffer
+    const buffer = await Packer.toBuffer(doc);
+
+    // Post-process with JSZip to inject watermark header
+    const zip = await JSZip.loadAsync(buffer);
+
+    // Standard Word VML text watermark XML
+    const watermarkHeaderXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:hdr xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas"
+       xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+       xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+       xmlns:v="urn:schemas-microsoft-com:vml"
+       xmlns:o="urn:schemas-microsoft-com:office:office"
+       xmlns:w10="urn:schemas-microsoft-com:office:word">
+  <w:p>
+    <w:pPr><w:spacing w:after="0"/></w:pPr>
+    <w:r>
+      <w:rPr><w:noProof/></w:rPr>
+      <w:pict>
+        <v:shape id="WaterMark" style="position:absolute;margin-left:0;margin-top:0;width:468pt;height:211pt;z-index:-251654144;mso-wrap-edited:f;mso-position-horizontal:center;mso-position-horizontal-relative:margin;mso-position-vertical:center;mso-position-vertical-relative:margin" o:allowoverlap="t" filled="t" stroked="f">
+          <v:fill color="#C0C0C0" opacity="0.35" type="solid"/>
+          <v:textpath style="font-family:Calibri;font-size:1pt;font-weight:bold;v-text-kern:t" string="CONFIDENTIEL" trim="t" o:extrusionok="t"/>
+          <v:handles><v:h position="#,bottomRight"/></v:handles>
+          <o:lock v:ext="edit" text="t" shapetype="t"/>
+        </v:shape>
+      </w:pict>
+    </w:r>
+  </w:p>
+</w:hdr>`;
+
+    // Add watermark header file
+    zip.file('word/watermarkHeader.xml', watermarkHeaderXml);
+
+    // Update document relationships to include watermark header
+    const relsPath = 'word/_rels/document.xml.rels';
+    let relsXml = await zip.file(relsPath).async('string');
+    if (!relsXml.includes('watermarkHeader')) {
+      relsXml = relsXml.replace(
+        '</Relationships>',
+        '<Relationship Id="rIdWM" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="watermarkHeader.xml"/></Relationships>'
+      );
+      zip.file(relsPath, relsXml);
+    }
+
+    // Update document.xml to reference watermark header on all sections
+    let docXml = await zip.file('word/document.xml').async('string');
+    if (!docXml.includes('rIdWM')) {
+      // Add headerReference before </w:sectPr>
+      docXml = docXml.replace(
+        /<\/w:sectPr>/g,
+        '<w:headerReference w:type="default" r:id="rIdWM"/></w:sectPr>'
+      );
+      zip.file('word/document.xml', docXml);
+    }
+
+    // Update [Content_Types].xml to include watermark header
+    let ctXml = await zip.file('[Content_Types].xml').async('string');
+    if (!ctXml.includes('watermarkHeader')) {
+      ctXml = ctXml.replace(
+        '</Types>',
+        '<Override PartName="/word/watermarkHeader.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/></Types>'
+      );
+      zip.file('[Content_Types].xml', ctXml);
+    }
+
+    // Export final DOCX
+    const finalBlob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+    const url = URL.createObjectURL(finalBlob);
     const a = document.createElement('a');
     a.href = url;
     a.download = 'CR_Bilaterale_RIE-ISO-' + benCourt.replace(/[^a-zA-Z0-9]/g, '-') + '-' + fmtDate(b.Date).replace(/\//g, '-') + '.docx';
