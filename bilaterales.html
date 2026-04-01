@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bilatérales RIE</title>
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -62,6 +63,9 @@
   #btn-new-point:hover { background:#1d4ed8; }
   #btn-export { padding:6px 14px; border-radius:6px; background:#fff; color:var(--text-sm); border:1px solid var(--border); font-size:13px; cursor:pointer; }
   #btn-export:hover { background:var(--gray-lt); }
+  #btn-gen-cr { padding:6px 14px; border-radius:6px; background:#fff; color:var(--text-sm); border:1px solid var(--border); font-size:13px; cursor:pointer; }
+  #btn-gen-cr:hover { background:var(--gray-lt); }
+  #btn-gen-cr:disabled { opacity:.5; cursor:default; }
   #search-box { flex:1; max-width:280px; padding:6px 12px; border:1px solid var(--border); border-radius:6px; font-size:13px; outline:none; }
   #search-box:focus { border-color:var(--blue); }
 
@@ -191,6 +195,7 @@
       <button id="btn-new-point">+ Point</button>
       <input id="search-box" type="text" placeholder="Rechercher…">
       <button id="btn-export">📋 Résumé</button>
+      <button id="btn-gen-cr" title="Générer le CR au format Word">📄 CR Word</button>
     </div>
     <div id="no-bilat">← Sélectionnez une bilatérale</div>
     <div id="content" style="display:none"></div>
@@ -725,6 +730,139 @@ document.addEventListener('keydown',e=>{
     closePanel();
   }
 });
+
+// ── Génération CR Word ──
+async function generateCR() {
+  if (!selectedBilatId) return;
+  const btn = document.getElementById('btn-gen-cr');
+  btn.disabled = true; btn.textContent = '⏳ Génération…';
+  try {
+    const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+            AlignmentType, BorderStyle, WidthType, ShadingType, VerticalAlign,
+            HeadingLevel, LevelFormat } = window.docx;
+
+    const b = bilaterales.find(x => x.id === selectedBilatId);
+    const pts = [...pointsAll.filter(p => p.Bilaterale === selectedBilatId)];
+    pts.sort((a, bx) => STATUT_ORDER.indexOf(a.Statut) - STATUT_ORDER.indexOf(bx.Statut));
+
+    const benFull  = benName(b.Beneficiaire);
+    const benCourt = benShort(b.Beneficiaire);
+    const noBorder = { style: BorderStyle.NIL };
+    const peachBorderFn = () => ({ style: BorderStyle.SINGLE, size: 22, space: 0, color: 'FDE9D9' });
+    const ap = (runs, opts = {}) => new Paragraph({ children: runs, spacing: { after: 80 }, ...opts });
+    const tr = (text, opts = {}) => new TextRun({ text, font: 'Arial', size: 22, ...opts });
+
+    const blueBanner = (text) => new Paragraph({
+      children: [new TextRun({ text, bold: true, color: 'FFFFFF', font: 'Calibri', size: 22 })],
+      shading: { type: ShadingType.CLEAR, fill: '0070C0' },
+      spacing: { after: 0, before: 160 },
+      indent: { left: 10 },
+    });
+
+    const children = [];
+
+    // Titre
+    children.push(ap([tr('Bilatérale', { bold: true, color: '1F497D', size: 28 })]));
+    children.push(ap([tr('DINUM - ISO / ' + benFull, { bold: true, color: '1F497D', size: 28 })]));
+    children.push(ap([tr(fmtDate(b.Date), { bold: true, color: '1F497D', size: 26 })], { spacing: { after: 200 } }));
+
+    // Diffusion interne
+    children.push(new Table({
+      width: { size: 9026, type: WidthType.DXA },
+      columnWidths: [1500, 7526],
+      rows: [new TableRow({ children: [
+        new TableCell({
+          width: { size: 1500, type: WidthType.DXA },
+          shading: { type: ShadingType.CLEAR, fill: 'FF6633' },
+          margins: { top: 80, bottom: 80, left: 120, right: 120 },
+          verticalAlign: VerticalAlign.CENTER,
+          borders: { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder },
+          children: [
+            new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 0 }, children: [new TextRun({ text: 'Diffusion', bold: true, color: 'FFFFFF', font: 'Verdana', size: 22 })] }),
+            new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 0 }, children: [new TextRun({ text: 'interne', bold: true, color: 'FFFFFF', font: 'Verdana', size: 22 })] }),
+          ],
+        }),
+        new TableCell({
+          width: { size: 7526, type: WidthType.DXA },
+          shading: { type: ShadingType.CLEAR, fill: 'FDE9D9' },
+          margins: { top: 80, bottom: 80, left: 160, right: 120 },
+          verticalAlign: VerticalAlign.CENTER,
+          borders: { top: peachBorderFn(), bottom: peachBorderFn(), left: noBorder, right: noBorder },
+          children: [new Paragraph({ spacing: { after: 0 }, children: [
+            new TextRun({ text: 'Données ou informations ne devant pas être publiques et/ou ', bold: true, font: 'Verdana', size: 16 }),
+            new TextRun({ text: "restreintes à la diffusion d'un domaine spécifique", bold: true, font: 'Verdana', size: 16, underline: {} }),
+          ]})],
+        }),
+      ]})],
+    }));
+
+    children.push(new Paragraph({ spacing: { after: 160 } }));
+
+    // Participants
+    children.push(ap([tr('Participants ' + benCourt, { bold: true })], { spacing: { after: 20 } }));
+    children.push(ap([tr(b.Participants_beneficiaire || '—')], { spacing: { after: 100 } }));
+    children.push(ap([tr('Participants DINUM/ISO', { bold: true })], { spacing: { after: 20 } }));
+    children.push(ap([tr(b.Participants_DINUM || '—')], { spacing: { after: 100 } }));
+    children.push(ap([tr('Date : ', { bold: true }), tr(fmtDate(b.Date))], { spacing: { after: 60 } }));
+    children.push(ap([tr('Lieu : ', { bold: true })], { spacing: { after: 0 } }));
+    children.push(ap([tr('Webconf.numerique', { bold: true })], { spacing: { after: 60 } }));
+    if (b.Prochain_point) {
+      children.push(ap([tr('Prochain point programmé le ' + fmtDate(b.Prochain_point))], { spacing: { after: 160 } }));
+    } else {
+      children.push(new Paragraph({ spacing: { after: 160 } }));
+    }
+
+    // Enjeux et contexte
+    children.push(blueBanner('Enjeux et contexte'));
+    children.push(new Paragraph({ spacing: { after: 0 } }));
+    children.push(ap([tr('Bilatérale mensuelle ' + benCourt + ' sur le périmètre RIE')], { spacing: { after: 200 } }));
+
+    // Points abordés
+    children.push(new Paragraph({
+      children: [new TextRun({ text: 'Points abordés', bold: true, color: 'FFFFFF', font: 'Calibri', size: 22 })],
+      shading: { type: ShadingType.CLEAR, fill: '0070C0' },
+      spacing: { after: 120, before: 0 },
+      indent: { left: 10 },
+    }));
+
+    // Points
+    pts.forEach(p => {
+      const titleText = p.Titre + (p.Reference_site ? ' - ' + p.Reference_site : '');
+      children.push(new Paragraph({
+        numbering: { reference: 'point-list', level: 0 },
+        children: [tr(titleText, { bold: true })],
+        spacing: { after: 60, before: 120 },
+      }));
+      if (p.Description) {
+        p.Description.split('\n').filter(l => l.trim()).forEach(line => {
+          children.push(new Paragraph({ children: [tr(line)], indent: { left: 720 }, spacing: { after: 40 } }));
+        });
+      }
+      if (p.Action_suivante) {
+        children.push(new Paragraph({
+          children: [tr('\u2192 Action : ' + p.Action_suivante, { bold: true, color: '002060' })],
+          indent: { left: 720 }, spacing: { after: 80 },
+        }));
+      }
+    });
+
+    const doc = new Document({
+      numbering: { config: [{ reference: 'point-list', levels: [{ level: 0, format: LevelFormat.BULLET, text: '-', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 720, hanging: 360 } } } }] }] },
+      sections: [{ properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 851, right: 1134, bottom: 851, left: 1134 } } }, children }],
+    });
+
+    const blob = await Packer.toBlob(doc);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'CR_Bilaterale_RIE-ISO-' + benCourt.replace(/[^a-zA-Z0-9]/g, '-') + '-' + fmtDate(b.Date).replace(/\//g, '-') + '.docx';
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  } catch(e) { alert('Erreur génération DOCX : ' + e.message); console.error(e); }
+  finally { btn.disabled = false; btn.textContent = '📄 CR Word'; }
+}
+
+document.getElementById('btn-gen-cr').addEventListener('click', generateCR);
 
 // ── Boot ──
 grist.ready({requiredAccess:'full'});
