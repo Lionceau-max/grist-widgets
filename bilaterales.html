@@ -6,227 +6,163 @@
 <title>Bilatérales RIE</title>
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
 <style>
-  /* ── Reset & base ── */
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --blue:    #2563eb;
-    --blue-lt: #eff6ff;
-    --red:     #ef4444;
-    --red-lt:  #fef2f2;
-    --green:   #22c55e;
-    --green-lt:#f0fdf4;
-    --amber:   #f59e0b;
-    --amber-lt:#fffbeb;
-    --purple:  #8b5cf6;
-    --purple-lt:#f5f3ff;
-    --gray:    #6b7280;
-    --gray-lt: #f9fafb;
-    --border:  #e5e7eb;
-    --text:    #111827;
-    --text-sm: #374151;
-    --text-xs: #6b7280;
-    --radius:  8px;
-    --shadow:  0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
-    --shadow-lg: 0 10px 25px rgba(0,0,0,.12);
+    --blue:#2563eb; --blue-lt:#eff6ff;
+    --red:#ef4444;  --red-lt:#fef2f2;
+    --green:#22c55e; --green-lt:#f0fdf4;
+    --amber:#f59e0b; --amber-lt:#fffbeb;
+    --purple:#8b5cf6; --purple-lt:#f5f3ff;
+    --gray:#6b7280; --gray-lt:#f9fafb;
+    --border:#e5e7eb; --text:#111827; --text-sm:#374151; --text-xs:#6b7280;
+    --radius:8px;
+    --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);
+    --shadow-lg:0 10px 25px rgba(0,0,0,.12);
   }
-  body { font-family: system-ui,-apple-system,sans-serif; font-size:14px; color:var(--text); background:#f3f4f6; height:100vh; overflow:hidden; display:flex; flex-direction:column; }
-
-  /* ── Layout ── */
+  body { font-family:system-ui,-apple-system,sans-serif; font-size:14px; color:var(--text); background:#f3f4f6; height:100vh; overflow:hidden; }
   #app { display:flex; height:100vh; overflow:hidden; }
 
-  /* ── Sidebar ── */
-  #sidebar {
-    width: 240px; min-width:200px; background:#fff; border-right:1px solid var(--border);
-    display:flex; flex-direction:column; overflow:hidden;
-  }
-  #sidebar-header {
-    padding:16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;
-  }
+  /* Sidebar */
+  #sidebar { width:240px; min-width:200px; background:#fff; border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; }
+  #sidebar-header { padding:16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
   #sidebar-header h2 { font-size:13px; font-weight:700; color:var(--text-xs); text-transform:uppercase; letter-spacing:.05em; }
-  #btn-new-bilat {
-    width:28px; height:28px; border-radius:6px; border:none; background:var(--blue); color:#fff;
-    font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; line-height:1;
-  }
+  #btn-new-bilat { width:28px; height:28px; border-radius:6px; border:none; background:var(--blue); color:#fff; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
   #btn-new-bilat:hover { background:#1d4ed8; }
   #bilat-list { flex:1; overflow-y:auto; padding:8px; display:flex; flex-direction:column; gap:4px; }
-  .bilat-item {
-    padding:10px 12px; border-radius:var(--radius); cursor:pointer; border:2px solid transparent;
-    transition:all .15s;
-  }
+  .bilat-item { padding:10px 12px; border-radius:var(--radius); cursor:pointer; border:2px solid transparent; transition:all .15s; }
   .bilat-item:hover { background:var(--gray-lt); }
   .bilat-item.active { background:var(--blue-lt); border-color:var(--blue); }
-  .bilat-item .bi-name { font-weight:600; font-size:13px; color:var(--text); line-height:1.3; }
+  .bilat-item .bi-name { font-weight:600; font-size:13px; color:var(--text); }
   .bilat-item .bi-date { font-size:11px; color:var(--text-xs); margin-top:2px; }
   .bilat-item .bi-next { font-size:11px; color:var(--blue); margin-top:2px; }
 
-  /* ── Main ── */
+  /* Main */
   #main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+  #topbar { background:#fff; border-bottom:1px solid var(--border); padding:12px 20px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  #topbar-info { flex:1; min-width:160px; }
+  #topbar-title { font-size:16px; font-weight:700; }
+  #topbar-subtitle { font-size:12px; color:var(--text-xs); margin-top:2px; }
+  #kpi-bar { display:flex; gap:6px; flex-wrap:wrap; }
+  .kpi { padding:4px 11px; border-radius:20px; font-size:12px; font-weight:600; cursor:pointer; border:2px solid transparent; transition:all .15s; white-space:nowrap; }
+  .kpi.all { background:#f3f4f6; color:var(--text-sm); border-color:#e5e7eb; } .kpi.all.active { background:var(--text); color:#fff; border-color:var(--text); }
+  .kpi.ec { background:var(--blue-lt); color:var(--blue); }   .kpi.ec.active { background:var(--blue); color:#fff; }
+  .kpi.bl { background:var(--red-lt); color:var(--red); }     .kpi.bl.active { background:var(--red); color:#fff; }
+  .kpi.ar { background:var(--purple-lt); color:var(--purple); } .kpi.ar.active { background:var(--purple); color:#fff; }
+  .kpi.sv { background:var(--amber-lt); color:var(--amber); } .kpi.sv.active { background:var(--amber); color:#fff; }
+  .kpi.rs { background:var(--green-lt); color:var(--green); } .kpi.rs.active { background:var(--green); color:#fff; }
+  #btn-reconduire { padding:6px 13px; border-radius:6px; background:#fff; color:var(--text-sm); border:1px solid var(--border); font-size:13px; font-weight:500; cursor:pointer; white-space:nowrap; flex-shrink:0; }
+  #btn-reconduire:hover { background:var(--gray-lt); }
 
-  /* ── Top bar ── */
-  #topbar {
-    background:#fff; border-bottom:1px solid var(--border); padding:14px 20px;
-    display:flex; align-items:center; gap:16px; flex-wrap:wrap;
-  }
-  #topbar-title { font-size:16px; font-weight:700; color:var(--text); flex:1; min-width:200px; }
-  #topbar-subtitle { font-size:12px; color:var(--text-xs); font-weight:400; margin-top:2px; }
-  #kpi-bar { display:flex; gap:8px; flex-wrap:wrap; }
-  .kpi {
-    padding:5px 12px; border-radius:20px; font-size:12px; font-weight:600; cursor:pointer;
-    border:2px solid transparent; transition:all .15s; white-space:nowrap;
-  }
-  .kpi.all { background:#f3f4f6; color:var(--text-sm); border-color:#e5e7eb; }
-  .kpi.all.active { background:var(--text); color:#fff; border-color:var(--text); }
-  .kpi.ec  { background:var(--blue-lt); color:var(--blue); }
-  .kpi.ec.active { background:var(--blue); color:#fff; }
-  .kpi.bl  { background:var(--red-lt); color:var(--red); }
-  .kpi.bl.active { background:var(--red); color:#fff; }
-  .kpi.ar  { background:var(--purple-lt); color:var(--purple); }
-  .kpi.ar.active { background:var(--purple); color:#fff; }
-  .kpi.sv  { background:var(--amber-lt); color:var(--amber); }
-  .kpi.sv.active { background:var(--amber); color:#fff; }
-  .kpi.rs  { background:var(--green-lt); color:var(--green); }
-  .kpi.rs.active { background:var(--green); color:#fff; }
-
-  /* ── Toolbar ── */
-  #toolbar {
-    background:#fff; border-bottom:1px solid var(--border); padding:8px 20px;
-    display:flex; align-items:center; gap:10px;
-  }
-  #btn-new-point {
-    padding:6px 14px; border-radius:6px; background:var(--blue); color:#fff;
-    border:none; font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px;
-  }
+  #toolbar { background:#fff; border-bottom:1px solid var(--border); padding:8px 20px; display:flex; align-items:center; gap:10px; }
+  #btn-new-point { padding:6px 14px; border-radius:6px; background:var(--blue); color:#fff; border:none; font-size:13px; font-weight:600; cursor:pointer; }
   #btn-new-point:hover { background:#1d4ed8; }
-  #btn-export {
-    padding:6px 14px; border-radius:6px; background:#fff; color:var(--text-sm);
-    border:1px solid var(--border); font-size:13px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:6px;
-  }
+  #btn-export { padding:6px 14px; border-radius:6px; background:#fff; color:var(--text-sm); border:1px solid var(--border); font-size:13px; cursor:pointer; }
   #btn-export:hover { background:var(--gray-lt); }
-  #search-box {
-    flex:1; max-width:280px; padding:6px 12px; border:1px solid var(--border); border-radius:6px;
-    font-size:13px; outline:none; color:var(--text);
-  }
+  #search-box { flex:1; max-width:280px; padding:6px 12px; border:1px solid var(--border); border-radius:6px; font-size:13px; outline:none; }
   #search-box:focus { border-color:var(--blue); }
 
-  /* ── Cards grid ── */
-  #content { flex:1; overflow-y:auto; padding:16px 20px; display:grid; grid-template-columns: repeat(auto-fill, minmax(340px,1fr)); gap:12px; align-content:start; }
+  /* Cards */
+  #content { flex:1; overflow-y:auto; padding:16px 20px; display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:12px; align-content:start; }
   #empty-state { grid-column:1/-1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:60px; color:var(--text-xs); gap:8px; }
   #empty-state .icon { font-size:36px; }
   #no-bilat { flex:1; display:flex; align-items:center; justify-content:center; color:var(--text-xs); font-size:15px; }
 
-  .point-card {
-    background:#fff; border-radius:var(--radius); box-shadow:var(--shadow);
-    border-left:4px solid var(--border); cursor:pointer; transition:all .15s;
-    padding:14px 16px; display:flex; flex-direction:column; gap:8px;
-  }
+  .point-card { background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); border-left:4px solid var(--border); cursor:pointer; transition:all .15s; padding:14px 16px; display:flex; flex-direction:column; gap:8px; }
   .point-card:hover { box-shadow:0 4px 12px rgba(0,0,0,.1); transform:translateY(-1px); }
   .point-card.active { outline:2px solid var(--blue); }
-  .point-card[data-statut="En cours"]      { border-left-color:var(--blue); }
-  .point-card[data-statut="Bloqué"]        { border-left-color:var(--red); }
-  .point-card[data-statut="Résolu"]        { border-left-color:var(--green); }
-  .point-card[data-statut="À surveiller"]  { border-left-color:var(--amber); }
-  .point-card[data-statut="Action requise"]{ border-left-color:var(--purple); }
+  .point-card[data-statut="En cours"]       { border-left-color:var(--blue); }
+  .point-card[data-statut="Bloqué"]         { border-left-color:var(--red); }
+  .point-card[data-statut="Résolu"]         { border-left-color:var(--green); }
+  .point-card[data-statut="À surveiller"]   { border-left-color:var(--amber); }
+  .point-card[data-statut="Action requise"] { border-left-color:var(--purple); }
 
-  .card-top { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
-  .card-titre { font-weight:600; font-size:13px; color:var(--text); line-height:1.4; flex:1; }
-  .badge {
-    padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; white-space:nowrap;
-  }
-  .badge-ec  { background:var(--blue-lt);   color:var(--blue); }
-  .badge-bl  { background:var(--red-lt);    color:var(--red); }
-  .badge-rs  { background:var(--green-lt);  color:var(--green); }
-  .badge-sv  { background:var(--amber-lt);  color:var(--amber); }
-  .badge-ar  { background:var(--purple-lt); color:var(--purple); }
+  .card-top { display:flex; align-items:flex-start; gap:8px; }
+  .card-titre { font-weight:600; font-size:13px; line-height:1.4; flex:1; }
+  .card-badges { display:flex; align-items:center; gap:4px; flex-shrink:0; flex-wrap:wrap; justify-content:flex-end; }
+  .badge { padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; white-space:nowrap; }
+  .badge-ec { background:var(--blue-lt); color:var(--blue); }
+  .badge-bl { background:var(--red-lt); color:var(--red); }
+  .badge-rs { background:var(--green-lt); color:var(--green); }
+  .badge-sv { background:var(--amber-lt); color:var(--amber); }
+  .badge-ar { background:var(--purple-lt); color:var(--purple); }
+  .badge-age { background:#f3f4f6; color:var(--text-xs); font-size:10px; padding:2px 6px; border-radius:20px; }
+  .badge-age.old { background:#fef3c7; color:#92400e; }
 
-  .card-ref { font-size:11px; color:var(--text-xs); font-family:monospace; background:#f3f4f6; padding:1px 6px; border-radius:4px; display:inline-block; }
+  .card-ref { font-size:11px; color:var(--text-xs); font-family:monospace; background:#f3f4f6; padding:1px 6px; border-radius:4px; }
   .card-desc { font-size:12px; color:var(--text-sm); line-height:1.5; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-  .card-action { font-size:12px; color:var(--blue); display:flex; align-items:baseline; gap:5px; }
-  .card-action::before { content:'→'; font-weight:700; }
+  .card-action { font-size:12px; color:var(--blue); }
+  .card-action::before { content:'→ '; font-weight:700; }
+  .card-footer { display:flex; align-items:center; justify-content:flex-end; padding-top:6px; border-top:1px solid var(--border); margin-top:2px; }
+  .quick-status { font-size:11px; padding:3px 8px; border-radius:4px; border:1px solid var(--border); background:#fff; color:var(--text-sm); cursor:pointer; outline:none; }
+  .quick-status:hover { border-color:var(--blue); }
 
-  /* ── Slide-over ── */
-  #overlay {
-    position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:100;
-    opacity:0; pointer-events:none; transition:opacity .2s;
-  }
+  /* Panel */
+  #overlay { position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:100; opacity:0; pointer-events:none; transition:opacity .2s; }
   #overlay.open { opacity:1; pointer-events:auto; }
-  #panel {
-    position:fixed; top:0; right:-520px; width:500px; height:100vh; background:#fff;
-    box-shadow:var(--shadow-lg); z-index:101; display:flex; flex-direction:column;
-    transition:right .25s ease; overflow:hidden;
-  }
+  #panel { position:fixed; top:0; right:-520px; width:500px; height:100vh; background:#fff; box-shadow:var(--shadow-lg); z-index:101; display:flex; flex-direction:column; transition:right .25s ease; overflow:hidden; }
   #panel.open { right:0; }
-
-  #panel-header {
-    padding:18px 20px; border-bottom:1px solid var(--border);
-    display:flex; align-items:center; justify-content:space-between; gap:12px;
-  }
-  #panel-title { font-size:15px; font-weight:700; color:var(--text); }
+  #panel-header { padding:18px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  #panel-title { font-size:15px; font-weight:700; }
   #panel-close { background:none; border:none; cursor:pointer; font-size:20px; color:var(--text-xs); padding:4px; border-radius:4px; }
   #panel-close:hover { background:var(--gray-lt); }
   #panel-body { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:16px; }
-  #panel-footer {
-    padding:14px 20px; border-top:1px solid var(--border); display:flex; align-items:center; gap:10px;
-  }
+  #panel-footer { padding:14px 20px; border-top:1px solid var(--border); display:flex; align-items:center; gap:10px; }
+  #panel-history { background:var(--gray-lt); border-radius:6px; padding:10px 12px; }
+  #panel-history-title { font-size:11px; font-weight:700; color:var(--text-xs); text-transform:uppercase; letter-spacing:.04em; margin-bottom:6px; }
+  .history-entry { font-size:12px; padding:4px 0; border-bottom:1px solid var(--border); display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+  .history-entry:last-child { border-bottom:none; }
+  .history-date { color:var(--text-xs); flex-shrink:0; font-size:11px; }
+  .history-current { font-size:10px; color:var(--text-xs); }
 
   .field-group { display:flex; flex-direction:column; gap:5px; }
   .field-label { font-size:12px; font-weight:600; color:var(--text-xs); text-transform:uppercase; letter-spacing:.04em; }
-  .field-input, .field-select, .field-textarea {
-    padding:8px 12px; border:1px solid var(--border); border-radius:6px; font-size:13px;
-    color:var(--text); font-family:inherit; outline:none; transition:border-color .15s; background:#fff;
-    width:100%;
-  }
+  .field-input, .field-select, .field-textarea { padding:8px 12px; border:1px solid var(--border); border-radius:6px; font-size:13px; color:var(--text); font-family:inherit; outline:none; transition:border-color .15s; background:#fff; width:100%; }
   .field-input:focus, .field-select:focus, .field-textarea:focus { border-color:var(--blue); }
   .field-textarea { resize:vertical; min-height:90px; line-height:1.5; }
   .field-input.dirty, .field-select.dirty, .field-textarea.dirty { border-color:var(--amber); background:var(--amber-lt); }
-
-  .btn-save {
-    padding:8px 20px; border-radius:6px; background:var(--blue); color:#fff;
-    border:none; font-size:13px; font-weight:600; cursor:pointer;
-  }
+  .btn-save { padding:8px 20px; border-radius:6px; background:var(--blue); color:#fff; border:none; font-size:13px; font-weight:600; cursor:pointer; }
   .btn-save:hover { background:#1d4ed8; }
   .btn-save:disabled { opacity:.5; cursor:default; }
-  .btn-delete {
-    padding:8px 14px; border-radius:6px; background:#fff; color:var(--red);
-    border:1px solid #fca5a5; font-size:13px; cursor:pointer;
-  }
+  .btn-delete { padding:8px 14px; border-radius:6px; background:#fff; color:var(--red); border:1px solid #fca5a5; font-size:13px; cursor:pointer; }
   .btn-delete:hover { background:var(--red-lt); }
   .dirty-indicator { font-size:12px; color:var(--amber); font-weight:500; margin-left:auto; }
 
-  /* ── Export modal ── */
-  #export-modal {
-    position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:200;
-    display:none; align-items:center; justify-content:center;
-  }
-  #export-modal.open { display:flex; }
-  #export-box {
-    background:#fff; border-radius:12px; width:620px; max-height:80vh;
-    display:flex; flex-direction:column; box-shadow:var(--shadow-lg); overflow:hidden;
-  }
-  #export-header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
-  #export-header h3 { font-size:15px; font-weight:700; }
-  #export-close { background:none; border:none; cursor:pointer; font-size:20px; color:var(--text-xs); }
-  #export-content { flex:1; overflow-y:auto; padding:20px; }
-  #export-text {
-    width:100%; min-height:300px; font-family:monospace; font-size:12px; line-height:1.6;
-    border:1px solid var(--border); border-radius:6px; padding:12px; resize:vertical; color:var(--text);
-  }
-  #export-footer { padding:14px 20px; border-top:1px solid var(--border); display:flex; gap:10px; }
-  .btn-copy { padding:8px 16px; border-radius:6px; background:var(--blue); color:#fff; border:none; font-size:13px; font-weight:600; cursor:pointer; }
-  .btn-copy:hover { background:#1d4ed8; }
+  /* Modals */
+  .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:200; display:none; align-items:center; justify-content:center; }
+  .modal-backdrop.open { display:flex; }
+  .modal-box { background:#fff; border-radius:12px; width:480px; max-height:85vh; display:flex; flex-direction:column; box-shadow:var(--shadow-lg); overflow:hidden; }
+  .modal-box.wide { width:640px; }
+  .modal-header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .modal-header h3 { font-size:15px; font-weight:700; }
+  .modal-close { background:none; border:none; cursor:pointer; font-size:20px; color:var(--text-xs); }
+  .modal-body { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:14px; }
+  .modal-footer { padding:14px 20px; border-top:1px solid var(--border); display:flex; gap:10px; justify-content:flex-end; }
+  .btn-primary { padding:8px 20px; border-radius:6px; background:var(--blue); color:#fff; border:none; font-size:13px; font-weight:600; cursor:pointer; }
+  .btn-primary:hover { background:#1d4ed8; }
+  .btn-secondary { padding:8px 16px; border-radius:6px; background:#fff; color:var(--text-sm); border:1px solid var(--border); font-size:13px; cursor:pointer; }
+  .btn-secondary:hover { background:var(--gray-lt); }
 
-  /* ── Loading ── */
+  /* Reconduction checklist */
+  .recon-list { display:flex; flex-direction:column; gap:4px; max-height:240px; overflow-y:auto; border:1px solid var(--border); border-radius:6px; padding:8px; }
+  .recon-item { display:flex; align-items:flex-start; gap:8px; padding:5px 6px; border-radius:4px; }
+  .recon-item:hover { background:var(--gray-lt); }
+  .recon-item input[type=checkbox] { margin-top:2px; cursor:pointer; flex-shrink:0; }
+  .recon-item label { font-size:13px; cursor:pointer; display:flex; align-items:baseline; gap:6px; flex-wrap:wrap; }
+
+  /* Export */
+  #export-text { width:100%; min-height:300px; font-family:monospace; font-size:12px; line-height:1.6; border:1px solid var(--border); border-radius:6px; padding:12px; resize:vertical; }
+
+  /* Loader */
   #loader { position:fixed; inset:0; background:#fff; display:flex; align-items:center; justify-content:center; z-index:999; flex-direction:column; gap:12px; }
   .spinner { width:32px; height:32px; border:3px solid var(--border); border-top-color:var(--blue); border-radius:50%; animation:spin .7s linear infinite; }
   @keyframes spin { to { transform:rotate(360deg); } }
-  #loader-text { font-size:13px; color:var(--text-xs); }
 </style>
 </head>
 <body>
 
-<div id="loader"><div class="spinner"></div><div id="loader-text">Chargement…</div></div>
+<div id="loader"><div class="spinner"></div><div style="font-size:13px;color:#6b7280">Chargement…</div></div>
 
 <div id="app">
-  <!-- Sidebar -->
   <div id="sidebar">
     <div id="sidebar-header">
       <h2>Bilatérales</h2>
@@ -235,14 +171,14 @@
     <div id="bilat-list"></div>
   </div>
 
-  <!-- Main -->
   <div id="main">
     <div id="topbar" style="display:none">
-      <div style="flex:1">
+      <div id="topbar-info">
         <div id="topbar-title">—</div>
         <div id="topbar-subtitle"></div>
       </div>
       <div id="kpi-bar"></div>
+      <button id="btn-reconduire">↻ Reconduire</button>
     </div>
     <div id="toolbar" style="display:none">
       <button id="btn-new-point">+ Point</button>
@@ -254,7 +190,7 @@
   </div>
 </div>
 
-<!-- Slide-over -->
+<!-- Panel point -->
 <div id="overlay"></div>
 <div id="panel">
   <div id="panel-header">
@@ -262,292 +198,286 @@
     <button id="panel-close">✕</button>
   </div>
   <div id="panel-body">
-    <div class="field-group">
-      <label class="field-label">Titre</label>
-      <input id="f-titre" class="field-input" type="text">
+    <div id="panel-history" style="display:none">
+      <div id="panel-history-title">Historique du point</div>
+      <div id="panel-history-list"></div>
     </div>
-    <div class="field-group">
-      <label class="field-label">Référence site</label>
-      <input id="f-ref" class="field-input" type="text" placeholder="ex. ECOL-64490-010">
-    </div>
+    <div class="field-group"><label class="field-label">Titre</label><input id="f-titre" class="field-input" type="text"></div>
+    <div class="field-group"><label class="field-label">Référence site</label><input id="f-ref" class="field-input" type="text" placeholder="ex. ECOL-64490-010"></div>
     <div class="field-group">
       <label class="field-label">Statut</label>
       <select id="f-statut" class="field-select">
-        <option>En cours</option>
-        <option>Bloqué</option>
-        <option>Action requise</option>
-        <option>À surveiller</option>
-        <option>Résolu</option>
+        <option>En cours</option><option>Bloqué</option><option>Action requise</option><option>À surveiller</option><option>Résolu</option>
       </select>
     </div>
-    <div class="field-group">
-      <label class="field-label">Description</label>
-      <textarea id="f-desc" class="field-textarea"></textarea>
-    </div>
-    <div class="field-group">
-      <label class="field-label">Action suivante</label>
-      <textarea id="f-action" class="field-textarea" style="min-height:60px"></textarea>
-    </div>
-    <div class="field-group">
-      <label class="field-label">Sujet PQP lié</label>
-      <select id="f-sujet" class="field-select">
-        <option value="">— Aucun —</option>
-      </select>
-    </div>
+    <div class="field-group"><label class="field-label">Description</label><textarea id="f-desc" class="field-textarea"></textarea></div>
+    <div class="field-group"><label class="field-label">Action suivante</label><textarea id="f-action" class="field-textarea" style="min-height:60px"></textarea></div>
+    <div class="field-group"><label class="field-label">Sujet PQP lié</label><select id="f-sujet" class="field-select"><option value="">— Aucun —</option></select></div>
   </div>
   <div id="panel-footer">
     <button class="btn-save" id="btn-save">Enregistrer</button>
     <button class="btn-delete" id="btn-delete">Supprimer</button>
-    <span class="dirty-indicator" id="dirty-indicator" style="display:none">● Modifications non sauvegardées</span>
+    <span class="dirty-indicator" id="dirty-indicator" style="display:none">● Non sauvegardé</span>
   </div>
 </div>
 
-<!-- Export modal -->
-<div id="export-modal">
-  <div id="export-box">
-    <div id="export-header">
-      <h3 id="export-title">Résumé bilatérale</h3>
-      <button id="export-close">✕</button>
+<!-- Modal : Nouvelle bilatérale -->
+<div class="modal-backdrop" id="modal-new-bilat">
+  <div class="modal-box">
+    <div class="modal-header"><h3>Nouvelle bilatérale</h3><button class="modal-close" id="nb-close">✕</button></div>
+    <div class="modal-body">
+      <div class="field-group"><label class="field-label">Bénéficiaire</label><select id="nb-ben" class="field-select"><option value="">— Choisir —</option></select></div>
+      <div class="field-group"><label class="field-label">Date</label><input id="nb-date" class="field-input" type="date"></div>
+      <div class="field-group"><label class="field-label">Prochain point</label><input id="nb-next" class="field-input" type="date"></div>
+      <div class="field-group"><label class="field-label">Participants bénéficiaire</label><input id="nb-part-ben" class="field-input" type="text" placeholder="Prénom NOM, …"></div>
+      <div class="field-group"><label class="field-label">Participants DINUM/ISO</label><input id="nb-part-dinum" class="field-input" type="text" placeholder="Prénom NOM, …"></div>
     </div>
-    <div id="export-content">
-      <textarea id="export-text" readonly></textarea>
+    <div class="modal-footer"><button class="btn-secondary" id="nb-cancel">Annuler</button><button class="btn-primary" id="nb-confirm">Créer</button></div>
+  </div>
+</div>
+
+<!-- Modal : Reconduction -->
+<div class="modal-backdrop" id="modal-recon">
+  <div class="modal-box">
+    <div class="modal-header"><h3 id="recon-title">Reconduire la bilatérale</h3><button class="modal-close" id="recon-close">✕</button></div>
+    <div class="modal-body">
+      <div class="field-group"><label class="field-label">Nouvelle date</label><input id="recon-date" class="field-input" type="date"></div>
+      <div class="field-group"><label class="field-label">Prochain point</label><input id="recon-next" class="field-input" type="date"></div>
+      <div class="field-group">
+        <label class="field-label">Points à reconduire <span style="font-weight:400;text-transform:none;font-size:11px">(points ouverts pré-cochés)</span></label>
+        <div class="recon-list" id="recon-checklist"></div>
+      </div>
     </div>
-    <div id="export-footer">
-      <button class="btn-copy" id="btn-copy">📋 Copier</button>
-      <button class="btn-delete" id="btn-export-close2">Fermer</button>
-    </div>
+    <div class="modal-footer"><button class="btn-secondary" id="recon-cancel">Annuler</button><button class="btn-primary" id="recon-confirm">Créer la bilatérale</button></div>
+  </div>
+</div>
+
+<!-- Modal : Export -->
+<div class="modal-backdrop" id="modal-export">
+  <div class="modal-box wide">
+    <div class="modal-header"><h3 id="export-title">Résumé</h3><button class="modal-close" id="export-close">✕</button></div>
+    <div class="modal-body"><textarea id="export-text" readonly></textarea></div>
+    <div class="modal-footer"><button class="btn-secondary" id="export-close2">Fermer</button><button class="btn-primary" id="btn-copy">📋 Copier</button></div>
   </div>
 </div>
 
 <script>
 // ── State ──
-let bilaterales = [];
-let pointsAll   = [];
-let beneficiaires = [];
-let sujets_v2   = [];
+let bilaterales=[], pointsAll=[], beneficiaires=[], sujets_v2=[];
+let selectedBilatId=null, selectedPointId=null;
+let filterStatut='all', searchQ='', isDirty=false, isNewPoint=false;
 
-let selectedBilatId = null;
-let selectedPointId = null;
-let filterStatut    = 'all';
-let searchQ         = '';
-let isDirty         = false;
-let isNewPoint      = false;
-
-// ── Badge helper ──
-function badgeClass(s) {
-  return { 'En cours':'ec', 'Bloqué':'bl', 'Résolu':'rs', 'À surveiller':'sv', 'Action requise':'ar' }[s] || 'ec';
-}
-
-// ── Date format ──
+// ── Helpers ──
+const badgeClass = s => ({'En cours':'ec','Bloqué':'bl','Résolu':'rs','À surveiller':'sv','Action requise':'ar'}[s]||'ec');
 function fmtDate(ts) {
   if (!ts) return '—';
-  const d = new Date(ts * 1000);
-  return d.toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' });
+  return new Date(ts*1000).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'});
 }
+function toTs(s) { return s ? Math.floor(new Date(s).getTime()/1000) : 0; }
+function toInputDate(ts) { return ts ? new Date(ts*1000).toISOString().slice(0,10) : ''; }
+function refInt(v) { return typeof v==='string' ? parseInt(v)||0 : (v||0); }
+function benName(id) { const b=beneficiaires.find(b=>b.id===id); return b?(b.Entite?`${b.Beneficiaire} (${b.Entite})`:b.Beneficiaire):`#${id}`; }
+function benShort(id) { const b=beneficiaires.find(b=>b.id===id); return b?(b.Entite||b.Beneficiaire):`#${id}`; }
 
-// ── Load data ──
+// ── Load ──
 async function loadData() {
-  const [bilTable, pointsTable, benTable, sujetsTable] = await Promise.all([
+  const [bT,pT,benT,sT] = await Promise.all([
     grist.docApi.fetchTable('Bilaterales'),
     grist.docApi.fetchTable('Points_bilaterales'),
     grist.docApi.fetchTable('Beneficiaires'),
     grist.docApi.fetchTable('Sujets_v2'),
   ]);
+  bilaterales = bT.id.map((id,i)=>({
+    id, Beneficiaire:refInt(bT.Beneficiaire[i]), Date:bT.Date[i],
+    Prochain_point:bT.Prochain_point[i],
+    Participants_beneficiaire:bT.Participants_beneficiaire[i],
+    Participants_DINUM:bT.Participants_DINUM[i],
+  })).sort((a,b)=>b.Date-a.Date);
 
-  bilaterales = bilTable.id.map((id, i) => ({
-    id,
-    Beneficiaire: typeof bilTable.Beneficiaire[i] === "string" ? parseInt(bilTable.Beneficiaire[i]) : bilTable.Beneficiaire[i],
-    Date:                     bilTable.Date[i],
-    Prochain_point:           bilTable.Prochain_point[i],
-    Participants_beneficiaire:bilTable.Participants_beneficiaire[i],
-    Participants_DINUM:       bilTable.Participants_DINUM[i],
+  pointsAll = pT.id.map((id,i)=>({
+    id, Bilaterale:refInt(pT.Bilaterale[i]), Titre:pT.Titre[i],
+    Description:pT.Description[i], Reference_site:pT.Reference_site[i],
+    Statut:pT.Statut[i], Action_suivante:pT.Action_suivante[i], Sujet_PQP:refInt(pT.Sujet_PQP[i]),
   }));
 
-  pointsAll = pointsTable.id.map((id, i) => ({
-    id,
-    Bilaterale:     typeof pointsTable.Bilaterale[i] === 'string' ? parseInt(pointsTable.Bilaterale[i]) : pointsTable.Bilaterale[i],
-    Titre:          pointsTable.Titre[i],
-    Description:    pointsTable.Description[i],
-    Reference_site: pointsTable.Reference_site[i],
-    Statut:         pointsTable.Statut[i],
-    Action_suivante:pointsTable.Action_suivante[i],
-    Sujet_PQP:      typeof pointsTable.Sujet_PQP[i] === "string" ? parseInt(pointsTable.Sujet_PQP[i]) : pointsTable.Sujet_PQP[i],
-  }));
+  beneficiaires = benT.id.map((id,i)=>({id,Beneficiaire:benT.Beneficiaire[i],Entite:benT.Entite[i]}));
+  sujets_v2 = sT.id.map((id,i)=>({id,Code:sT.Code[i],Objet:sT.Objet[i]}));
 
-  beneficiaires = benTable.id.map((id, i) => ({
-    id,
-    Beneficiaire: benTable.Beneficiaire[i],
-    Entite:       benTable.Entite[i],
-  }));
-
-  sujets_v2 = sujetsTable.id.map((id, i) => ({
-    id,
-    Code:  sujetsTable.Code[i],
-    Objet: sujetsTable.Objet[i],
-  }));
-
-  // Sort bilaterales by date desc
-  bilaterales.sort((a, b) => b.Date - a.Date);
-
-  renderSidebar();
+  populateBenSelect();
   populateSujetSelect();
-  document.getElementById('loader').style.display = 'none';
+  renderSidebar();
+  document.getElementById('loader').style.display='none';
 }
 
-// ── Beneficiaire name helper ──
-function benName(id) {
-  const b = beneficiaires.find(b => b.id === id);
-  return b ? (b.Entite ? `${b.Beneficiaire} (${b.Entite})` : b.Beneficiaire) : `#${id}`;
-}
-
-function benShort(id) {
-  const b = beneficiaires.find(b => b.id === id);
-  return b ? (b.Entite || b.Beneficiaire) : `#${id}`;
-}
-
-// ── Populate sujet select ──
-function populateSujetSelect() {
-  const sel = document.getElementById('f-sujet');
-  sujets_v2.forEach(s => {
-    const opt = document.createElement('option');
-    opt.value = s.id;
-    opt.textContent = `${s.Code} — ${s.Objet}`;
-    sel.appendChild(opt);
+function populateBenSelect() {
+  const sel=document.getElementById('nb-ben');
+  sel.innerHTML='<option value="">— Choisir —</option>';
+  [...beneficiaires].sort((a,b)=>a.Beneficiaire.localeCompare(b.Beneficiaire)).forEach(b=>{
+    const o=document.createElement('option');
+    o.value=b.id; o.textContent=b.Beneficiaire+(b.Entite?` (${b.Entite})`:'');
+    sel.appendChild(o);
   });
 }
 
-// ── Render sidebar ──
+function populateSujetSelect() {
+  const sel=document.getElementById('f-sujet');
+  sel.innerHTML='<option value="">— Aucun —</option>';
+  sujets_v2.forEach(s=>{
+    const o=document.createElement('option');
+    o.value=s.id; o.textContent=`${s.Code} — ${s.Objet}`; sel.appendChild(o);
+  });
+}
+
+// ── Ancienneté ──
+function getAnciennete(point) {
+  const bilat=bilaterales.find(b=>b.id===point.Bilaterale); if(!bilat) return 1;
+  const benId=bilat.Beneficiaire;
+  const titreNorm=(point.Titre||'').toLowerCase().trim();
+  const siblingIds=bilaterales.filter(b=>b.Beneficiaire===benId).map(b=>b.id);
+  return siblingIds.filter(bId=>pointsAll.some(p=>p.Bilaterale===bId&&(p.Titre||'').toLowerCase().trim()===titreNorm)).length;
+}
+
+function getHistory(point) {
+  const bilat=bilaterales.find(b=>b.id===point.Bilaterale); if(!bilat) return [];
+  const benId=bilat.Beneficiaire;
+  const titreNorm=(point.Titre||'').toLowerCase().trim();
+  return bilaterales.filter(b=>b.Beneficiaire===benId).sort((a,b)=>a.Date-b.Date).reduce((acc,b)=>{
+    const p=pointsAll.find(p=>p.Bilaterale===b.id&&(p.Titre||'').toLowerCase().trim()===titreNorm);
+    if(p) acc.push({date:b.Date,statut:p.Statut,action:p.Action_suivante,bilatId:b.id});
+    return acc;
+  },[]);
+}
+
+// ── Sidebar ──
 function renderSidebar() {
-  const list = document.getElementById('bilat-list');
-  list.innerHTML = '';
-  bilaterales.forEach(b => {
-    const pts = pointsAll.filter(p => p.Bilaterale === b.id);
-    const nOpen = pts.filter(p => p.Statut !== 'Résolu').length;
-    const div = document.createElement('div');
-    div.className = 'bilat-item' + (b.id === selectedBilatId ? ' active' : '');
-    div.dataset.id = b.id;
-    div.innerHTML = `
+  const list=document.getElementById('bilat-list');
+  list.innerHTML='';
+  bilaterales.forEach(b=>{
+    const pts=pointsAll.filter(p=>p.Bilaterale===b.id);
+    const nOpen=pts.filter(p=>p.Statut!=='Résolu').length;
+    const div=document.createElement('div');
+    div.className='bilat-item'+(b.id===selectedBilatId?' active':'');
+    div.innerHTML=`
       <div class="bi-name">${benShort(b.Beneficiaire)}</div>
-      <div class="bi-date">📅 ${fmtDate(b.Date)} · ${nOpen} point${nOpen !== 1 ? 's' : ''}</div>
-      ${b.Prochain_point ? `<div class="bi-next">↻ ${fmtDate(b.Prochain_point)}</div>` : ''}
+      <div class="bi-date">📅 ${fmtDate(b.Date)} · ${nOpen} point${nOpen!==1?'s':''} ouvert${nOpen!==1?'s':''}</div>
+      ${b.Prochain_point?`<div class="bi-next">↻ ${fmtDate(b.Prochain_point)}</div>`:''}
     `;
-    div.addEventListener('click', () => selectBilat(b.id));
+    div.addEventListener('click',()=>selectBilat(b.id));
     list.appendChild(div);
   });
 }
 
 // ── Select bilatérale ──
 function selectBilat(id) {
-  selectedBilatId = id;
-  filterStatut = 'all';
-  searchQ = '';
-  document.getElementById('search-box').value = '';
+  selectedBilatId=id; filterStatut='all'; searchQ='';
+  document.getElementById('search-box').value='';
   renderSidebar();
-
-  const b = bilaterales.find(b => b.id === id);
-  document.getElementById('topbar').style.display = 'flex';
-  document.getElementById('toolbar').style.display = 'flex';
-  document.getElementById('no-bilat').style.display = 'none';
-  document.getElementById('content').style.display = 'grid';
-
-  document.getElementById('topbar-title').textContent = benName(b.Beneficiaire);
-  document.getElementById('topbar-subtitle').textContent =
-    `${fmtDate(b.Date)} · Participants : ${b.Participants_DINUM || '—'}` +
-    (b.Prochain_point ? ` · Prochain point : ${fmtDate(b.Prochain_point)}` : '');
-
-  renderKPIs();
-  renderCards();
+  const b=bilaterales.find(b=>b.id===id);
+  document.getElementById('topbar').style.display='flex';
+  document.getElementById('toolbar').style.display='flex';
+  document.getElementById('no-bilat').style.display='none';
+  document.getElementById('content').style.display='grid';
+  document.getElementById('topbar-title').textContent=benName(b.Beneficiaire);
+  document.getElementById('topbar-subtitle').textContent=
+    `${fmtDate(b.Date)}`+
+    (b.Participants_DINUM?` · ${b.Participants_DINUM}`:'')+
+    (b.Prochain_point?` · Prochain : ${fmtDate(b.Prochain_point)}`:'');
+  renderKPIs(); renderCards();
 }
 
 // ── KPIs ──
 function renderKPIs() {
-  const pts = pointsAll.filter(p => p.Bilaterale === selectedBilatId);
-  const counts = {
-    all: pts.length,
-    'En cours':       pts.filter(p => p.Statut === 'En cours').length,
-    'Bloqué':         pts.filter(p => p.Statut === 'Bloqué').length,
-    'Action requise': pts.filter(p => p.Statut === 'Action requise').length,
-    'À surveiller':   pts.filter(p => p.Statut === 'À surveiller').length,
-    'Résolu':         pts.filter(p => p.Statut === 'Résolu').length,
-  };
-  const bar = document.getElementById('kpi-bar');
-  bar.innerHTML = '';
-  const defs = [
-    { key:'all',            label:'Tous',           cls:'all' },
-    { key:'En cours',       label:'En cours',       cls:'ec' },
-    { key:'Bloqué',         label:'Bloqué',         cls:'bl' },
-    { key:'Action requise', label:'Action requise', cls:'ar' },
-    { key:'À surveiller',   label:'À surveiller',   cls:'sv' },
-    { key:'Résolu',         label:'Résolu',         cls:'rs' },
-  ];
-  defs.forEach(({ key, label, cls }) => {
-    if (counts[key] === 0 && key !== 'all') return;
-    const btn = document.createElement('button');
-    btn.className = `kpi ${cls}` + (filterStatut === key ? ' active' : '');
-    btn.textContent = `${label} ${counts[key]}`;
-    btn.addEventListener('click', () => { filterStatut = key; renderKPIs(); renderCards(); });
+  const pts=pointsAll.filter(p=>p.Bilaterale===selectedBilatId);
+  const c={all:pts.length,'En cours':0,'Bloqué':0,'Action requise':0,'À surveiller':0,'Résolu':0};
+  pts.forEach(p=>{if(c[p.Statut]!==undefined)c[p.Statut]++;});
+  const bar=document.getElementById('kpi-bar'); bar.innerHTML='';
+  [{key:'all',label:'Tous',cls:'all'},{key:'En cours',label:'En cours',cls:'ec'},{key:'Bloqué',label:'Bloqué',cls:'bl'},
+   {key:'Action requise',label:'Action requise',cls:'ar'},{key:'À surveiller',label:'À surveiller',cls:'sv'},{key:'Résolu',label:'Résolu',cls:'rs'}
+  ].forEach(({key,label,cls})=>{
+    if(c[key]===0&&key!=='all') return;
+    const btn=document.createElement('button');
+    btn.className=`kpi ${cls}`+(filterStatut===key?' active':'');
+    btn.textContent=`${label} ${c[key]}`;
+    btn.addEventListener('click',()=>{filterStatut=key;renderKPIs();renderCards();});
     bar.appendChild(btn);
   });
 }
 
 // ── Cards ──
+const STATUT_ORDER=['Bloqué','Action requise','En cours','À surveiller','Résolu'];
+const STATUTS=['En cours','Bloqué','Action requise','À surveiller','Résolu'];
+
 function renderCards() {
-  const content = document.getElementById('content');
-  content.innerHTML = '';
+  const content=document.getElementById('content');
+  content.innerHTML='';
+  let pts=pointsAll.filter(p=>p.Bilaterale===selectedBilatId);
+  if(filterStatut!=='all') pts=pts.filter(p=>p.Statut===filterStatut);
+  if(searchQ){const q=searchQ.toLowerCase();pts=pts.filter(p=>(p.Titre||'').toLowerCase().includes(q)||(p.Description||'').toLowerCase().includes(q)||(p.Reference_site||'').toLowerCase().includes(q)||(p.Action_suivante||'').toLowerCase().includes(q));}
+  if(!pts.length){content.innerHTML='<div id="empty-state"><div class="icon">📭</div><div>Aucun point trouvé</div></div>';return;}
+  pts.sort((a,b)=>STATUT_ORDER.indexOf(a.Statut)-STATUT_ORDER.indexOf(b.Statut));
 
-  let pts = pointsAll.filter(p => p.Bilaterale === selectedBilatId);
-  if (filterStatut !== 'all') pts = pts.filter(p => p.Statut === filterStatut);
-  if (searchQ) {
-    const q = searchQ.toLowerCase();
-    pts = pts.filter(p =>
-      (p.Titre||'').toLowerCase().includes(q) ||
-      (p.Description||'').toLowerCase().includes(q) ||
-      (p.Reference_site||'').toLowerCase().includes(q) ||
-      (p.Action_suivante||'').toLowerCase().includes(q)
-    );
-  }
-
-  if (pts.length === 0) {
-    content.innerHTML = '<div id="empty-state"><div class="icon">📭</div><div>Aucun point trouvé</div></div>';
-    return;
-  }
-
-  // Order: Bloqué → Action requise → En cours → À surveiller → Résolu
-  const order = ['Bloqué','Action requise','En cours','À surveiller','Résolu'];
-  pts.sort((a, b) => order.indexOf(a.Statut) - order.indexOf(b.Statut));
-
-  pts.forEach(p => {
-    const card = document.createElement('div');
-    card.className = 'point-card' + (p.id === selectedPointId ? ' active' : '');
-    card.dataset.statut = p.Statut || '';
-    card.innerHTML = `
+  pts.forEach(p=>{
+    const age=getAnciennete(p);
+    const ageBadge=age>=2?`<span class="badge-age${age>=3?' old':''}" title="${age} bilatérales">⏱ ${age} réunions</span>`:'';
+    const card=document.createElement('div');
+    card.className='point-card'+(p.id===selectedPointId?' active':'');
+    card.dataset.statut=p.Statut||'';
+    card.innerHTML=`
       <div class="card-top">
-        <div class="card-titre">${p.Titre || '(Sans titre)'}</div>
-        <span class="badge badge-${badgeClass(p.Statut)}">${p.Statut || '—'}</span>
+        <div class="card-titre">${p.Titre||'(Sans titre)'}</div>
+        <div class="card-badges">${ageBadge}<span class="badge badge-${badgeClass(p.Statut)}">${p.Statut||'—'}</span></div>
       </div>
-      ${p.Reference_site ? `<div><span class="card-ref">${p.Reference_site}</span></div>` : ''}
-      ${p.Description ? `<div class="card-desc">${p.Description}</div>` : ''}
-      ${p.Action_suivante ? `<div class="card-action">${p.Action_suivante}</div>` : ''}
+      ${p.Reference_site?`<div><span class="card-ref">${p.Reference_site}</span></div>`:''}
+      ${p.Description?`<div class="card-desc">${p.Description}</div>`:''}
+      ${p.Action_suivante?`<div class="card-action">${p.Action_suivante}</div>`:''}
+      <div class="card-footer">
+        <select class="quick-status" data-id="${p.id}">
+          ${STATUTS.map(s=>`<option${s===p.Statut?' selected':''}>${s}</option>`).join('')}
+        </select>
+      </div>
     `;
-    card.addEventListener('click', () => openPanel(p.id));
+    card.addEventListener('click',e=>{if(e.target.classList.contains('quick-status'))return;openPanel(p.id);});
+    card.querySelector('.quick-status').addEventListener('change',async function(e){
+      e.stopPropagation();
+      const newStatut=this.value; this.disabled=true;
+      try{
+        await grist.docApi.applyUserActions([['UpdateRecord','Points_bilaterales',p.id,{Statut:newStatut}]]);
+        await loadData(); selectBilat(selectedBilatId);
+      }catch(err){alert('Erreur : '+err.message);this.disabled=false;}
+    });
     content.appendChild(card);
   });
 }
 
 // ── Panel ──
 function openPanel(pointId) {
-  isNewPoint = false;
-  selectedPointId = pointId;
-  const p = pointsAll.find(p => p.id === pointId);
-  if (!p) return;
+  isNewPoint=false; selectedPointId=pointId;
+  const p=pointsAll.find(p=>p.id===pointId); if(!p) return;
+  document.getElementById('panel-title').textContent=p.Titre||'Point';
+  document.getElementById('f-titre').value=p.Titre||'';
+  document.getElementById('f-ref').value=p.Reference_site||'';
+  document.getElementById('f-statut').value=p.Statut||'En cours';
+  document.getElementById('f-desc').value=p.Description||'';
+  document.getElementById('f-action').value=p.Action_suivante||'';
+  document.getElementById('f-sujet').value=p.Sujet_PQP||'';
 
-  document.getElementById('panel-title').textContent = p.Titre || 'Point';
-  document.getElementById('f-titre').value   = p.Titre || '';
-  document.getElementById('f-ref').value     = p.Reference_site || '';
-  document.getElementById('f-statut').value  = p.Statut || 'En cours';
-  document.getElementById('f-desc').value    = p.Description || '';
-  document.getElementById('f-action').value  = p.Action_suivante || '';
-  document.getElementById('f-sujet').value   = p.Sujet_PQP || '';
+  // History
+  const history=getHistory(p);
+  const histDiv=document.getElementById('panel-history');
+  if(history.length>=2){
+    const listDiv=document.getElementById('panel-history-list');
+    listDiv.innerHTML='';
+    history.forEach(h=>{
+      const isCurrent=h.bilatId===selectedBilatId;
+      const e=document.createElement('div'); e.className='history-entry';
+      e.innerHTML=`<span class="history-date">${fmtDate(h.date)}</span>`+
+        `<span class="badge badge-${badgeClass(h.statut)}" style="font-size:10px;padding:1px 5px">${h.statut}</span>`+
+        (h.action?`<span style="color:var(--blue);font-size:11px">→ ${h.action}</span>`:'')+
+        (isCurrent?`<span class="history-current">(actuel)</span>`:'');
+      listDiv.appendChild(e);
+    });
+    histDiv.style.display='';
+  } else { histDiv.style.display='none'; }
 
   clearDirty();
   document.getElementById('overlay').classList.add('open');
@@ -556,176 +486,203 @@ function openPanel(pointId) {
 }
 
 function openNewPointPanel() {
-  if (!selectedBilatId) return;
-  isNewPoint = true;
-  selectedPointId = null;
-
-  document.getElementById('panel-title').textContent = 'Nouveau point';
-  document.getElementById('f-titre').value   = '';
-  document.getElementById('f-ref').value     = '';
-  document.getElementById('f-statut').value  = 'En cours';
-  document.getElementById('f-desc').value    = '';
-  document.getElementById('f-action').value  = '';
-  document.getElementById('f-sujet').value   = '';
-
+  if(!selectedBilatId) return;
+  isNewPoint=true; selectedPointId=null;
+  document.getElementById('panel-title').textContent='Nouveau point';
+  ['f-titre','f-ref','f-desc','f-action'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-statut').value='En cours';
+  document.getElementById('f-sujet').value='';
+  document.getElementById('panel-history').style.display='none';
   clearDirty();
   document.getElementById('overlay').classList.add('open');
   document.getElementById('panel').classList.add('open');
 }
 
 function closePanel() {
-  if (isDirty && !confirm('Modifications non sauvegardées. Fermer quand même ?')) return;
+  if(isDirty&&!confirm('Modifications non sauvegardées. Fermer quand même ?')) return;
   document.getElementById('overlay').classList.remove('open');
   document.getElementById('panel').classList.remove('open');
-  selectedPointId = null;
-  clearDirty();
-  renderCards();
+  selectedPointId=null; clearDirty(); renderCards();
 }
 
-// ── Dirty tracking ──
-const editableFields = ['f-titre','f-ref','f-statut','f-desc','f-action','f-sujet'];
-editableFields.forEach(id => {
-  document.getElementById(id).addEventListener('input', markDirty);
-  document.getElementById(id).addEventListener('change', markDirty);
+const editableFields=['f-titre','f-ref','f-statut','f-desc','f-action','f-sujet'];
+editableFields.forEach(id=>{
+  document.getElementById(id).addEventListener('input',markDirty);
+  document.getElementById(id).addEventListener('change',markDirty);
 });
-function markDirty() {
-  isDirty = true;
-  editableFields.forEach(id => document.getElementById(id).classList.add('dirty'));
-  document.getElementById('dirty-indicator').style.display = '';
-}
-function clearDirty() {
-  isDirty = false;
-  editableFields.forEach(id => document.getElementById(id).classList.remove('dirty'));
-  document.getElementById('dirty-indicator').style.display = 'none';
-}
+function markDirty(){isDirty=true;editableFields.forEach(id=>document.getElementById(id).classList.add('dirty'));document.getElementById('dirty-indicator').style.display='';}
+function clearDirty(){isDirty=false;editableFields.forEach(id=>document.getElementById(id).classList.remove('dirty'));document.getElementById('dirty-indicator').style.display='none';}
 
-// ── Save ──
 async function savePoint() {
-  const fields = {
-    Titre:          document.getElementById('f-titre').value.trim(),
-    Reference_site: document.getElementById('f-ref').value.trim(),
-    Statut:         document.getElementById('f-statut').value,
-    Description:    document.getElementById('f-desc').value.trim(),
-    Action_suivante:document.getElementById('f-action').value.trim(),
-    Sujet_PQP:      parseInt(document.getElementById('f-sujet').value) || 0,
-  };
-
-  const btn = document.getElementById('btn-save');
-  btn.disabled = true;
-  btn.textContent = 'Enregistrement…';
-
-  try {
-    if (isNewPoint) {
-      fields.Bilaterale = selectedBilatId;
-      await grist.docApi.applyUserActions([['AddRecord', 'Points_bilaterales', null, fields]]);
-    } else {
-      await grist.docApi.applyUserActions([['UpdateRecord', 'Points_bilaterales', selectedPointId, fields]]);
-    }
+  const fields={Titre:document.getElementById('f-titre').value.trim(),Reference_site:document.getElementById('f-ref').value.trim(),
+    Statut:document.getElementById('f-statut').value,Description:document.getElementById('f-desc').value.trim(),
+    Action_suivante:document.getElementById('f-action').value.trim(),Sujet_PQP:parseInt(document.getElementById('f-sujet').value)||0};
+  const btn=document.getElementById('btn-save');
+  btn.disabled=true;btn.textContent='Enregistrement…';
+  try{
+    if(isNewPoint){fields.Bilaterale=selectedBilatId;await grist.docApi.applyUserActions([['AddRecord','Points_bilaterales',null,fields]]);}
+    else{await grist.docApi.applyUserActions([['UpdateRecord','Points_bilaterales',selectedPointId,fields]]);}
     clearDirty();
-    await loadData();
-    if (selectedBilatId) selectBilat(selectedBilatId);
     document.getElementById('overlay').classList.remove('open');
     document.getElementById('panel').classList.remove('open');
-    selectedPointId = null;
-  } catch(e) {
-    alert('Erreur lors de l\'enregistrement : ' + e.message);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Enregistrer';
-  }
+    selectedPointId=null;
+    await loadData(); if(selectedBilatId) selectBilat(selectedBilatId);
+  }catch(e){alert('Erreur : '+e.message);}
+  finally{btn.disabled=false;btn.textContent='Enregistrer';}
 }
 
-// ── Delete ──
 async function deletePoint() {
-  if (!selectedPointId) return;
-  if (!confirm('Supprimer ce point ?')) return;
-  await grist.docApi.applyUserActions([['RemoveRecord', 'Points_bilaterales', selectedPointId]]);
+  if(!selectedPointId||!confirm('Supprimer ce point ?')) return;
+  await grist.docApi.applyUserActions([['RemoveRecord','Points_bilaterales',selectedPointId]]);
   document.getElementById('overlay').classList.remove('open');
   document.getElementById('panel').classList.remove('open');
-  selectedPointId = null;
-  clearDirty();
-  await loadData();
-  if (selectedBilatId) selectBilat(selectedBilatId);
+  selectedPointId=null; clearDirty(); await loadData(); if(selectedBilatId) selectBilat(selectedBilatId);
+}
+
+// ── Nouvelle bilatérale ──
+function openNewBilatModal() {
+  document.getElementById('nb-date').value=new Date().toISOString().slice(0,10);
+  document.getElementById('nb-next').value='';
+  document.getElementById('nb-part-ben').value='';
+  document.getElementById('nb-part-dinum').value='';
+  document.getElementById('nb-ben').value='';
+  document.getElementById('modal-new-bilat').classList.add('open');
+}
+
+async function createBilat() {
+  const benId=parseInt(document.getElementById('nb-ben').value);
+  const dateStr=document.getElementById('nb-date').value;
+  if(!benId||!dateStr){alert('Bénéficiaire et date requis.');return;}
+  const fields={Beneficiaire:benId,Date:toTs(dateStr),Prochain_point:toTs(document.getElementById('nb-next').value)||0,
+    Participants_beneficiaire:document.getElementById('nb-part-ben').value.trim(),
+    Participants_DINUM:document.getElementById('nb-part-dinum').value.trim()};
+  const btn=document.getElementById('nb-confirm');
+  btn.disabled=true;btn.textContent='Création…';
+  try{
+    const res=await grist.docApi.applyUserActions([['AddRecord','Bilaterales',null,fields]]);
+    const newId=res.retValues[0];
+    document.getElementById('modal-new-bilat').classList.remove('open');
+    await loadData(); selectBilat(newId);
+  }catch(e){alert('Erreur : '+e.message);}
+  finally{btn.disabled=false;btn.textContent='Créer';}
+}
+
+// ── Reconduction ──
+function openReconModal() {
+  if(!selectedBilatId) return;
+  const b=bilaterales.find(b=>b.id===selectedBilatId);
+  document.getElementById('recon-title').textContent=`Reconduire — ${benShort(b.Beneficiaire)}`;
+  const baseTs=b.Prochain_point||(b.Date+30*24*3600);
+  document.getElementById('recon-date').value=toInputDate(baseTs);
+  document.getElementById('recon-next').value='';
+
+  const pts=pointsAll.filter(p=>p.Bilaterale===selectedBilatId);
+  pts.sort((a,bx)=>STATUT_ORDER.indexOf(a.Statut)-STATUT_ORDER.indexOf(bx.Statut));
+  const list=document.getElementById('recon-checklist'); list.innerHTML='';
+  pts.forEach(p=>{
+    const isOpen=p.Statut!=='Résolu';
+    const item=document.createElement('div'); item.className='recon-item';
+    item.innerHTML=`<input type="checkbox" id="rc-${p.id}" data-id="${p.id}"${isOpen?' checked':''}>`+
+      `<label for="rc-${p.id}"><span class="badge badge-${badgeClass(p.Statut)}" style="font-size:10px;padding:1px 5px">${p.Statut}</span>`+
+      `${p.Titre||'(Sans titre)'}${p.Reference_site?` <span class="card-ref">${p.Reference_site}</span>`:''}</label>`;
+    list.appendChild(item);
+  });
+  document.getElementById('modal-recon').classList.add('open');
+}
+
+async function confirmReconduction() {
+  const b=bilaterales.find(b=>b.id===selectedBilatId);
+  const dateStr=document.getElementById('recon-date').value;
+  if(!dateStr){alert('Date requise.');return;}
+  const selectedPtIds=[...document.querySelectorAll('#recon-checklist input[type=checkbox]:checked')].map(cb=>parseInt(cb.dataset.id));
+  const btn=document.getElementById('recon-confirm');
+  btn.disabled=true;btn.textContent='Création…';
+  try{
+    const res=await grist.docApi.applyUserActions([['AddRecord','Bilaterales',null,{
+      Beneficiaire:b.Beneficiaire, Date:toTs(dateStr),
+      Prochain_point:toTs(document.getElementById('recon-next').value)||0,
+      Participants_beneficiaire:b.Participants_beneficiaire,
+      Participants_DINUM:b.Participants_DINUM,
+    }]]);
+    const newId=res.retValues[0];
+    const ptsToClone=pointsAll.filter(p=>selectedPtIds.includes(p.id));
+    if(ptsToClone.length>0){
+      await grist.docApi.applyUserActions(ptsToClone.map(p=>['AddRecord','Points_bilaterales',null,{
+        Bilaterale:newId,Titre:p.Titre,Reference_site:p.Reference_site,
+        Description:p.Description,Statut:p.Statut,Action_suivante:p.Action_suivante,Sujet_PQP:p.Sujet_PQP||0,
+      }]));
+    }
+    document.getElementById('modal-recon').classList.remove('open');
+    await loadData(); selectBilat(newId);
+  }catch(e){alert('Erreur : '+e.message);}
+  finally{btn.disabled=false;btn.textContent='Créer la bilatérale';}
 }
 
 // ── Export résumé ──
 function generateResume() {
-  const b = bilaterales.find(b => b.id === selectedBilatId);
-  if (!b) return;
-  const pts = pointsAll.filter(p => p.Bilaterale === selectedBilatId);
-  const order = ['Bloqué','Action requise','En cours','À surveiller','Résolu'];
-  pts.sort((a, b) => order.indexOf(a.Statut) - order.indexOf(b.Statut));
-
-  const lines = [];
-  lines.push(`BILATÉRALE RIE – ${benName(b.Beneficiaire).toUpperCase()}`);
-  lines.push(`Date : ${fmtDate(b.Date)}`);
-  if (b.Prochain_point) lines.push(`Prochain point : ${fmtDate(b.Prochain_point)}`);
-  if (b.Participants_beneficiaire) lines.push(`Participants ${benShort(b.Beneficiaire)} : ${b.Participants_beneficiaire}`);
-  if (b.Participants_DINUM) lines.push(`Participants DINUM/ISO : ${b.Participants_DINUM}`);
-  lines.push('');
-  lines.push('─'.repeat(60));
-  lines.push(`POINTS ABORDÉS (${pts.length})`);
-  lines.push('─'.repeat(60));
-
-  pts.forEach((p, i) => {
-    lines.push('');
-    lines.push(`${i+1}. ${p.Titre || '(Sans titre)'}${p.Reference_site ? '  ['+p.Reference_site+']' : ''}`);
-    lines.push(`   Statut : ${p.Statut || '—'}`);
-    if (p.Description) lines.push(`   ${p.Description.replace(/\n/g, '\n   ')}`);
-    if (p.Action_suivante) lines.push(`   → Action : ${p.Action_suivante}`);
+  const b=bilaterales.find(b=>b.id===selectedBilatId); if(!b) return;
+  const pts=pointsAll.filter(p=>p.Bilaterale===selectedBilatId);
+  pts.sort((a,bx)=>STATUT_ORDER.indexOf(a.Statut)-STATUT_ORDER.indexOf(bx.Statut));
+  const lines=[
+    `BILATÉRALE RIE – ${benName(b.Beneficiaire).toUpperCase()}`,
+    `Date : ${fmtDate(b.Date)}`,
+    ...(b.Prochain_point?[`Prochain point : ${fmtDate(b.Prochain_point)}`]:[]),
+    ...(b.Participants_beneficiaire?[`Participants ${benShort(b.Beneficiaire)} : ${b.Participants_beneficiaire}`]:[]),
+    ...(b.Participants_DINUM?[`Participants DINUM/ISO : ${b.Participants_DINUM}`]:[]),
+    '','─'.repeat(60),`POINTS ABORDÉS (${pts.length})`,'─'.repeat(60),
+  ];
+  pts.forEach((p,i)=>{
+    const age=getAnciennete(p);
+    lines.push('',`${i+1}. ${p.Titre||'(Sans titre)'}${p.Reference_site?` [${p.Reference_site}]`:''}${age>=2?` (depuis ${age} réunions)`:''}`);
+    lines.push(`   Statut : ${p.Statut||'—'}`);
+    if(p.Description) lines.push(`   ${p.Description.replace(/\n/g,'\n   ')}`);
+    if(p.Action_suivante) lines.push(`   → Action : ${p.Action_suivante}`);
   });
-
-  const openPts = pts.filter(p => p.Statut !== 'Résolu');
-  const actions = openPts.filter(p => p.Action_suivante);
-  if (actions.length > 0) {
-    lines.push('');
-    lines.push('─'.repeat(60));
-    lines.push('ACTIONS À SUIVRE');
-    lines.push('─'.repeat(60));
-    actions.forEach(p => {
-      lines.push(`• [${p.Statut}] ${p.Titre}${p.Reference_site?' ['+p.Reference_site+']':''}`);
-      lines.push(`  → ${p.Action_suivante}`);
-    });
+  const actions=pts.filter(p=>p.Statut!=='Résolu'&&p.Action_suivante);
+  if(actions.length){
+    lines.push('','─'.repeat(60),'ACTIONS À SUIVRE','─'.repeat(60));
+    actions.forEach(p=>{lines.push(`• [${p.Statut}] ${p.Titre}${p.Reference_site?` [${p.Reference_site}]`:''}`);lines.push(`  → ${p.Action_suivante}`);});
   }
-
-  document.getElementById('export-title').textContent = `Résumé – ${benShort(b.Beneficiaire)} – ${fmtDate(b.Date)}`;
-  document.getElementById('export-text').value = lines.join('\n');
-  document.getElementById('export-modal').classList.add('open');
+  document.getElementById('export-title').textContent=`Résumé – ${benShort(b.Beneficiaire)} – ${fmtDate(b.Date)}`;
+  document.getElementById('export-text').value=lines.join('\n');
+  document.getElementById('modal-export').classList.add('open');
 }
 
 // ── Events ──
-document.getElementById('btn-new-point').addEventListener('click', openNewPointPanel);
-document.getElementById('btn-export').addEventListener('click', generateResume);
-document.getElementById('btn-save').addEventListener('click', savePoint);
-document.getElementById('btn-delete').addEventListener('click', deletePoint);
-document.getElementById('panel-close').addEventListener('click', closePanel);
-document.getElementById('overlay').addEventListener('click', closePanel);
-document.getElementById('export-close').addEventListener('click', () => document.getElementById('export-modal').classList.remove('open'));
-document.getElementById('btn-export-close2').addEventListener('click', () => document.getElementById('export-modal').classList.remove('open'));
-document.getElementById('btn-copy').addEventListener('click', () => {
+document.getElementById('btn-new-bilat').addEventListener('click',openNewBilatModal);
+document.getElementById('nb-close').addEventListener('click',()=>document.getElementById('modal-new-bilat').classList.remove('open'));
+document.getElementById('nb-cancel').addEventListener('click',()=>document.getElementById('modal-new-bilat').classList.remove('open'));
+document.getElementById('nb-confirm').addEventListener('click',createBilat);
+document.getElementById('btn-reconduire').addEventListener('click',openReconModal);
+document.getElementById('recon-close').addEventListener('click',()=>document.getElementById('modal-recon').classList.remove('open'));
+document.getElementById('recon-cancel').addEventListener('click',()=>document.getElementById('modal-recon').classList.remove('open'));
+document.getElementById('recon-confirm').addEventListener('click',confirmReconduction);
+document.getElementById('btn-new-point').addEventListener('click',openNewPointPanel);
+document.getElementById('btn-export').addEventListener('click',generateResume);
+document.getElementById('btn-save').addEventListener('click',savePoint);
+document.getElementById('btn-delete').addEventListener('click',deletePoint);
+document.getElementById('panel-close').addEventListener('click',closePanel);
+document.getElementById('overlay').addEventListener('click',closePanel);
+document.getElementById('export-close').addEventListener('click',()=>document.getElementById('modal-export').classList.remove('open'));
+document.getElementById('export-close2').addEventListener('click',()=>document.getElementById('modal-export').classList.remove('open'));
+document.getElementById('btn-copy').addEventListener('click',()=>{
   navigator.clipboard.writeText(document.getElementById('export-text').value);
-  document.getElementById('btn-copy').textContent = '✓ Copié !';
-  setTimeout(() => document.getElementById('btn-copy').textContent = '📋 Copier', 2000);
+  document.getElementById('btn-copy').textContent='✓ Copié !';
+  setTimeout(()=>document.getElementById('btn-copy').textContent='📋 Copier',2000);
 });
-document.getElementById('search-box').addEventListener('input', e => { searchQ = e.target.value; renderCards(); });
-document.getElementById('btn-new-bilat').addEventListener('click', () => alert('Créez la bilatérale directement dans la table Grist pour l\'instant.'));
-
-document.addEventListener('keydown', e => {
-  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-    e.preventDefault();
-    if (document.getElementById('panel').classList.contains('open')) savePoint();
-  }
-  if (e.key === 'Escape') {
-    if (document.getElementById('export-modal').classList.contains('open')) {
-      document.getElementById('export-modal').classList.remove('open');
-    } else {
-      closePanel();
-    }
+document.getElementById('search-box').addEventListener('input',e=>{searchQ=e.target.value;renderCards();});
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();if(document.getElementById('panel').classList.contains('open'))savePoint();}
+  if(e.key==='Escape'){
+    if(document.getElementById('modal-export').classList.contains('open')){document.getElementById('modal-export').classList.remove('open');return;}
+    if(document.getElementById('modal-recon').classList.contains('open')){document.getElementById('modal-recon').classList.remove('open');return;}
+    if(document.getElementById('modal-new-bilat').classList.contains('open')){document.getElementById('modal-new-bilat').classList.remove('open');return;}
+    closePanel();
   }
 });
 
 // ── Boot ──
-grist.ready({ requiredAccess: 'full' });
+grist.ready({requiredAccess:'full'});
 loadData();
 </script>
 </body>
