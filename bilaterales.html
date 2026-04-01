@@ -42,6 +42,10 @@
   #topbar-info { flex:1; min-width:160px; }
   #topbar-title { font-size:16px; font-weight:700; }
   #topbar-subtitle { font-size:12px; color:var(--text-xs); margin-top:2px; }
+  #prochain-wrap { display:inline-flex; align-items:center; gap:4px; }
+  .edit-icon { cursor:pointer; opacity:.5; font-size:11px; transition:opacity .15s; }
+  .edit-icon:hover { opacity:1; }
+  #prochain-input { font-size:12px; border:1px solid var(--blue); border-radius:4px; padding:1px 6px; outline:none; color:var(--text); background:#fff; }
   #kpi-bar { display:flex; gap:6px; flex-wrap:wrap; }
   .kpi { padding:4px 11px; border-radius:20px; font-size:12px; font-weight:600; cursor:pointer; border:2px solid transparent; transition:all .15s; white-space:nowrap; }
   .kpi.all { background:#f3f4f6; color:var(--text-sm); border-color:#e5e7eb; } .kpi.all.active { background:var(--text); color:#fff; border-color:var(--text); }
@@ -381,11 +385,33 @@ function selectBilat(id) {
   document.getElementById('no-bilat').style.display='none';
   document.getElementById('content').style.display='grid';
   document.getElementById('topbar-title').textContent=benName(b.Beneficiaire);
-  const subParts = [fmtDate(b.Date)];
-  if (b.Participants_DINUM) subParts.push(`DINUM : ${b.Participants_DINUM}`);
-  if (b.Participants_beneficiaire) subParts.push(`${benShort(b.Beneficiaire)} : ${b.Participants_beneficiaire}`);
-  if (b.Prochain_point) subParts.push(`Prochain : ${fmtDate(b.Prochain_point)}`);
-  document.getElementById('topbar-subtitle').textContent = subParts.join(' · ');
+  const staticParts = [fmtDate(b.Date)];
+  if (b.Participants_DINUM) staticParts.push(`DINUM : ${b.Participants_DINUM}`);
+  if (b.Participants_beneficiaire) staticParts.push(`${benShort(b.Beneficiaire)} : ${b.Participants_beneficiaire}`);
+  const sub = document.getElementById('topbar-subtitle');
+  sub.innerHTML = staticParts.join(' · ') +
+    ' &middot; Prochain : <span id="prochain-wrap">' +
+      `<span id="prochain-label">${b.Prochain_point ? fmtDate(b.Prochain_point) : '<em style="opacity:.5">non défini</em>'}</span>` +
+      ' <span class="edit-icon" id="btn-edit-prochain" title="Modifier">&#9998;</span>' +
+    '</span>';
+  document.getElementById('btn-edit-prochain').addEventListener('click', () => {
+    const wrap = document.getElementById('prochain-wrap');
+    wrap.innerHTML =
+      `<input id="prochain-input" type="date" value="${toInputDate(b.Prochain_point)}">` +
+      ' <span class="edit-icon" id="btn-save-prochain" title="Enregistrer" style="color:var(--green)">&#10003;</span>' +
+      ' <span class="edit-icon" id="btn-cancel-prochain" title="Annuler">&#215;</span>';
+    document.getElementById('prochain-input').focus();
+    document.getElementById('btn-save-prochain').addEventListener('click', async () => {
+      const val = toTs(document.getElementById('prochain-input').value) || 0;
+      await grist.docApi.applyUserActions([['UpdateRecord','Bilaterales', id, {Prochain_point: val}]]);
+      await loadData(); selectBilat(id);
+    });
+    document.getElementById('btn-cancel-prochain').addEventListener('click', () => selectBilat(id));
+    document.getElementById('prochain-input').addEventListener('keydown', async e => {
+      if (e.key === 'Enter') document.getElementById('btn-save-prochain').click();
+      if (e.key === 'Escape') selectBilat(id);
+    });
+  });
   renderKPIs(); renderCards();
 }
 
