@@ -29,7 +29,19 @@
   #sidebar-header h2 { font-size:13px; font-weight:700; color:var(--text-xs); text-transform:uppercase; letter-spacing:.05em; }
   #btn-new-bilat { width:28px; height:28px; border-radius:6px; border:none; background:var(--blue); color:#fff; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
   #btn-new-bilat:hover { background:#1d4ed8; }
+  #sidebar-search-wrap { padding:8px 10px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:6px; }
+  #sidebar-search { flex:1; padding:5px 10px; border:1px solid var(--border); border-radius:6px; font-size:12px; outline:none; }
+  #sidebar-search:focus { border-color:var(--blue); }
+  #sidebar-sort { padding:4px 8px; border-radius:6px; border:1px solid var(--border); background:#fff; font-size:11px; cursor:pointer; color:var(--text-sm); white-space:nowrap; }
+  #sidebar-sort:hover { background:var(--gray-lt); }
   #bilat-list { flex:1; overflow-y:auto; padding:8px; display:flex; flex-direction:column; gap:4px; }
+  .bilat-group-label { font-size:11px; font-weight:700; color:var(--text-xs); text-transform:uppercase; letter-spacing:.05em; padding:8px 4px 4px; }
+  .bi-urgency { display:flex; gap:3px; margin-top:3px; }
+  .bi-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .bi-dot-bl { background:var(--red); }
+  .bi-dot-ar { background:var(--purple); }
+  .bi-dot-sv { background:var(--amber); }
+  .bi-dot-ec { background:var(--blue); }
   .bilat-item { padding:10px 12px; border-radius:var(--radius); cursor:pointer; border:2px solid transparent; transition:all .15s; }
   .bilat-item:hover { background:var(--gray-lt); }
   .bilat-item.active { background:var(--blue-lt); border-color:var(--blue); }
@@ -57,6 +69,8 @@
   .kpi.rs { background:var(--green-lt); color:var(--green); } .kpi.rs.active { background:var(--green); color:#fff; }
   #btn-reconduire { padding:6px 13px; border-radius:6px; background:#fff; color:var(--text-sm); border:1px solid var(--border); font-size:13px; font-weight:500; cursor:pointer; white-space:nowrap; flex-shrink:0; }
   #btn-reconduire:hover { background:var(--gray-lt); }
+  #btn-edit-bilat { padding:6px 10px; border-radius:6px; background:#fff; border:1px solid var(--border); font-size:14px; cursor:pointer; flex-shrink:0; }
+  #btn-edit-bilat:hover { background:var(--gray-lt); }
 
   #toolbar { background:#fff; border-bottom:1px solid var(--border); padding:8px 20px; display:flex; align-items:center; gap:10px; }
   #btn-new-point { padding:6px 14px; border-radius:6px; background:var(--blue); color:#fff; border:none; font-size:13px; font-weight:600; cursor:pointer; }
@@ -179,6 +193,10 @@
       <h2>Bilatérales</h2>
       <button id="btn-new-bilat" title="Nouvelle bilatérale">+</button>
     </div>
+    <div id="sidebar-search-wrap">
+      <input id="sidebar-search" type="text" placeholder="Rechercher…">
+      <button id="sidebar-sort" title="Changer le tri">Par date</button>
+    </div>
     <div id="bilat-list"></div>
   </div>
 
@@ -189,6 +207,7 @@
         <div id="topbar-subtitle"></div>
       </div>
       <div id="kpi-bar"></div>
+      <button id="btn-edit-bilat" title="Modifier la bilatérale">✏️</button>
       <button id="btn-reconduire">↻ Reconduire</button>
     </div>
     <div id="toolbar" style="display:none">
@@ -264,6 +283,24 @@
   </div>
 </div>
 
+<!-- Modal : Édition bilatérale -->
+<div class="modal-backdrop" id="modal-edit-bilat">
+  <div class="modal-box">
+    <div class="modal-header"><h3 id="eb-title">Modifier la bilatérale</h3><button class="modal-close" id="eb-close">✕</button></div>
+    <div class="modal-body">
+      <div class="field-group"><label class="field-label">Date</label><input id="eb-date" class="field-input" type="date"></div>
+      <div class="field-group"><label class="field-label">Prochain point</label><input id="eb-next" class="field-input" type="date"></div>
+      <div class="field-group"><label class="field-label">Participants bénéficiaire</label><input id="eb-part-ben" class="field-input" type="text"></div>
+      <div class="field-group"><label class="field-label">Participants DINUM/ISO</label><input id="eb-part-dinum" class="field-input" type="text"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" id="eb-cancel">Annuler</button>
+      <button class="btn-delete" id="eb-delete">Supprimer</button>
+      <button class="btn-primary" id="eb-confirm">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal : Export -->
 <div class="modal-backdrop" id="modal-export">
   <div class="modal-box wide">
@@ -278,6 +315,7 @@
 let bilaterales=[], pointsAll=[], beneficiaires=[], sujets_v2=[];
 let selectedBilatId=null, selectedPointId=null;
 let filterStatut='all', searchQ='', isDirty=false, isNewPoint=false;
+let sidebarSearchQ='', sidebarSort='date'; // 'date' or 'ben'
 
 // ── Helpers ──
 const badgeClass = s => ({'En cours':'ec','Bloqué':'bl','Résolu':'rs','À surveiller':'sv','Action requise':'ar'}[s]||'ec');
@@ -361,22 +399,69 @@ function getHistory(point) {
 }
 
 // ── Sidebar ──
+function urgencyDots(pts) {
+  const counts = { bl: pts.filter(p=>p.Statut==='Bloqué').length, ar: pts.filter(p=>p.Statut==='Action requise').length, sv: pts.filter(p=>p.Statut==='À surveiller').length, ec: pts.filter(p=>p.Statut==='En cours').length };
+  if (!counts.bl && !counts.ar && !counts.sv && !counts.ec) return '';
+  let dots = '';
+  for (let i=0;i<Math.min(counts.bl,4);i++) dots += '<span class="bi-dot bi-dot-bl"></span>';
+  for (let i=0;i<Math.min(counts.ar,4);i++) dots += '<span class="bi-dot bi-dot-ar"></span>';
+  for (let i=0;i<Math.min(counts.sv,3);i++) dots += '<span class="bi-dot bi-dot-sv"></span>';
+  for (let i=0;i<Math.min(counts.ec,3);i++) dots += '<span class="bi-dot bi-dot-ec"></span>';
+  return `<div class="bi-urgency">${dots}</div>`;
+}
+
 function renderSidebar() {
-  const list=document.getElementById('bilat-list');
-  list.innerHTML='';
-  bilaterales.forEach(b=>{
-    const pts=pointsAll.filter(p=>p.Bilaterale===b.id);
-    const nOpen=pts.filter(p=>p.Statut!=='Résolu').length;
-    const div=document.createElement('div');
-    div.className='bilat-item'+(b.id===selectedBilatId?' active':'');
-    div.innerHTML=`
-      <div class="bi-name">${benShort(b.Beneficiaire)}</div>
-      <div class="bi-date">📅 ${fmtDate(b.Date)} · ${nOpen} point${nOpen!==1?'s':''} ouvert${nOpen!==1?'s':''}</div>
-      ${b.Prochain_point?`<div class="bi-next">↻ ${fmtDate(b.Prochain_point)}</div>`:''}
-    `;
-    div.addEventListener('click',()=>selectBilat(b.id));
-    list.appendChild(div);
-  });
+  const list = document.getElementById('bilat-list');
+  list.innerHTML = '';
+
+  let items = [...bilaterales];
+
+  // Global search filter
+  if (sidebarSearchQ) {
+    const q = sidebarSearchQ.toLowerCase();
+    items = items.filter(b => {
+      if (benShort(b.Beneficiaire).toLowerCase().includes(q)) return true;
+      // also search in points of this bilat
+      return pointsAll.some(p => p.Bilaterale === b.id &&
+        ((p.Titre||'').toLowerCase().includes(q) || (p.Description||'').toLowerCase().includes(q) ||
+         (p.Reference_site||'').toLowerCase().includes(q) || (p.Action_suivante||'').toLowerCase().includes(q)));
+    });
+  }
+
+  if (sidebarSort === 'date') {
+    items.sort((a,b) => b.Date - a.Date);
+    items.forEach(b => list.appendChild(makeBilatItem(b)));
+  } else {
+    // Group by beneficiaire
+    const groups = {};
+    items.forEach(b => {
+      const key = benShort(b.Beneficiaire);
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(b);
+    });
+    Object.keys(groups).sort().forEach(key => {
+      const label = document.createElement('div');
+      label.className = 'bilat-group-label';
+      label.textContent = key;
+      list.appendChild(label);
+      groups[key].sort((a,b) => b.Date - a.Date).forEach(b => list.appendChild(makeBilatItem(b)));
+    });
+  }
+}
+
+function makeBilatItem(b) {
+  const pts = pointsAll.filter(p => p.Bilaterale === b.id);
+  const nOpen = pts.filter(p => p.Statut !== 'Résolu').length;
+  const div = document.createElement('div');
+  div.className = 'bilat-item' + (b.id === selectedBilatId ? ' active' : '');
+  div.innerHTML = `
+    <div class="bi-name">${benShort(b.Beneficiaire)}</div>
+    <div class="bi-date">📅 ${fmtDate(b.Date)} · ${nOpen} point${nOpen!==1?'s':''} ouvert${nOpen!==1?'s':''}</div>
+    ${b.Prochain_point ? `<div class="bi-next">↻ ${fmtDate(b.Prochain_point)}</div>` : ''}
+    ${urgencyDots(pts)}
+  `;
+  div.addEventListener('click', () => selectBilat(b.id));
+  return div;
 }
 
 // ── Select bilatérale ──
@@ -589,6 +674,52 @@ async function deletePoint() {
   selectedPointId=null; clearDirty(); await loadData(); if(selectedBilatId) selectBilat(selectedBilatId);
 }
 
+// ── Édition bilatérale ──
+function openEditBilatModal() {
+  if (!selectedBilatId) return;
+  const b = bilaterales.find(b => b.id === selectedBilatId);
+  document.getElementById('eb-title').textContent = 'Modifier — ' + benShort(b.Beneficiaire);
+  document.getElementById('eb-date').value = toInputDate(b.Date);
+  document.getElementById('eb-next').value = toInputDate(b.Prochain_point);
+  document.getElementById('eb-part-ben').value = b.Participants_beneficiaire || '';
+  document.getElementById('eb-part-dinum').value = b.Participants_DINUM || '';
+  document.getElementById('modal-edit-bilat').classList.add('open');
+}
+
+async function saveEditBilat() {
+  const dateStr = document.getElementById('eb-date').value;
+  if (!dateStr) { alert('Date requise.'); return; }
+  const fields = {
+    Date: toTs(dateStr),
+    Prochain_point: toTs(document.getElementById('eb-next').value) || 0,
+    Participants_beneficiaire: document.getElementById('eb-part-ben').value.trim(),
+    Participants_DINUM: document.getElementById('eb-part-dinum').value.trim(),
+  };
+  const btn = document.getElementById('eb-confirm');
+  btn.disabled = true; btn.textContent = 'Enregistrement…';
+  try {
+    await grist.docApi.applyUserActions([['UpdateRecord', 'Bilaterales', selectedBilatId, fields]]);
+    document.getElementById('modal-edit-bilat').classList.remove('open');
+    await loadData(); selectBilat(selectedBilatId);
+  } catch(e) { alert('Erreur : ' + e.message); }
+  finally { btn.disabled = false; btn.textContent = 'Enregistrer'; }
+}
+
+async function deleteBilat() {
+  if (!selectedBilatId || !confirm('Supprimer cette bilatérale et tous ses points ?')) return;
+  const pts = pointsAll.filter(p => p.Bilaterale === selectedBilatId);
+  const actions = pts.map(p => ['RemoveRecord', 'Points_bilaterales', p.id]);
+  actions.push(['RemoveRecord', 'Bilaterales', selectedBilatId]);
+  await grist.docApi.applyUserActions(actions);
+  document.getElementById('modal-edit-bilat').classList.remove('open');
+  selectedBilatId = null;
+  document.getElementById('topbar').style.display = 'none';
+  document.getElementById('toolbar').style.display = 'none';
+  document.getElementById('no-bilat').style.display = '';
+  document.getElementById('content').style.display = 'none';
+  await loadData();
+}
+
 // ── Nouvelle bilatérale ──
 function openNewBilatModal() {
   document.getElementById('nb-date').value=new Date().toISOString().slice(0,10);
@@ -700,6 +831,17 @@ function generateResume() {
 
 // ── Events ──
 document.getElementById('btn-new-bilat').addEventListener('click',openNewBilatModal);
+document.getElementById('btn-edit-bilat').addEventListener('click',openEditBilatModal);
+document.getElementById('eb-close').addEventListener('click',()=>document.getElementById('modal-edit-bilat').classList.remove('open'));
+document.getElementById('eb-cancel').addEventListener('click',()=>document.getElementById('modal-edit-bilat').classList.remove('open'));
+document.getElementById('eb-confirm').addEventListener('click',saveEditBilat);
+document.getElementById('eb-delete').addEventListener('click',deleteBilat);
+document.getElementById('sidebar-search').addEventListener('input',e=>{sidebarSearchQ=e.target.value;renderSidebar();});
+document.getElementById('sidebar-sort').addEventListener('click',()=>{
+  sidebarSort = sidebarSort==='date'?'ben':'date';
+  document.getElementById('sidebar-sort').textContent = sidebarSort==='date'?'Par date':'Par ministère';
+  renderSidebar();
+});
 document.getElementById('nb-close').addEventListener('click',()=>document.getElementById('modal-new-bilat').classList.remove('open'));
 document.getElementById('nb-cancel').addEventListener('click',()=>document.getElementById('modal-new-bilat').classList.remove('open'));
 document.getElementById('nb-confirm').addEventListener('click',createBilat);
@@ -726,6 +868,7 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
     if(document.getElementById('modal-export').classList.contains('open')){document.getElementById('modal-export').classList.remove('open');return;}
     if(document.getElementById('modal-recon').classList.contains('open')){document.getElementById('modal-recon').classList.remove('open');return;}
+    if(document.getElementById('modal-edit-bilat').classList.contains('open')){document.getElementById('modal-edit-bilat').classList.remove('open');return;}
     if(document.getElementById('modal-new-bilat').classList.contains('open')){document.getElementById('modal-new-bilat').classList.remove('open');return;}
     closePanel();
   }
@@ -835,7 +978,17 @@ async function generateCR() {
       }));
       if (p.Description) {
         p.Description.split('\n').filter(l => l.trim()).forEach(line => {
-          children.push(new Paragraph({ children: [tr(line)], indent: { left: 720 }, spacing: { after: 40 } }));
+          const isBullet = /^[-•*·]\s/.test(line.trim());
+          const text = isBullet ? line.trim().replace(/^[-•*·]\s+/, '') : line;
+          if (isBullet) {
+            children.push(new Paragraph({
+              numbering: { reference: 'desc-bullet', level: 0 },
+              children: [tr(text)],
+              spacing: { after: 30 },
+            }));
+          } else {
+            children.push(new Paragraph({ children: [tr(text)], indent: { left: 720 }, spacing: { after: 40 } }));
+          }
         });
       }
       if (p.Action_suivante) {
@@ -847,7 +1000,10 @@ async function generateCR() {
     });
 
     const doc = new Document({
-      numbering: { config: [{ reference: 'point-list', levels: [{ level: 0, format: LevelFormat.BULLET, text: '-', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 720, hanging: 360 } } } }] }] },
+      numbering: { config: [
+        { reference: 'point-list', levels: [{ level: 0, format: LevelFormat.BULLET, text: '-', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 720, hanging: 360 } } } }] },
+        { reference: 'desc-bullet', levels: [{ level: 0, format: LevelFormat.BULLET, text: '-', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 1080, hanging: 360 } } } }] },
+      ] },
       sections: [{ properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 851, right: 1134, bottom: 851, left: 1134 } } }, children }],
     });
 
