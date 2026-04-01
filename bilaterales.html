@@ -356,7 +356,7 @@ async function loadData() {
 
   bilaterales = bilTable.id.map((id, i) => ({
     id,
-    Beneficiaire:             bilTable.Beneficiaire[i],
+    Beneficiaire: typeof bilTable.Beneficiaire[i] === "string" ? parseInt(bilTable.Beneficiaire[i]) : bilTable.Beneficiaire[i],
     Date:                     bilTable.Date[i],
     Prochain_point:           bilTable.Prochain_point[i],
     Participants_beneficiaire:bilTable.Participants_beneficiaire[i],
@@ -365,13 +365,13 @@ async function loadData() {
 
   pointsAll = pointsTable.id.map((id, i) => ({
     id,
-    Bilaterale:     pointsTable.Bilaterale[i],
+    Bilaterale:     typeof pointsTable.Bilaterale[i] === 'string' ? parseInt(pointsTable.Bilaterale[i]) : pointsTable.Bilaterale[i],
     Titre:          pointsTable.Titre[i],
     Description:    pointsTable.Description[i],
     Reference_site: pointsTable.Reference_site[i],
     Statut:         pointsTable.Statut[i],
     Action_suivante:pointsTable.Action_suivante[i],
-    Sujet_PQP:      pointsTable.Sujet_PQP[i],
+    Sujet_PQP:      typeof pointsTable.Sujet_PQP[i] === "string" ? parseInt(pointsTable.Sujet_PQP[i]) : pointsTable.Sujet_PQP[i],
   }));
 
   beneficiaires = benTable.id.map((id, i) => ({
