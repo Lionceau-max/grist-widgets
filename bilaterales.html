@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bilatérales RIE</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+  /* ── Reset & base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --blue:    #2563eb;
+    --blue-lt: #eff6ff;
+    --red:     #ef4444;
+    --red-lt:  #fef2f2;
+    --green:   #22c55e;
+    --green-lt:#f0fdf4;
+    --amber:   #f59e0b;
+    --amber-lt:#fffbeb;
+    --purple:  #8b5cf6;
+    --purple-lt:#f5f3ff;
+    --gray:    #6b7280;
+    --gray-lt: #f9fafb;
+    --border:  #e5e7eb;
+    --text:    #111827;
+    --text-sm: #374151;
+    --text-xs: #6b7280;
+    --radius:  8px;
+    --shadow:  0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+    --shadow-lg: 0 10px 25px rgba(0,0,0,.12);
+  }
+  body { font-family: system-ui,-apple-system,sans-serif; font-size:14px; color:var(--text); background:#f3f4f6; height:100vh; overflow:hidden; display:flex; flex-direction:column; }
+
+  /* ── Layout ── */
+  #app { display:flex; height:100vh; overflow:hidden; }
+
+  /* ── Sidebar ── */
+  #sidebar {
+    width: 240px; min-width:200px; background:#fff; border-right:1px solid var(--border);
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  #sidebar-header {
+    padding:16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;
+  }
+  #sidebar-header h2 { font-size:13px; font-weight:700; color:var(--text-xs); text-transform:uppercase; letter-spacing:.05em; }
+  #btn-new-bilat {
+    width:28px; height:28px; border-radius:6px; border:none; background:var(--blue); color:#fff;
+    font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; line-height:1;
+  }
+  #btn-new-bilat:hover { background:#1d4ed8; }
+  #bilat-list { flex:1; overflow-y:auto; padding:8px; display:flex; flex-direction:column; gap:4px; }
+  .bilat-item {
+    padding:10px 12px; border-radius:var(--radius); cursor:pointer; border:2px solid transparent;
+    transition:all .15s;
+  }
+  .bilat-item:hover { background:var(--gray-lt); }
+  .bilat-item.active { background:var(--blue-lt); border-color:var(--blue); }
+  .bilat-item .bi-name { font-weight:600; font-size:13px; color:var(--text); line-height:1.3; }
+  .bilat-item .bi-date { font-size:11px; color:var(--text-xs); margin-top:2px; }
+  .bilat-item .bi-next { font-size:11px; color:var(--blue); margin-top:2px; }
+
+  /* ── Main ── */
+  #main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+
+  /* ── Top bar ── */
+  #topbar {
+    background:#fff; border-bottom:1px solid var(--border); padding:14px 20px;
+    display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+  }
+  #topbar-title { font-size:16px; font-weight:700; color:var(--text); flex:1; min-width:200px; }
+  #topbar-subtitle { font-size:12px; color:var(--text-xs); font-weight:400; margin-top:2px; }
+  #kpi-bar { display:flex; gap:8px; flex-wrap:wrap; }
+  .kpi {
+    padding:5px 12px; border-radius:20px; font-size:12px; font-weight:600; cursor:pointer;
+    border:2px solid transparent; transition:all .15s; white-space:nowrap;
+  }
+  .kpi.all { background:#f3f4f6; color:var(--text-sm); border-color:#e5e7eb; }
+  .kpi.all.active { background:var(--text); color:#fff; border-color:var(--text); }
+  .kpi.ec  { background:var(--blue-lt); color:var(--blue); }
+  .kpi.ec.active { background:var(--blue); color:#fff; }
+  .kpi.bl  { background:var(--red-lt); color:var(--red); }
+  .kpi.bl.active { background:var(--red); color:#fff; }
+  .kpi.ar  { background:var(--purple-lt); color:var(--purple); }
+  .kpi.ar.active { background:var(--purple); color:#fff; }
+  .kpi.sv  { background:var(--amber-lt); color:var(--amber); }
+  .kpi.sv.active { background:var(--amber); color:#fff; }
+  .kpi.rs  { background:var(--green-lt); color:var(--green); }
+  .kpi.rs.active { background:var(--green); color:#fff; }
+
+  /* ── Toolbar ── */
+  #toolbar {
+    background:#fff; border-bottom:1px solid var(--border); padding:8px 20px;
+    display:flex; align-items:center; gap:10px;
+  }
+  #btn-new-point {
+    padding:6px 14px; border-radius:6px; background:var(--blue); color:#fff;
+    border:none; font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px;
+  }
+  #btn-new-point:hover { background:#1d4ed8; }
+  #btn-export {
+    padding:6px 14px; border-radius:6px; background:#fff; color:var(--text-sm);
+    border:1px solid var(--border); font-size:13px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:6px;
+  }
+  #btn-export:hover { background:var(--gray-lt); }
+  #search-box {
+    flex:1; max-width:280px; padding:6px 12px; border:1px solid var(--border); border-radius:6px;
+    font-size:13px; outline:none; color:var(--text);
+  }
+  #search-box:focus { border-color:var(--blue); }
+
+  /* ── Cards grid ── */
+  #content { flex:1; overflow-y:auto; padding:16px 20px; display:grid; grid-template-columns: repeat(auto-fill, minmax(340px,1fr)); gap:12px; align-content:start; }
+  #empty-state { grid-column:1/-1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:60px; color:var(--text-xs); gap:8px; }
+  #empty-state .icon { font-size:36px; }
+  #no-bilat { flex:1; display:flex; align-items:center; justify-content:center; color:var(--text-xs); font-size:15px; }
+
+  .point-card {
+    background:#fff; border-radius:var(--radius); box-shadow:var(--shadow);
+    border-left:4px solid var(--border); cursor:pointer; transition:all .15s;
+    padding:14px 16px; display:flex; flex-direction:column; gap:8px;
+  }
+  .point-card:hover { box-shadow:0 4px 12px rgba(0,0,0,.1); transform:translateY(-1px); }
+  .point-card.active { outline:2px solid var(--blue); }
+  .point-card[data-statut="En cours"]      { border-left-color:var(--blue); }
+  .point-card[data-statut="Bloqué"]        { border-left-color:var(--red); }
+  .point-card[data-statut="Résolu"]        { border-left-color:var(--green); }
+  .point-card[data-statut="À surveiller"]  { border-left-color:var(--amber); }
+  .point-card[data-statut="Action requise"]{ border-left-color:var(--purple); }
+
+  .card-top { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+  .card-titre { font-weight:600; font-size:13px; color:var(--text); line-height:1.4; flex:1; }
+  .badge {
+    padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; white-space:nowrap;
+  }
+  .badge-ec  { background:var(--blue-lt);   color:var(--blue); }
+  .badge-bl  { background:var(--red-lt);    color:var(--red); }
+  .badge-rs  { background:var(--green-lt);  color:var(--green); }
+  .badge-sv  { background:var(--amber-lt);  color:var(--amber); }
+  .badge-ar  { background:var(--purple-lt); color:var(--purple); }
+
+  .card-ref { font-size:11px; color:var(--text-xs); font-family:monospace; background:#f3f4f6; padding:1px 6px; border-radius:4px; display:inline-block; }
+  .card-desc { font-size:12px; color:var(--text-sm); line-height:1.5; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .card-action { font-size:12px; color:var(--blue); display:flex; align-items:baseline; gap:5px; }
+  .card-action::before { content:'→'; font-weight:700; }
+
+  /* ── Slide-over ── */
+  #overlay {
+    position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:100;
+    opacity:0; pointer-events:none; transition:opacity .2s;
+  }
+  #overlay.open { opacity:1; pointer-events:auto; }
+  #panel {
+    position:fixed; top:0; right:-520px; width:500px; height:100vh; background:#fff;
+    box-shadow:var(--shadow-lg); z-index:101; display:flex; flex-direction:column;
+    transition:right .25s ease; overflow:hidden;
+  }
+  #panel.open { right:0; }
+
+  #panel-header {
+    padding:18px 20px; border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+  }
+  #panel-title { font-size:15px; font-weight:700; color:var(--text); }
+  #panel-close { background:none; border:none; cursor:pointer; font-size:20px; color:var(--text-xs); padding:4px; border-radius:4px; }
+  #panel-close:hover { background:var(--gray-lt); }
+  #panel-body { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:16px; }
+  #panel-footer {
+    padding:14px 20px; border-top:1px solid var(--border); display:flex; align-items:center; gap:10px;
+  }
+
+  .field-group { display:flex; flex-direction:column; gap:5px; }
+  .field-label { font-size:12px; font-weight:600; color:var(--text-xs); text-transform:uppercase; letter-spacing:.04em; }
+  .field-input, .field-select, .field-textarea {
+    padding:8px 12px; border:1px solid var(--border); border-radius:6px; font-size:13px;
+    color:var(--text); font-family:inherit; outline:none; transition:border-color .15s; background:#fff;
+    width:100%;
+  }
+  .field-input:focus, .field-select:focus, .field-textarea:focus { border-color:var(--blue); }
+  .field-textarea { resize:vertical; min-height:90px; line-height:1.5; }
+  .field-input.dirty, .field-select.dirty, .field-textarea.dirty { border-color:var(--amber); background:var(--amber-lt); }
+
+  .btn-save {
+    padding:8px 20px; border-radius:6px; background:var(--blue); color:#fff;
+    border:none; font-size:13px; font-weight:600; cursor:pointer;
+  }
+  .btn-save:hover { background:#1d4ed8; }
+  .btn-save:disabled { opacity:.5; cursor:default; }
+  .btn-delete {
+    padding:8px 14px; border-radius:6px; background:#fff; color:var(--red);
+    border:1px solid #fca5a5; font-size:13px; cursor:pointer;
+  }
+  .btn-delete:hover { background:var(--red-lt); }
+  .dirty-indicator { font-size:12px; color:var(--amber); font-weight:500; margin-left:auto; }
+
+  /* ── Export modal ── */
+  #export-modal {
+    position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:200;
+    display:none; align-items:center; justify-content:center;
+  }
+  #export-modal.open { display:flex; }
+  #export-box {
+    background:#fff; border-radius:12px; width:620px; max-height:80vh;
+    display:flex; flex-direction:column; box-shadow:var(--shadow-lg); overflow:hidden;
+  }
+  #export-header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  #export-header h3 { font-size:15px; font-weight:700; }
+  #export-close { background:none; border:none; cursor:pointer; font-size:20px; color:var(--text-xs); }
+  #export-content { flex:1; overflow-y:auto; padding:20px; }
+  #export-text {
+    width:100%; min-height:300px; font-family:monospace; font-size:12px; line-height:1.6;
+    border:1px solid var(--border); border-radius:6px; padding:12px; resize:vertical; color:var(--text);
+  }
+  #export-footer { padding:14px 20px; border-top:1px solid var(--border); display:flex; gap:10px; }
+  .btn-copy { padding:8px 16px; border-radius:6px; background:var(--blue); color:#fff; border:none; font-size:13px; font-weight:600; cursor:pointer; }
+  .btn-copy:hover { background:#1d4ed8; }
+
+  /* ── Loading ── */
+  #loader { position:fixed; inset:0; background:#fff; display:flex; align-items:center; justify-content:center; z-index:999; flex-direction:column; gap:12px; }
+  .spinner { width:32px; height:32px; border:3px solid var(--border); border-top-color:var(--blue); border-radius:50%; animation:spin .7s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  #loader-text { font-size:13px; color:var(--text-xs); }
+</style>
+</head>
+<body>
+
+<div id="loader"><div class="spinner"></div><div id="loader-text">Chargement…</div></div>
+
+<div id="app">
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <h2>Bilatérales</h2>
+      <button id="btn-new-bilat" title="Nouvelle bilatérale">+</button>
+    </div>
+    <div id="bilat-list"></div>
+  </div>
+
+  <!-- Main -->
+  <div id="main">
+    <div id="topbar" style="display:none">
+      <div style="flex:1">
+        <div id="topbar-title">—</div>
+        <div id="topbar-subtitle"></div>
+      </div>
+      <div id="kpi-bar"></div>
+    </div>
+    <div id="toolbar" style="display:none">
+      <button id="btn-new-point">+ Point</button>
+      <input id="search-box" type="text" placeholder="Rechercher…">
+      <button id="btn-export">📋 Résumé</button>
+    </div>
+    <div id="no-bilat">← Sélectionnez une bilatérale</div>
+    <div id="content" style="display:none"></div>
+  </div>
+</div>
+
+<!-- Slide-over -->
+<div id="overlay"></div>
+<div id="panel">
+  <div id="panel-header">
+    <div id="panel-title">Point</div>
+    <button id="panel-close">✕</button>
+  </div>
+  <div id="panel-body">
+    <div class="field-group">
+      <label class="field-label">Titre</label>
+      <input id="f-titre" class="field-input" type="text">
+    </div>
+    <div class="field-group">
+      <label class="field-label">Référence site</label>
+      <input id="f-ref" class="field-input" type="text" placeholder="ex. ECOL-64490-010">
+    </div>
+    <div class="field-group">
+      <label class="field-label">Statut</label>
+      <select id="f-statut" class="field-select">
+        <option>En cours</option>
+        <option>Bloqué</option>
+        <option>Action requise</option>
+        <option>À surveiller</option>
+        <option>Résolu</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label class="field-label">Description</label>
+      <textarea id="f-desc" class="field-textarea"></textarea>
+    </div>
+    <div class="field-group">
+      <label class="field-label">Action suivante</label>
+      <textarea id="f-action" class="field-textarea" style="min-height:60px"></textarea>
+    </div>
+    <div class="field-group">
+      <label class="field-label">Sujet PQP lié</label>
+      <select id="f-sujet" class="field-select">
+        <option value="">— Aucun —</option>
+      </select>
+    </div>
+  </div>
+  <div id="panel-footer">
+    <button class="btn-save" id="btn-save">Enregistrer</button>
+    <button class="btn-delete" id="btn-delete">Supprimer</button>
+    <span class="dirty-indicator" id="dirty-indicator" style="display:none">● Modifications non sauvegardées</span>
+  </div>
+</div>
+
+<!-- Export modal -->
+<div id="export-modal">
+  <div id="export-box">
+    <div id="export-header">
+      <h3 id="export-title">Résumé bilatérale</h3>
+      <button id="export-close">✕</button>
+    </div>
+    <div id="export-content">
+      <textarea id="export-text" readonly></textarea>
+    </div>
+    <div id="export-footer">
+      <button class="btn-copy" id="btn-copy">📋 Copier</button>
+      <button class="btn-delete" id="btn-export-close2">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──
+let bilaterales = [];
+let pointsAll   = [];
+let beneficiaires = [];
+let sujets_v2   = [];
+
+let selectedBilatId = null;
+let selectedPointId = null;
+let filterStatut    = 'all';
+let searchQ         = '';
+let isDirty         = false;
+let isNewPoint      = false;
+
+// ── Badge helper ──
+function badgeClass(s) {
+  return { 'En cours':'ec', 'Bloqué':'bl', 'Résolu':'rs', 'À surveiller':'sv', 'Action requise':'ar' }[s] || 'ec';
+}
+
+// ── Date format ──
+function fmtDate(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts * 1000);
+  return d.toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' });
+}
+
+// ── Load data ──
+async function loadData() {
+  const [bilTable, pointsTable, benTable, sujetsTable] = await Promise.all([
+    grist.docApi.fetchTable('Bilaterales'),
+    grist.docApi.fetchTable('Points_bilaterales'),
+    grist.docApi.fetchTable('Beneficiaires'),
+    grist.docApi.fetchTable('Sujets_v2'),
+  ]);
+
+  bilaterales = bilTable.id.map((id, i) => ({
+    id,
+    Beneficiaire:             bilTable.Beneficiaire[i],
+    Date:                     bilTable.Date[i],
+    Prochain_point:           bilTable.Prochain_point[i],
+    Participants_beneficiaire:bilTable.Participants_beneficiaire[i],
+    Participants_DINUM:       bilTable.Participants_DINUM[i],
+  }));
+
+  pointsAll = pointsTable.id.map((id, i) => ({
+    id,
+    Bilaterale:     pointsTable.Bilaterale[i],
+    Titre:          pointsTable.Titre[i],
+    Description:    pointsTable.Description[i],
+    Reference_site: pointsTable.Reference_site[i],
+    Statut:         pointsTable.Statut[i],
+    Action_suivante:pointsTable.Action_suivante[i],
+    Sujet_PQP:      pointsTable.Sujet_PQP[i],
+  }));
+
+  beneficiaires = benTable.id.map((id, i) => ({
+    id,
+    Beneficiaire: benTable.Beneficiaire[i],
+    Entite:       benTable.Entite[i],
+  }));
+
+  sujets_v2 = sujetsTable.id.map((id, i) => ({
+    id,
+    Code:  sujetsTable.Code[i],
+    Objet: sujetsTable.Objet[i],
+  }));
+
+  // Sort bilaterales by date desc
+  bilaterales.sort((a, b) => b.Date - a.Date);
+
+  renderSidebar();
+  populateSujetSelect();
+  document.getElementById('loader').style.display = 'none';
+}
+
+// ── Beneficiaire name helper ──
+function benName(id) {
+  const b = beneficiaires.find(b => b.id === id);
+  return b ? (b.Entite ? `${b.Beneficiaire} (${b.Entite})` : b.Beneficiaire) : `#${id}`;
+}
+
+function benShort(id) {
+  const b = beneficiaires.find(b => b.id === id);
+  return b ? (b.Entite || b.Beneficiaire) : `#${id}`;
+}
+
+// ── Populate sujet select ──
+function populateSujetSelect() {
+  const sel = document.getElementById('f-sujet');
+  sujets_v2.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = `${s.Code} — ${s.Objet}`;
+    sel.appendChild(opt);
+  });
+}
+
+// ── Render sidebar ──
+function renderSidebar() {
+  const list = document.getElementById('bilat-list');
+  list.innerHTML = '';
+  bilaterales.forEach(b => {
+    const pts = pointsAll.filter(p => p.Bilaterale === b.id);
+    const nOpen = pts.filter(p => p.Statut !== 'Résolu').length;
+    const div = document.createElement('div');
+    div.className = 'bilat-item' + (b.id === selectedBilatId ? ' active' : '');
+    div.dataset.id = b.id;
+    div.innerHTML = `
+      <div class="bi-name">${benShort(b.Beneficiaire)}</div>
+      <div class="bi-date">📅 ${fmtDate(b.Date)} · ${nOpen} point${nOpen !== 1 ? 's' : ''}</div>
+      ${b.Prochain_point ? `<div class="bi-next">↻ ${fmtDate(b.Prochain_point)}</div>` : ''}
+    `;
+    div.addEventListener('click', () => selectBilat(b.id));
+    list.appendChild(div);
+  });
+}
+
+// ── Select bilatérale ──
+function selectBilat(id) {
+  selectedBilatId = id;
+  filterStatut = 'all';
+  searchQ = '';
+  document.getElementById('search-box').value = '';
+  renderSidebar();
+
+  const b = bilaterales.find(b => b.id === id);
+  document.getElementById('topbar').style.display = 'flex';
+  document.getElementById('toolbar').style.display = 'flex';
+  document.getElementById('no-bilat').style.display = 'none';
+  document.getElementById('content').style.display = 'grid';
+
+  document.getElementById('topbar-title').textContent = benName(b.Beneficiaire);
+  document.getElementById('topbar-subtitle').textContent =
+    `${fmtDate(b.Date)} · Participants : ${b.Participants_DINUM || '—'}` +
+    (b.Prochain_point ? ` · Prochain point : ${fmtDate(b.Prochain_point)}` : '');
+
+  renderKPIs();
+  renderCards();
+}
+
+// ── KPIs ──
+function renderKPIs() {
+  const pts = pointsAll.filter(p => p.Bilaterale === selectedBilatId);
+  const counts = {
+    all: pts.length,
+    'En cours':       pts.filter(p => p.Statut === 'En cours').length,
+    'Bloqué':         pts.filter(p => p.Statut === 'Bloqué').length,
+    'Action requise': pts.filter(p => p.Statut === 'Action requise').length,
+    'À surveiller':   pts.filter(p => p.Statut === 'À surveiller').length,
+    'Résolu':         pts.filter(p => p.Statut === 'Résolu').length,
+  };
+  const bar = document.getElementById('kpi-bar');
+  bar.innerHTML = '';
+  const defs = [
+    { key:'all',            label:'Tous',           cls:'all' },
+    { key:'En cours',       label:'En cours',       cls:'ec' },
+    { key:'Bloqué',         label:'Bloqué',         cls:'bl' },
+    { key:'Action requise', label:'Action requise', cls:'ar' },
+    { key:'À surveiller',   label:'À surveiller',   cls:'sv' },
+    { key:'Résolu',         label:'Résolu',         cls:'rs' },
+  ];
+  defs.forEach(({ key, label, cls }) => {
+    if (counts[key] === 0 && key !== 'all') return;
+    const btn = document.createElement('button');
+    btn.className = `kpi ${cls}` + (filterStatut === key ? ' active' : '');
+    btn.textContent = `${label} ${counts[key]}`;
+    btn.addEventListener('click', () => { filterStatut = key; renderKPIs(); renderCards(); });
+    bar.appendChild(btn);
+  });
+}
+
+// ── Cards ──
+function renderCards() {
+  const content = document.getElementById('content');
+  content.innerHTML = '';
+
+  let pts = pointsAll.filter(p => p.Bilaterale === selectedBilatId);
+  if (filterStatut !== 'all') pts = pts.filter(p => p.Statut === filterStatut);
+  if (searchQ) {
+    const q = searchQ.toLowerCase();
+    pts = pts.filter(p =>
+      (p.Titre||'').toLowerCase().includes(q) ||
+      (p.Description||'').toLowerCase().includes(q) ||
+      (p.Reference_site||'').toLowerCase().includes(q) ||
+      (p.Action_suivante||'').toLowerCase().includes(q)
+    );
+  }
+
+  if (pts.length === 0) {
+    content.innerHTML = '<div id="empty-state"><div class="icon">📭</div><div>Aucun point trouvé</div></div>';
+    return;
+  }
+
+  // Order: Bloqué → Action requise → En cours → À surveiller → Résolu
+  const order = ['Bloqué','Action requise','En cours','À surveiller','Résolu'];
+  pts.sort((a, b) => order.indexOf(a.Statut) - order.indexOf(b.Statut));
+
+  pts.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'point-card' + (p.id === selectedPointId ? ' active' : '');
+    card.dataset.statut = p.Statut || '';
+    card.innerHTML = `
+      <div class="card-top">
+        <div class="card-titre">${p.Titre || '(Sans titre)'}</div>
+        <span class="badge badge-${badgeClass(p.Statut)}">${p.Statut || '—'}</span>
+      </div>
+      ${p.Reference_site ? `<div><span class="card-ref">${p.Reference_site}</span></div>` : ''}
+      ${p.Description ? `<div class="card-desc">${p.Description}</div>` : ''}
+      ${p.Action_suivante ? `<div class="card-action">${p.Action_suivante}</div>` : ''}
+    `;
+    card.addEventListener('click', () => openPanel(p.id));
+    content.appendChild(card);
+  });
+}
+
+// ── Panel ──
+function openPanel(pointId) {
+  isNewPoint = false;
+  selectedPointId = pointId;
+  const p = pointsAll.find(p => p.id === pointId);
+  if (!p) return;
+
+  document.getElementById('panel-title').textContent = p.Titre || 'Point';
+  document.getElementById('f-titre').value   = p.Titre || '';
+  document.getElementById('f-ref').value     = p.Reference_site || '';
+  document.getElementById('f-statut').value  = p.Statut || 'En cours';
+  document.getElementById('f-desc').value    = p.Description || '';
+  document.getElementById('f-action').value  = p.Action_suivante || '';
+  document.getElementById('f-sujet').value   = p.Sujet_PQP || '';
+
+  clearDirty();
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('panel').classList.add('open');
+  renderCards();
+}
+
+function openNewPointPanel() {
+  if (!selectedBilatId) return;
+  isNewPoint = true;
+  selectedPointId = null;
+
+  document.getElementById('panel-title').textContent = 'Nouveau point';
+  document.getElementById('f-titre').value   = '';
+  document.getElementById('f-ref').value     = '';
+  document.getElementById('f-statut').value  = 'En cours';
+  document.getElementById('f-desc').value    = '';
+  document.getElementById('f-action').value  = '';
+  document.getElementById('f-sujet').value   = '';
+
+  clearDirty();
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('panel').classList.add('open');
+}
+
+function closePanel() {
+  if (isDirty && !confirm('Modifications non sauvegardées. Fermer quand même ?')) return;
+  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('panel').classList.remove('open');
+  selectedPointId = null;
+  clearDirty();
+  renderCards();
+}
+
+// ── Dirty tracking ──
+const editableFields = ['f-titre','f-ref','f-statut','f-desc','f-action','f-sujet'];
+editableFields.forEach(id => {
+  document.getElementById(id).addEventListener('input', markDirty);
+  document.getElementById(id).addEventListener('change', markDirty);
+});
+function markDirty() {
+  isDirty = true;
+  editableFields.forEach(id => document.getElementById(id).classList.add('dirty'));
+  document.getElementById('dirty-indicator').style.display = '';
+}
+function clearDirty() {
+  isDirty = false;
+  editableFields.forEach(id => document.getElementById(id).classList.remove('dirty'));
+  document.getElementById('dirty-indicator').style.display = 'none';
+}
+
+// ── Save ──
+async function savePoint() {
+  const fields = {
+    Titre:          document.getElementById('f-titre').value.trim(),
+    Reference_site: document.getElementById('f-ref').value.trim(),
+    Statut:         document.getElementById('f-statut').value,
+    Description:    document.getElementById('f-desc').value.trim(),
+    Action_suivante:document.getElementById('f-action').value.trim(),
+    Sujet_PQP:      parseInt(document.getElementById('f-sujet').value) || 0,
+  };
+
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true;
+  btn.textContent = 'Enregistrement…';
+
+  try {
+    if (isNewPoint) {
+      fields.Bilaterale = selectedBilatId;
+      await grist.docApi.applyUserActions([['AddRecord', 'Points_bilaterales', null, fields]]);
+    } else {
+      await grist.docApi.applyUserActions([['UpdateRecord', 'Points_bilaterales', selectedPointId, fields]]);
+    }
+    clearDirty();
+    await loadData();
+    if (selectedBilatId) selectBilat(selectedBilatId);
+    document.getElementById('overlay').classList.remove('open');
+    document.getElementById('panel').classList.remove('open');
+    selectedPointId = null;
+  } catch(e) {
+    alert('Erreur lors de l\'enregistrement : ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Enregistrer';
+  }
+}
+
+// ── Delete ──
+async function deletePoint() {
+  if (!selectedPointId) return;
+  if (!confirm('Supprimer ce point ?')) return;
+  await grist.docApi.applyUserActions([['RemoveRecord', 'Points_bilaterales', selectedPointId]]);
+  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('panel').classList.remove('open');
+  selectedPointId = null;
+  clearDirty();
+  await loadData();
+  if (selectedBilatId) selectBilat(selectedBilatId);
+}
+
+// ── Export résumé ──
+function generateResume() {
+  const b = bilaterales.find(b => b.id === selectedBilatId);
+  if (!b) return;
+  const pts = pointsAll.filter(p => p.Bilaterale === selectedBilatId);
+  const order = ['Bloqué','Action requise','En cours','À surveiller','Résolu'];
+  pts.sort((a, b) => order.indexOf(a.Statut) - order.indexOf(b.Statut));
+
+  const lines = [];
+  lines.push(`BILATÉRALE RIE – ${benName(b.Beneficiaire).toUpperCase()}`);
+  lines.push(`Date : ${fmtDate(b.Date)}`);
+  if (b.Prochain_point) lines.push(`Prochain point : ${fmtDate(b.Prochain_point)}`);
+  if (b.Participants_beneficiaire) lines.push(`Participants ${benShort(b.Beneficiaire)} : ${b.Participants_beneficiaire}`);
+  if (b.Participants_DINUM) lines.push(`Participants DINUM/ISO : ${b.Participants_DINUM}`);
+  lines.push('');
+  lines.push('─'.repeat(60));
+  lines.push(`POINTS ABORDÉS (${pts.length})`);
+  lines.push('─'.repeat(60));
+
+  pts.forEach((p, i) => {
+    lines.push('');
+    lines.push(`${i+1}. ${p.Titre || '(Sans titre)'}${p.Reference_site ? '  ['+p.Reference_site+']' : ''}`);
+    lines.push(`   Statut : ${p.Statut || '—'}`);
+    if (p.Description) lines.push(`   ${p.Description.replace(/\n/g, '\n   ')}`);
+    if (p.Action_suivante) lines.push(`   → Action : ${p.Action_suivante}`);
+  });
+
+  const openPts = pts.filter(p => p.Statut !== 'Résolu');
+  const actions = openPts.filter(p => p.Action_suivante);
+  if (actions.length > 0) {
+    lines.push('');
+    lines.push('─'.repeat(60));
+    lines.push('ACTIONS À SUIVRE');
+    lines.push('─'.repeat(60));
+    actions.forEach(p => {
+      lines.push(`• [${p.Statut}] ${p.Titre}${p.Reference_site?' ['+p.Reference_site+']':''}`);
+      lines.push(`  → ${p.Action_suivante}`);
+    });
+  }
+
+  document.getElementById('export-title').textContent = `Résumé – ${benShort(b.Beneficiaire)} – ${fmtDate(b.Date)}`;
+  document.getElementById('export-text').value = lines.join('\n');
+  document.getElementById('export-modal').classList.add('open');
+}
+
+// ── Events ──
+document.getElementById('btn-new-point').addEventListener('click', openNewPointPanel);
+document.getElementById('btn-export').addEventListener('click', generateResume);
+document.getElementById('btn-save').addEventListener('click', savePoint);
+document.getElementById('btn-delete').addEventListener('click', deletePoint);
+document.getElementById('panel-close').addEventListener('click', closePanel);
+document.getElementById('overlay').addEventListener('click', closePanel);
+document.getElementById('export-close').addEventListener('click', () => document.getElementById('export-modal').classList.remove('open'));
+document.getElementById('btn-export-close2').addEventListener('click', () => document.getElementById('export-modal').classList.remove('open'));
+document.getElementById('btn-copy').addEventListener('click', () => {
+  navigator.clipboard.writeText(document.getElementById('export-text').value);
+  document.getElementById('btn-copy').textContent = '✓ Copié !';
+  setTimeout(() => document.getElementById('btn-copy').textContent = '📋 Copier', 2000);
+});
+document.getElementById('search-box').addEventListener('input', e => { searchQ = e.target.value; renderCards(); });
+document.getElementById('btn-new-bilat').addEventListener('click', () => alert('Créez la bilatérale directement dans la table Grist pour l\'instant.'));
+
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    if (document.getElementById('panel').classList.contains('open')) savePoint();
+  }
+  if (e.key === 'Escape') {
+    if (document.getElementById('export-modal').classList.contains('open')) {
+      document.getElementById('export-modal').classList.remove('open');
+    } else {
+      closePanel();
+    }
+  }
+});
+
+// ── Boot ──
+grist.ready({ requiredAccess: 'full' });
+loadData();
+</script>
+</body>
+</html>
