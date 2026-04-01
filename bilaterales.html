@@ -750,7 +750,7 @@ async function generateCR() {
     const noBorder = { style: BorderStyle.NIL };
     const peachBorderFn = () => ({ style: BorderStyle.SINGLE, size: 22, space: 0, color: 'FDE9D9' });
     const ap = (runs, opts = {}) => new Paragraph({ children: runs, spacing: { after: 80 }, ...opts });
-    const tr = (text, opts = {}) => new TextRun({ text, font: 'Arial', size: 22, ...opts });
+    const tr = (text, opts = {}) => new TextRun({ text, font: 'Calibri', size: 22, ...opts });
 
     const blueBanner = (text) => new Paragraph({
       children: [new TextRun({ text, bold: true, color: 'FFFFFF', font: 'Calibri', size: 22 })],
