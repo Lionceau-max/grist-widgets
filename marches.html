@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marchés RIE</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f4f5f7;
+    --surface: #ffffff;
+    --border: #e2e4e9;
+    --text: #0f1117;
+    --text-sm: #3d4352;
+    --text-xs: #7b8299;
+    --blue: #1a56db; --blue-lt: #ebf0fd;
+    --red: #e02424;  --red-lt: #fde8e8;
+    --amber: #d97706; --amber-lt: #fef3c7;
+    --green: #057a55; --green-lt: #def7ec;
+    --purple: #7e3af2; --purple-lt: #edebfe;
+    --radius: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.05);
+    --shadow-md: 0 4px 12px rgba(0,0,0,.09);
+  }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; color: var(--text); background: var(--bg); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+  /* ── Header ── */
+  #header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  #header h1 { font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+  #header-stats { display: flex; gap: 8px; margin-left: 4px; }
+  .stat-pill { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .stat-expired  { background: var(--red-lt); color: var(--red); }
+  .stat-warning  { background: var(--amber-lt); color: var(--amber); }
+  .stat-ok       { background: var(--green-lt); color: var(--green); }
+  .header-sep { flex: 1; }
+
+  /* Filters */
+  #filters { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .filter-select { padding: 5px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; background: var(--surface); color: var(--text-sm); cursor: pointer; outline: none; }
+  .filter-select:focus { border-color: var(--blue); }
+  #search { padding: 5px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; outline: none; width: 180px; }
+  #search:focus { border-color: var(--blue); }
+  .view-toggle { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .view-btn { padding: 5px 10px; background: var(--surface); border: none; font-size: 12px; cursor: pointer; color: var(--text-xs); }
+  .view-btn.active { background: var(--blue); color: #fff; }
+
+  /* ── Timeline bar at top ── */
+  #timeline-bar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 8px 20px; display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--text-xs); }
+  #timeline-bar span { font-weight: 600; color: var(--text-sm); }
+  .tl-segment { height: 6px; border-radius: 3px; flex: 1; background: linear-gradient(to right, var(--red) 0%, var(--amber) 20%, var(--green) 60%, var(--blue-lt) 100%); opacity: .4; }
+
+  /* ── Main ── */
+  #main { flex: 1; overflow-y: auto; padding: 16px 20px; }
+
+  /* ── Table view ── */
+  #table-view { display: none; }
+  .table-wrap { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead th { background: #f8f9fb; padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 700; color: var(--text-xs); text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none; }
+  thead th:hover { background: #eef0f5; }
+  thead th.sort-asc::after { content: ' ↑'; }
+  thead th.sort-desc::after { content: ' ↓'; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #f8f9fb; }
+  tbody td { padding: 9px 12px; vertical-align: middle; }
+  tbody tr.urgent { background: #fff8f8; }
+  tbody tr.urgent:hover { background: #fff0f0; }
+  tbody tr.warning { background: #fffdf4; }
+  tbody tr.warning:hover { background: #fffaeb; }
+  .td-topo { font-size: 10px; color: var(--text-xs); background: #f0f2f7; padding: 2px 6px; border-radius: 3px; white-space: nowrap; }
+  .td-titulaire { font-weight: 600; color: var(--text-sm); }
+  .td-objet { color: var(--text-sm); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ── Cards view ── */
+  #cards-view { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; align-content: start; }
+  .marche-card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px 16px; border-left: 4px solid var(--border); transition: all .15s; cursor: default; }
+  .marche-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+  .marche-card.expired  { border-left-color: var(--red); }
+  .marche-card.warning  { border-left-color: var(--amber); }
+  .marche-card.ok       { border-left-color: var(--green); }
+  .marche-card.far      { border-left-color: #d1d5db; }
+  .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .card-composant { font-weight: 700; font-size: 13px; line-height: 1.3; flex: 1; }
+  .card-topo { font-size: 10px; color: var(--text-xs); background: #f0f2f7; padding: 2px 6px; border-radius: 3px; white-space: nowrap; flex-shrink: 0; }
+  .card-titulaire { font-size: 12px; color: var(--blue); font-weight: 600; margin-bottom: 4px; }
+  .card-objet { font-size: 11px; color: var(--text-xs); line-height: 1.4; margin-bottom: 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .expiry-badge { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; }
+  .expiry-expired { background: var(--red-lt); color: var(--red); }
+  .expiry-warning { background: var(--amber-lt); color: var(--amber); }
+  .expiry-ok      { background: var(--green-lt); color: var(--green); }
+  .expiry-far     { background: #f0f2f7; color: var(--text-xs); }
+  .card-ej { font-size: 10px; color: var(--text-xs); font-family: monospace; }
+  .card-suivi { font-size: 10px; padding: 2px 6px; border-radius: 3px; background: var(--blue-lt); color: var(--blue); font-weight: 600; }
+  .card-duree { font-size: 10px; color: var(--text-xs); }
+
+  /* ── Alert section ── */
+  #alerts { margin-bottom: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .alert-banner { padding: 10px 14px; border-radius: var(--radius); display: flex; align-items: center; gap: 10px; font-size: 12px; }
+  .alert-banner.crit { background: var(--red-lt); border: 1px solid #fca5a5; color: #991b1b; }
+  .alert-banner.warn { background: var(--amber-lt); border: 1px solid #fcd34d; color: #92400e; }
+  .alert-icon { font-size: 15px; flex-shrink: 0; }
+  .alert-text strong { font-weight: 700; }
+
+  /* ── Empty ── */
+  #empty { display: none; flex-direction: column; align-items: center; justify-content: center; padding: 60px; color: var(--text-xs); gap: 8px; }
+  #empty .icon { font-size: 32px; }
+
+  /* ── Loader ── */
+  #loader { position: fixed; inset: 0; background: #fff; display: flex; align-items: center; justify-content: center; z-index: 999; flex-direction: column; gap: 12px; }
+  .spinner { width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div id="loader"><div class="spinner"></div><div style="font-size:12px;color:#7b8299">Chargement…</div></div>
+
+<div id="header">
+  <h1>📋 Référentiel des marchés RIE</h1>
+  <div id="header-stats"></div>
+  <div class="header-sep"></div>
+  <div id="filters">
+    <input id="search" type="text" placeholder="Rechercher…">
+    <select id="filter-topo" class="filter-select"><option value="">Toutes topologies</option></select>
+    <select id="filter-titu" class="filter-select"><option value="">Tous titulaires</option></select>
+    <select id="filter-suivi" class="filter-select"><option value="">Tous suivis par</option></select>
+    <select id="filter-expiry" class="filter-select">
+      <option value="">Toutes échéances</option>
+      <option value="expired">Expirés</option>
+      <option value="urgent">≤ 3 mois</option>
+      <option value="warning">3–12 mois</option>
+      <option value="ok">1–3 ans</option>
+    </select>
+    <div class="view-toggle">
+      <button class="view-btn active" id="btn-cards" title="Vue cartes">⊞</button>
+      <button class="view-btn" id="btn-table" title="Vue tableau">☰</button>
+    </div>
+  </div>
+</div>
+
+<div id="main">
+  <div id="alerts"></div>
+  <div id="empty"><div class="icon">🔍</div><div>Aucun marché trouvé</div></div>
+  <div id="cards-view"></div>
+  <div id="table-view">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th data-col="Element_topologie">Topologie</th>
+            <th data-col="Composant">Composant</th>
+            <th data-col="Titulaire">Titulaire</th>
+            <th data-col="Intitule_lot">Intitulé lot</th>
+            <th data-col="Suivi_par">Suivi par</th>
+            <th data-col="Date_notification">Notif.</th>
+            <th data-col="Duree_mois">Durée</th>
+            <th data-col="Date_fin_prevision">Fin prévisionnelle</th>
+            <th data-col="EJ">EJ</th>
+          </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──
+let marches = [];
+let sortCol = 'Date_fin_prevision', sortDir = 1;
+let viewMode = 'cards';
+let filterTopo = '', filterTitu = '', filterSuivi = '', filterExpiry = '', searchQ = '';
+
+const TODAY_TS = Math.floor(new Date('2026-04-01').getTime() / 1000);
+
+// ── Helpers ──
+function fmtDate(ts) {
+  if (!ts || typeof ts !== 'number') return '—';
+  return new Date(ts * 1000).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function expiryStatus(ts) {
+  if (!ts || typeof ts !== 'number') return 'far';
+  const delta = (ts - TODAY_TS) / 86400;
+  if (delta < 0)   return 'expired';
+  if (delta <= 90) return 'urgent';
+  if (delta <= 365) return 'warning';
+  return 'ok';
+}
+
+function expiryLabel(ts) {
+  if (!ts || typeof ts !== 'number') return '—';
+  const delta = Math.round((ts - TODAY_TS) / 86400);
+  if (delta < 0)  return `Expiré (${Math.abs(delta)}j)`;
+  if (delta === 0) return 'Aujourd\'hui';
+  if (delta < 90) return `Dans ${delta}j`;
+  if (delta < 365) return `Dans ${Math.round(delta/30)} mois`;
+  return `Dans ${Math.round(delta/365)} an${Math.round(delta/365)>1?'s':''}`;
+}
+
+function expiryBadgeClass(status) {
+  return { expired: 'expiry-expired', urgent: 'expiry-warning', warning: 'expiry-warning', ok: 'expiry-ok', far: 'expiry-far' }[status];
+}
+
+// ── Load ──
+async function loadData() {
+  const t = await grist.docApi.fetchTable('Marches');
+  marches = t.id.map((id, i) => ({
+    id,
+    Element_topologie:  t.Element_topologie[i],
+    Composant:          t.Composant[i],
+    Suivi_par:          t.Suivi_par[i],
+    N_consultation:     t.N_consultation[i],
+    EJ:                 t.EJ[i],
+    Type_marche:        t.Type_marche[i],
+    Objet:              t.Objet[i],
+    N_lot:              t.N_lot[i],
+    Intitule_lot:       t.Intitule_lot[i],
+    Titulaire:          t.Titulaire[i],
+    Avenant:            t.Avenant[i],
+    Date_notification:  t.Date_notification[i],
+    Duree_mois:         t.Duree_mois[i],
+    Date_fin_prevision: t.Date_fin_prevision[i],
+    Date_fin_bdc:       t.Date_fin_bdc[i],
+  }));
+
+  populateFilters();
+  renderStats();
+  renderAlerts();
+  render();
+  document.getElementById('loader').style.display = 'none';
+}
+
+function populateFilters() {
+  const topos   = [...new Set(marches.map(m => m.Element_topologie).filter(Boolean))].sort();
+  const titus   = [...new Set(marches.map(m => m.Titulaire).filter(Boolean))].sort();
+  const suivis  = [...new Set(marches.map(m => m.Suivi_par).filter(Boolean))].sort();
+
+  const selTopo = document.getElementById('filter-topo');
+  topos.forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; selTopo.appendChild(o); });
+  const selTitu = document.getElementById('filter-titu');
+  titus.forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; selTitu.appendChild(o); });
+  const selSuivi = document.getElementById('filter-suivi');
+  suivis.forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; selSuivi.appendChild(o); });
+}
+
+function renderStats() {
+  const expired = marches.filter(m => expiryStatus(m.Date_fin_prevision) === 'expired').length;
+  const urgent  = marches.filter(m => expiryStatus(m.Date_fin_prevision) === 'urgent').length;
+  const ok      = marches.filter(m => ['ok','far'].includes(expiryStatus(m.Date_fin_prevision))).length;
+  const bar = document.getElementById('header-stats');
+  bar.innerHTML = '';
+  if (expired) bar.innerHTML += `<span class="stat-pill stat-expired">⚠ ${expired} expiré${expired>1?'s':''}</span>`;
+  if (urgent)  bar.innerHTML += `<span class="stat-pill stat-warning">⏳ ${urgent} urgent${urgent>1?'s':''}</span>`;
+  bar.innerHTML += `<span class="stat-pill stat-ok">✓ ${ok} actif${ok>1?'s':''}</span>`;
+  bar.innerHTML += `<span style="font-size:11px;color:var(--text-xs);margin-left:4px">${marches.length} marchés</span>`;
+}
+
+function renderAlerts() {
+  const alertDiv = document.getElementById('alerts');
+  alertDiv.innerHTML = '';
+  const expired = marches.filter(m => expiryStatus(m.Date_fin_prevision) === 'expired');
+  const urgent  = marches.filter(m => expiryStatus(m.Date_fin_prevision) === 'urgent');
+
+  if (expired.length) {
+    const names = expired.map(m => `<strong>${m.Composant}</strong> (${m.Titulaire})`).join(', ');
+    alertDiv.innerHTML += `<div class="alert-banner crit"><span class="alert-icon">🔴</span><div class="alert-text">${expired.length} marché${expired.length>1?'s expiré·s':' expiré'} : ${names}</div></div>`;
+  }
+  if (urgent.length) {
+    const names = urgent.map(m => `<strong>${m.Composant}</strong> — ${expiryLabel(m.Date_fin_prevision)}`).join(' · ');
+    alertDiv.innerHTML += `<div class="alert-banner warn"><span class="alert-icon">🟡</span><div class="alert-text">Échéance proche : ${names}</div></div>`;
+  }
+}
+
+// ── Filter + sort ──
+function filtered() {
+  return marches.filter(m => {
+    if (filterTopo  && m.Element_topologie !== filterTopo)  return false;
+    if (filterTitu  && m.Titulaire !== filterTitu)           return false;
+    if (filterSuivi && m.Suivi_par !== filterSuivi)          return false;
+    if (filterExpiry) {
+      const s = expiryStatus(m.Date_fin_prevision);
+      if (filterExpiry === 'expired' && s !== 'expired') return false;
+      if (filterExpiry === 'urgent'  && s !== 'urgent')  return false;
+      if (filterExpiry === 'warning' && s !== 'warning') return false;
+      if (filterExpiry === 'ok'      && !['ok','far'].includes(s)) return false;
+    }
+    if (searchQ) {
+      const q = searchQ.toLowerCase();
+      if (![m.Composant, m.Titulaire, m.Objet, m.Element_topologie, m.EJ, m.N_consultation, m.Intitule_lot]
+            .some(v => (v||'').toLowerCase().includes(q))) return false;
+    }
+    return true;
+  }).sort((a, b) => {
+    let va = a[sortCol] || '', vb = b[sortCol] || '';
+    if (sortCol === 'Date_fin_prevision' || sortCol === 'Date_notification') {
+      va = va || 0; vb = vb || 0;
+    }
+    if (va < vb) return -sortDir;
+    if (va > vb) return sortDir;
+    return 0;
+  });
+}
+
+// ── Render ──
+function render() {
+  const items = filtered();
+  document.getElementById('empty').style.display = items.length ? 'none' : 'flex';
+
+  if (viewMode === 'cards') {
+    renderCards(items);
+    document.getElementById('cards-view').style.display = '';
+    document.getElementById('table-view').style.display = 'none';
+  } else {
+    renderTable(items);
+    document.getElementById('cards-view').style.display = 'none';
+    document.getElementById('table-view').style.display = '';
+  }
+}
+
+function renderCards(items) {
+  const grid = document.getElementById('cards-view');
+  grid.innerHTML = '';
+  items.forEach(m => {
+    const status = expiryStatus(m.Date_fin_prevision);
+    const card = document.createElement('div');
+    card.className = `marche-card ${status === 'urgent' ? 'expired' : status === 'warning' ? 'warning' : status === 'ok' ? 'ok' : 'far'}`;
+    card.innerHTML = `
+      <div class="card-top">
+        <div class="card-composant">${m.Composant || '(sans titre)'}</div>
+        <span class="card-topo">${m.Element_topologie || ''}</span>
+      </div>
+      <div class="card-titulaire">▸ ${m.Titulaire || '—'}</div>
+      <div class="card-objet">${m.Intitule_lot || m.Objet || '—'}</div>
+      <div class="card-meta">
+        <span class="expiry-badge ${expiryBadgeClass(status)}">${expiryLabel(m.Date_fin_prevision)}</span>
+        ${m.Date_fin_prevision ? `<span class="card-duree">fin ${fmtDate(m.Date_fin_prevision)}</span>` : ''}
+        ${m.Suivi_par ? `<span class="card-suivi">${m.Suivi_par}</span>` : ''}
+        ${m.EJ ? `<span class="card-ej">${m.EJ}</span>` : ''}
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function renderTable(items) {
+  const tbody = document.getElementById('table-body');
+  tbody.innerHTML = '';
+  const urgencyClass = { expired: 'urgent', urgent: 'urgent', warning: 'warning', ok: '', far: '' };
+  items.forEach(m => {
+    const status = expiryStatus(m.Date_fin_prevision);
+    const tr = document.createElement('tr');
+    tr.className = urgencyClass[status] || '';
+    tr.innerHTML = `
+      <td><span class="td-topo">${m.Element_topologie || '—'}</span></td>
+      <td style="font-weight:600">${m.Composant || '—'}</td>
+      <td class="td-titulaire">${m.Titulaire || '—'}</td>
+      <td class="td-objet" title="${m.Intitule_lot || m.Objet || ''}">${m.Intitule_lot || m.Objet || '—'}</td>
+      <td><span class="card-suivi" style="font-size:10px">${m.Suivi_par || '—'}</span></td>
+      <td style="font-size:11px;color:var(--text-xs)">${fmtDate(m.Date_notification)}</td>
+      <td style="font-size:11px;text-align:center">${m.Duree_mois ? m.Duree_mois+'m' : '—'}</td>
+      <td><span class="expiry-badge ${expiryBadgeClass(status)}">${fmtDate(m.Date_fin_prevision)}</span></td>
+      <td style="font-size:10px;color:var(--text-xs);font-family:monospace">${m.EJ || '—'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// ── Sort (table headers) ──
+document.querySelectorAll('thead th[data-col]').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.col;
+    if (sortCol === col) sortDir *= -1;
+    else { sortCol = col; sortDir = 1; }
+    document.querySelectorAll('thead th').forEach(t => t.classList.remove('sort-asc','sort-desc'));
+    th.classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc');
+    render();
+  });
+});
+
+// ── Events ──
+document.getElementById('search').addEventListener('input', e => { searchQ = e.target.value; render(); });
+document.getElementById('filter-topo').addEventListener('change', e => { filterTopo = e.target.value; render(); });
+document.getElementById('filter-titu').addEventListener('change', e => { filterTitu = e.target.value; render(); });
+document.getElementById('filter-suivi').addEventListener('change', e => { filterSuivi = e.target.value; render(); });
+document.getElementById('filter-expiry').addEventListener('change', e => { filterExpiry = e.target.value; render(); });
+
+document.getElementById('btn-cards').addEventListener('click', () => {
+  viewMode = 'cards';
+  document.getElementById('btn-cards').classList.add('active');
+  document.getElementById('btn-table').classList.remove('active');
+  render();
+});
+document.getElementById('btn-table').addEventListener('click', () => {
+  viewMode = 'table';
+  document.getElementById('btn-table').classList.add('active');
+  document.getElementById('btn-cards').classList.remove('active');
+  render();
+});
+
+// ── Boot ──
+grist.ready({ requiredAccess: 'read table' });
+loadData();
+</script>
+</body>
+</html>
