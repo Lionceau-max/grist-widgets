@@ -311,12 +311,12 @@ function render() {
 
   if (viewMode === 'cards') {
     renderCards(items);
-    document.getElementById('cards-view').style.display = '';
+    document.getElementById('cards-view').style.display = 'grid';
     document.getElementById('table-view').style.display = 'none';
   } else {
     renderTable(items);
     document.getElementById('cards-view').style.display = 'none';
-    document.getElementById('table-view').style.display = '';
+    document.getElementById('table-view').style.display = 'block';
   }
 }
 
