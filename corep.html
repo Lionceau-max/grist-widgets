@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COREP</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --blue:#2563eb; --blue-lt:#eff6ff;
+    --green:#16a34a; --green-lt:#f0fdf4;
+    --red:#dc2626; --red-lt:#fef2f2;
+    --amber:#d97706; --amber-lt:#fffbeb;
+    --purple:#7c3aed; --purple-lt:#f5f3ff;
+    --gray:#6b7280; --gray-lt:#f9fafb;
+    --border:#e5e7eb; --text:#111827; --text-sm:#374151; --text-xs:#6b7280;
+    --radius:10px;
+    --shadow:0 1px 3px rgba(0,0,0,.08);
+    --shadow-lg:0 8px 24px rgba(0,0,0,.12);
+  }
+  body { font-family:system-ui,-apple-system,sans-serif; font-size:14px; color:var(--text); background:#f3f4f6; height:100vh; overflow:hidden; display:flex; flex-direction:column; }
+
+  /* ── Alert banner (day-aware) ── */
+  #alert-banner { padding:12px 20px; font-size:13px; font-weight:600; display:none; align-items:center; gap:10px; }
+  #alert-banner.wednesday { background:#fef9c3; border-bottom:2px solid #fbbf24; color:#92400e; display:flex; }
+  #alert-banner.thursday-am { background:#fff7ed; border-bottom:2px solid #f97316; color:#7c2d12; display:flex; }
+  #alert-banner.thursday-noon { background:#fef2f2; border-bottom:2px solid #ef4444; color:#7f1d1d; display:flex; }
+  #alert-banner.thursday-ok { background:#f0fdf4; border-bottom:2px solid #22c55e; color:#14532d; display:flex; }
+  .alert-icon { font-size:18px; flex-shrink:0; }
+  .alert-actions { margin-left:auto; display:flex; gap:8px; }
+  .alert-btn { padding:5px 14px; border-radius:6px; border:none; font-size:12px; font-weight:700; cursor:pointer; }
+  .alert-btn-msg { background:#fff; color:var(--text-sm); border:1px solid var(--border); }
+  .alert-btn-msg:hover { background:#f3f4f6; }
+  .alert-btn-cancel { background:var(--red); color:#fff; }
+  .alert-btn-cancel:hover { background:#b91c1c; }
+  .alert-btn-confirm { background:var(--green); color:#fff; }
+  .alert-btn-confirm:hover { background:#15803d; }
+
+  /* ── Layout ── */
+  #app { flex:1; display:flex; overflow:hidden; }
+
+  /* ── Sidebar sessions ── */
+  #sidebar { width:220px; background:#fff; border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; }
+  #sidebar-header { padding:14px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  #sidebar-header h2 { font-size:12px; font-weight:700; color:var(--text-xs); text-transform:uppercase; letter-spacing:.05em; }
+  #btn-new-session { width:24px; height:24px; border-radius:5px; border:none; background:var(--blue); color:#fff; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  #btn-new-session:hover { background:#1d4ed8; }
+  #session-list { flex:1; overflow-y:auto; padding:6px; display:flex; flex-direction:column; gap:3px; }
+  .session-item { padding:8px 10px; border-radius:7px; cursor:pointer; border:2px solid transparent; transition:all .12s; }
+  .session-item:hover { background:var(--gray-lt); }
+  .session-item.active { background:var(--blue-lt); border-color:var(--blue); }
+  .session-item.is-next { border-color:#fbbf24; background:#fffbeb; }
+  .session-item.is-next.active { background:var(--blue-lt); border-color:var(--blue); }
+  .si-date { font-size:12px; font-weight:700; color:var(--text); }
+  .si-statut { font-size:10px; margin-top:2px; }
+  .si-badge { display:inline-block; padding:1px 6px; border-radius:10px; font-weight:600; }
+  .si-badge.ouverte   { background:var(--blue-lt); color:var(--blue); }
+  .si-badge.confirmee { background:var(--green-lt); color:var(--green); }
+  .si-badge.annulee   { background:var(--red-lt); color:var(--red); }
+  .si-count { font-size:10px; color:var(--text-xs); margin-top:1px; }
+  .si-next-label { font-size:9px; font-weight:700; color:#92400e; text-transform:uppercase; letter-spacing:.04em; }
+
+  /* ── Main ── */
+  #main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+
+  /* ── Session header ── */
+  #session-header { background:#fff; border-bottom:1px solid var(--border); padding:14px 20px; display:flex; align-items:center; gap:12px; }
+  #session-title { font-size:16px; font-weight:700; flex:1; }
+  #session-subtitle { font-size:12px; color:var(--text-xs); margin-top:2px; }
+  .statut-pill { padding:4px 12px; border-radius:20px; font-size:12px; font-weight:700; }
+  .statut-ouverte   { background:var(--blue-lt); color:var(--blue); }
+  .statut-confirmee { background:var(--green-lt); color:var(--green); }
+  .statut-annulee   { background:var(--red-lt); color:var(--red); }
+  .hdr-btn { padding:6px 14px; border-radius:7px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid var(--border); background:#fff; color:var(--text-sm); }
+  .hdr-btn:hover { background:var(--gray-lt); }
+  .hdr-btn.green { background:var(--green); color:#fff; border-color:var(--green); }
+  .hdr-btn.green:hover { background:#15803d; }
+  .hdr-btn.red { background:var(--red); color:#fff; border-color:var(--red); }
+  .hdr-btn.red:hover { background:#b91c1c; }
+
+  /* ── Content ── */
+  #content { flex:1; overflow-y:auto; padding:16px 20px; display:flex; flex-direction:column; gap:14px; }
+
+  /* ── Notes ── */
+  #notes-section { background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); padding:14px 16px; }
+  #notes-section label { font-size:11px; font-weight:700; color:var(--text-xs); text-transform:uppercase; letter-spacing:.04em; display:block; margin-bottom:6px; }
+  #notes-input { width:100%; border:1px solid var(--border); border-radius:6px; padding:8px 10px; font-size:13px; font-family:inherit; resize:vertical; min-height:50px; outline:none; color:var(--text); }
+  #notes-input:focus { border-color:var(--blue); }
+
+  /* ── Sujets ── */
+  #sujets-section { background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
+  #sujets-header { padding:12px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  #sujets-header h3 { font-size:13px; font-weight:700; }
+  #btn-add-sujet { padding:5px 12px; border-radius:6px; background:var(--blue); color:#fff; border:none; font-size:12px; font-weight:600; cursor:pointer; }
+  #btn-add-sujet:hover { background:#1d4ed8; }
+  #sujets-list { display:flex; flex-direction:column; }
+  .sujet-row { padding:11px 16px; border-bottom:1px solid var(--border); display:flex; align-items:flex-start; gap:10px; transition:background .1s; }
+  .sujet-row:last-child { border-bottom:none; }
+  .sujet-row:hover { background:var(--gray-lt); }
+  .sujet-statut-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; margin-top:5px; }
+  .dot-soumis   { background:var(--blue); }
+  .dot-valide   { background:var(--green); }
+  .dot-refuse   { background:var(--red); }
+  .dot-reporte  { background:var(--amber); }
+  .sujet-body { flex:1; }
+  .sujet-desc { font-size:13px; color:var(--text); line-height:1.4; }
+  .sujet-meta { font-size:11px; color:var(--text-xs); margin-top:3px; display:flex; gap:8px; }
+  .sujet-actions { display:flex; gap:6px; flex-shrink:0; }
+  .sujet-btn { padding:3px 8px; border-radius:4px; font-size:11px; font-weight:600; cursor:pointer; border:1px solid var(--border); background:#fff; color:var(--text-sm); }
+  .sujet-btn:hover { background:var(--gray-lt); }
+  #sujets-empty { padding:32px; text-align:center; color:var(--text-xs); font-size:13px; }
+
+  /* ── No session selected ── */
+  #no-session { flex:1; display:flex; align-items:center; justify-content:center; color:var(--text-xs); font-size:14px; }
+
+  /* ── Modal ── */
+  .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:200; display:none; align-items:center; justify-content:center; }
+  .modal-backdrop.open { display:flex; }
+  .modal-box { background:#fff; border-radius:12px; width:460px; max-height:85vh; display:flex; flex-direction:column; box-shadow:var(--shadow-lg); overflow:hidden; }
+  .modal-header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .modal-header h3 { font-size:14px; font-weight:700; }
+  .modal-close { background:none; border:none; cursor:pointer; font-size:20px; color:var(--text-xs); }
+  .modal-body { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:12px; }
+  .modal-footer { padding:14px 20px; border-top:1px solid var(--border); display:flex; gap:8px; justify-content:flex-end; }
+  .field-group { display:flex; flex-direction:column; gap:4px; }
+  .field-label { font-size:11px; font-weight:700; color:var(--text-xs); text-transform:uppercase; letter-spacing:.04em; }
+  .field-input, .field-select, .field-textarea { padding:8px 10px; border:1px solid var(--border); border-radius:6px; font-size:13px; color:var(--text); font-family:inherit; outline:none; width:100%; }
+  .field-input:focus, .field-select:focus, .field-textarea:focus { border-color:var(--blue); }
+  .field-textarea { resize:vertical; min-height:80px; }
+  .btn-primary { padding:8px 18px; border-radius:6px; background:var(--blue); color:#fff; border:none; font-size:13px; font-weight:600; cursor:pointer; }
+  .btn-primary:hover { background:#1d4ed8; }
+  .btn-secondary { padding:8px 14px; border-radius:6px; background:#fff; color:var(--text-sm); border:1px solid var(--border); font-size:13px; cursor:pointer; }
+  .btn-secondary:hover { background:var(--gray-lt); }
+
+  /* ── Message modal ── */
+  #msg-text { width:100%; min-height:200px; font-family:monospace; font-size:12px; line-height:1.6; border:1px solid var(--border); border-radius:6px; padding:10px; resize:vertical; }
+
+  /* ── Loader ── */
+  #loader { position:fixed; inset:0; background:#fff; display:flex; align-items:center; justify-content:center; z-index:999; flex-direction:column; gap:10px; }
+  .spinner { width:28px; height:28px; border:3px solid var(--border); border-top-color:var(--blue); border-radius:50%; animation:spin .7s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+<div id="loader"><div class="spinner"></div></div>
+
+<!-- Day-aware alert banner -->
+<div id="alert-banner">
+  <span class="alert-icon" id="alert-icon"></span>
+  <span id="alert-text"></span>
+  <div class="alert-actions" id="alert-actions"></div>
+</div>
+
+<div id="app">
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <h2>COREP</h2>
+      <button id="btn-new-session" title="Nouvelle session">+</button>
+    </div>
+    <div id="session-list"></div>
+  </div>
+
+  <!-- Main -->
+  <div id="main">
+    <div id="no-session">← Sélectionnez une session</div>
+
+    <div id="session-content" style="display:none; flex:1; flex-direction:column; overflow:hidden;">
+      <div id="session-header">
+        <div style="flex:1">
+          <div id="session-title">—</div>
+          <div id="session-subtitle"></div>
+        </div>
+        <span id="session-statut-pill" class="statut-pill"></span>
+        <button class="hdr-btn" id="btn-msg">📋 Message</button>
+        <button class="hdr-btn green" id="btn-confirm" style="display:none">✓ Confirmer</button>
+        <button class="hdr-btn red" id="btn-cancel-session" style="display:none">✕ Annuler</button>
+      </div>
+
+      <div id="content">
+        <div id="notes-section">
+          <label>Notes de session</label>
+          <textarea id="notes-input" placeholder="Notes, ordre du jour, participants…"></textarea>
+        </div>
+        <div id="sujets-section">
+          <div id="sujets-header">
+            <h3 id="sujets-title">Sujets (0)</h3>
+            <button id="btn-add-sujet">+ Sujet</button>
+          </div>
+          <div id="sujets-list">
+            <div id="sujets-empty">Aucun sujet pour cette session.<br>Ajoute le premier avec le bouton ci-dessus.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal : Nouveau sujet -->
+<div class="modal-backdrop" id="modal-sujet">
+  <div class="modal-box">
+    <div class="modal-header"><h3 id="sujet-modal-title">Nouveau sujet</h3><button class="modal-close" id="ms-close">✕</button></div>
+    <div class="modal-body">
+      <div class="field-group"><label class="field-label">Description *</label><textarea id="ms-desc" class="field-textarea" placeholder="Décrivez le sujet à soumettre au COREP…"></textarea></div>
+      <div class="field-group"><label class="field-label">Soumetteur</label><input id="ms-soumetteur" class="field-input" type="text" placeholder="Prénom NOM"></div>
+      <div class="field-group">
+        <label class="field-label">Canal</label>
+        <select id="ms-canal" class="field-select"><option value="">— Choisir —</option><option>Mail</option><option>Tchap</option><option>Teams</option><option>Oral</option><option>Autre</option></select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Statut</label>
+        <select id="ms-statut" class="field-select"><option>Soumis</option><option>Validé</option><option>Refusé</option><option>Reporté</option></select>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn-secondary" id="ms-cancel">Annuler</button><button class="btn-primary" id="ms-save">Enregistrer</button></div>
+  </div>
+</div>
+
+<!-- Modal : Nouvelle session -->
+<div class="modal-backdrop" id="modal-session">
+  <div class="modal-box">
+    <div class="modal-header"><h3>Nouvelle session COREP</h3><button class="modal-close" id="ns-close">✕</button></div>
+    <div class="modal-body">
+      <div class="field-group"><label class="field-label">Date (jeudi) *</label><input id="ns-date" class="field-input" type="date"></div>
+      <div class="field-group"><label class="field-label">Notes</label><textarea id="ns-notes" class="field-textarea" style="min-height:60px" placeholder="Optionnel"></textarea></div>
+    </div>
+    <div class="modal-footer"><button class="btn-secondary" id="ns-cancel">Annuler</button><button class="btn-primary" id="ns-save">Créer</button></div>
+  </div>
+</div>
+
+<!-- Modal : Message de sollicitation -->
+<div class="modal-backdrop" id="modal-msg">
+  <div class="modal-box" style="width:520px">
+    <div class="modal-header"><h3 id="msg-title">Message de sollicitation</h3><button class="modal-close" id="msg-close">✕</button></div>
+    <div class="modal-body"><textarea id="msg-text" readonly></textarea></div>
+    <div class="modal-footer">
+      <button class="btn-secondary" id="msg-close2">Fermer</button>
+      <button class="btn-primary" id="btn-copy-msg">📋 Copier</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──
+let sessions = [], sujets = [], selectedSessionId = null, editingSujetId = null;
+
+// ── Helpers ──
+function fmtDate(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts * 1000);
+  return d.toLocaleDateString('fr-FR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
+}
+function fmtDateShort(ts) {
+  if (!ts) return '—';
+  return new Date(ts * 1000).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' });
+}
+function toTs(s) { return s ? Math.floor(new Date(s).getTime() / 1000) : 0; }
+function toInputDate(ts) { return ts ? new Date(ts * 1000).toISOString().slice(0, 10) : ''; }
+function refInt(v) { return typeof v === 'string' ? parseInt(v) || 0 : (v || 0); }
+
+// Day of week helpers (real today)
+const NOW = new Date();
+const TODAY_DOW = NOW.getDay(); // 0=Sun, 1=Mon, ..., 3=Wed, 4=Thu
+const TODAY_TS = Math.floor(NOW.getTime() / 1000);
+const TODAY_DATE_STR = NOW.toISOString().slice(0, 10);
+const TODAY_HOUR = NOW.getHours();
+
+// Find the "next" upcoming Thursday session
+function getNextSession() {
+  const upcoming = sessions
+    .filter(s => s.Date >= Math.floor(new Date(TODAY_DATE_STR).getTime() / 1000) && s.Statut !== 'Annulée')
+    .sort((a, b) => a.Date - b.Date);
+  return upcoming[0] || null;
+}
+
+function isThisThursday(session) {
+  if (!session) return false;
+  return toInputDate(session.Date) === TODAY_DATE_STR && TODAY_DOW === 4;
+}
+function isThisWednesday(session) {
+  if (!session) return false;
+  // Wednesday before the thursday session
+  const sessionDate = new Date(session.Date * 1000);
+  const wednesdayBefore = new Date(sessionDate);
+  wednesdayBefore.setDate(sessionDate.getDate() - 1);
+  return wednesdayBefore.toISOString().slice(0, 10) === TODAY_DATE_STR && TODAY_DOW === 3;
+}
+
+// ── Alert banner ──
+function renderAlert() {
+  const banner = document.getElementById('alert-banner');
+  const next = getNextSession();
+  if (!next) { banner.style.display = 'none'; return; }
+
+  const sujetsForNext = sujets.filter(s => s.Session === next.id);
+  const hasSubjects = sujetsForNext.length > 0;
+
+  banner.className = 'alert-banner';
+  banner.style.display = 'none';
+
+  if (next.Statut === 'Annulée') return;
+
+  let cls = '', icon = '', text = '', actions = '';
+
+  if (isThisThursday(next)) {
+    if (TODAY_HOUR < 12) {
+      // Thursday morning — last call, cancel at noon if no subjects
+      cls = 'thursday-am';
+      icon = '⏰';
+      text = `<strong>COREP aujourd'hui (${fmtDateShort(next.Date)})</strong> — Il est ${TODAY_HOUR}h. Dernière relance avant 12h. ${hasSubjects ? sujetsForNext.length + ' sujet(s) reçu(s).' : '<strong>Aucun sujet reçu — penser à annuler à 12h si rien ne remonte.</strong>'}`;
+      actions = `<button class="alert-btn alert-btn-msg" onclick="openMsgModal()">📋 Message relance</button>`;
+      if (!hasSubjects) actions += ` <button class="alert-btn alert-btn-cancel" onclick="cancelSession(${next.id})">✕ Annuler maintenant</button>`;
+      else actions += ` <button class="alert-btn alert-btn-confirm" onclick="confirmSession(${next.id})">✓ Confirmer</button>`;
+    } else {
+      // Thursday afternoon — session is on
+      if (hasSubjects && next.Statut === 'Ouverte') {
+        cls = 'thursday-ok';
+        icon = '✅';
+        text = `<strong>COREP cet après-midi</strong> — ${sujetsForNext.length} sujet(s) au programme.`;
+        actions = `<button class="alert-btn alert-btn-confirm" onclick="confirmSession(${next.id})">✓ Confirmer</button>`;
+      } else if (next.Statut === 'Confirmée') {
+        cls = 'thursday-ok';
+        icon = '✅';
+        text = `<strong>COREP confirmé cet après-midi</strong> — ${sujetsForNext.length} sujet(s).`;
+      }
+    }
+  } else if (isThisWednesday(next)) {
+    // Wednesday — first reminder
+    cls = 'wednesday';
+    icon = '📅';
+    text = `<strong>COREP demain (${fmtDateShort(next.Date)})</strong> — Pense à solliciter les sujets aujourd'hui. ${hasSubjects ? sujetsForNext.length + ' sujet(s) déjà reçu(s).' : 'Aucun sujet reçu pour l\'instant.'}`;
+    actions = `<button class="alert-btn alert-btn-msg" onclick="openMsgModal()">📋 Message J-1</button>`;
+  } else {
+    return;
+  }
+
+  if (cls) {
+    banner.classList.add(cls);
+    document.getElementById('alert-icon').textContent = icon;
+    document.getElementById('alert-text').innerHTML = text;
+    document.getElementById('alert-actions').innerHTML = actions;
+    banner.style.display = 'flex';
+  }
+}
+
+// ── Load ──
+async function loadData() {
+  const [sT, suT] = await Promise.all([
+    grist.docApi.fetchTable('Corep_Sessions'),
+    grist.docApi.fetchTable('Corep_Sujets'),
+  ]);
+
+  sessions = sT.id.map((id, i) => ({
+    id, Date: sT.Date[i], Statut: sT.Statut[i], Notes: sT.Notes[i] || ''
+  })).sort((a, b) => a.Date - b.Date);
+
+  sujets = suT.id.map((id, i) => ({
+    id,
+    Session:     refInt(suT.Session[i]),
+    Soumetteur:  suT.Soumetteur[i] || '',
+    Description: suT.Description[i] || '',
+    Statut:      suT.Statut[i] || 'Soumis',
+    Canal:       suT.Canal[i] || '',
+  }));
+
+  renderSidebar();
+  renderAlert();
+
+  // Auto-select next upcoming session
+  if (!selectedSessionId) {
+    const next = getNextSession();
+    if (next) selectSession(next.id);
+  } else {
+    selectSession(selectedSessionId);
+  }
+
+  document.getElementById('loader').style.display = 'none';
+}
+
+// ── Sidebar ──
+function renderSidebar() {
+  const list = document.getElementById('session-list');
+  list.innerHTML = '';
+  const next = getNextSession();
+
+  // Show upcoming first, then past
+  const sorted = [...sessions].sort((a, b) => b.Date - a.Date);
+  sorted.forEach(s => {
+    const sujetsCount = sujets.filter(su => su.Session === s.id).length;
+    const isNext = next && s.id === next.id;
+    const div = document.createElement('div');
+    div.className = 'session-item' + (s.id === selectedSessionId ? ' active' : '') + (isNext ? ' is-next' : '');
+    const cls = { 'Ouverte': 'ouverte', 'Confirmée': 'confirmee', 'Annulée': 'annulee' }[s.Statut] || 'ouverte';
+    div.innerHTML = `
+      ${isNext ? '<div class="si-next-label">→ Prochaine</div>' : ''}
+      <div class="si-date">${fmtDateShort(s.Date)}</div>
+      <div class="si-statut"><span class="si-badge ${cls}">${s.Statut}</span></div>
+      <div class="si-count">${sujetsCount} sujet${sujetsCount !== 1 ? 's' : ''}</div>
+    `;
+    div.addEventListener('click', () => selectSession(s.id));
+    list.appendChild(div);
+  });
+}
+
+// ── Select session ──
+function selectSession(id) {
+  selectedSessionId = id;
+  renderSidebar();
+  const s = sessions.find(s => s.id === id);
+  if (!s) return;
+
+  document.getElementById('no-session').style.display = 'none';
+  document.getElementById('session-content').style.display = 'flex';
+
+  document.getElementById('session-title').textContent = fmtDate(s.Date);
+  const sujetsForSession = sujets.filter(su => su.Session === id);
+  document.getElementById('session-subtitle').textContent =
+    `${sujetsForSession.length} sujet${sujetsForSession.length !== 1 ? 's' : ''}`;
+
+  const pill = document.getElementById('session-statut-pill');
+  const cls = { 'Ouverte': 'statut-ouverte', 'Confirmée': 'statut-confirmee', 'Annulée': 'statut-annulee' }[s.Statut];
+  pill.className = 'statut-pill ' + cls;
+  pill.textContent = s.Statut;
+
+  const btnConfirm = document.getElementById('btn-confirm');
+  const btnCancel = document.getElementById('btn-cancel-session');
+  if (s.Statut === 'Ouverte') {
+    btnConfirm.style.display = '';
+    btnCancel.style.display = '';
+  } else {
+    btnConfirm.style.display = 'none';
+    btnCancel.style.display = s.Statut === 'Confirmée' ? '' : 'none';
+  }
+
+  document.getElementById('notes-input').value = s.Notes || '';
+  document.getElementById('notes-input').dataset.sessionId = id;
+
+  renderSujets(sujetsForSession);
+}
+
+// ── Sujets ──
+const DOT_CLASS = { 'Soumis': 'dot-soumis', 'Validé': 'dot-valide', 'Refusé': 'dot-refuse', 'Reporté': 'dot-reporte' };
+
+function renderSujets(items) {
+  const list = document.getElementById('sujets-list');
+  const empty = document.getElementById('sujets-empty');
+  document.getElementById('sujets-title').textContent = `Sujets (${items.length})`;
+
+  if (!items.length) {
+    list.innerHTML = '';
+    list.appendChild(empty);
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+  list.innerHTML = '';
+
+  const statuts = ['Soumis', 'Validé', 'Refusé', 'Reporté'];
+  items.forEach(su => {
+    const row = document.createElement('div');
+    row.className = 'sujet-row';
+    const select = `<select class="sujet-btn" onchange="quickStatusSujet(${su.id}, this.value)" style="font-size:11px;padding:3px 6px">
+      ${statuts.map(s => `<option${s===su.Statut?' selected':''}>${s}</option>`).join('')}
+    </select>`;
+    row.innerHTML = `
+      <div class="sujet-statut-dot ${DOT_CLASS[su.Statut] || 'dot-soumis'}"></div>
+      <div class="sujet-body">
+        <div class="sujet-desc">${su.Description || '(sans description)'}</div>
+        <div class="sujet-meta">
+          ${su.Soumetteur ? `<span>👤 ${su.Soumetteur}</span>` : ''}
+          ${su.Canal ? `<span>📡 ${su.Canal}</span>` : ''}
+        </div>
+      </div>
+      <div class="sujet-actions">
+        ${select}
+        <button class="sujet-btn" onclick="editSujet(${su.id})">✏️</button>
+        <button class="sujet-btn" onclick="deleteSujet(${su.id})" style="color:#dc2626">🗑</button>
+      </div>
+    `;
+    list.appendChild(row);
+  });
+  list.appendChild(document.getElementById('sujets-empty'));
+}
+
+// ── Quick status ──
+async function quickStatusSujet(id, newStatut) {
+  await grist.docApi.applyUserActions([['UpdateRecord', 'Corep_Sujets', id, { Statut: newStatut }]]);
+  await loadData();
+}
+
+// ── Confirm / Cancel session ──
+async function confirmSession(id) {
+  await grist.docApi.applyUserActions([['UpdateRecord', 'Corep_Sessions', id || selectedSessionId, { Statut: 'Confirmée' }]]);
+  await loadData();
+}
+async function cancelSession(id) {
+  if (!confirm('Annuler cette session COREP ?')) return;
+  await grist.docApi.applyUserActions([['UpdateRecord', 'Corep_Sessions', id || selectedSessionId, { Statut: 'Annulée' }]]);
+  await loadData();
+}
+
+// ── Notes autosave ──
+let notesTimer = null;
+document.getElementById('notes-input').addEventListener('input', function() {
+  clearTimeout(notesTimer);
+  notesTimer = setTimeout(async () => {
+    const id = parseInt(this.dataset.sessionId);
+    if (!id) return;
+    await grist.docApi.applyUserActions([['UpdateRecord', 'Corep_Sessions', id, { Notes: this.value }]]);
+  }, 800);
+});
+
+// ── Add / Edit sujet ──
+function openSujetModal(sujetId = null) {
+  editingSujetId = sujetId;
+  document.getElementById('sujet-modal-title').textContent = sujetId ? 'Modifier le sujet' : 'Nouveau sujet';
+  if (sujetId) {
+    const su = sujets.find(s => s.id === sujetId);
+    document.getElementById('ms-desc').value = su.Description || '';
+    document.getElementById('ms-soumetteur').value = su.Soumetteur || '';
+    document.getElementById('ms-canal').value = su.Canal || '';
+    document.getElementById('ms-statut').value = su.Statut || 'Soumis';
+  } else {
+    document.getElementById('ms-desc').value = '';
+    document.getElementById('ms-soumetteur').value = '';
+    document.getElementById('ms-canal').value = '';
+    document.getElementById('ms-statut').value = 'Soumis';
+  }
+  document.getElementById('modal-sujet').classList.add('open');
+}
+
+function editSujet(id) { openSujetModal(id); }
+
+async function saveSujet() {
+  const desc = document.getElementById('ms-desc').value.trim();
+  if (!desc) { alert('Description requise.'); return; }
+  const fields = {
+    Description: desc,
+    Soumetteur:  document.getElementById('ms-soumetteur').value.trim(),
+    Canal:       document.getElementById('ms-canal').value,
+    Statut:      document.getElementById('ms-statut').value,
+  };
+  if (editingSujetId) {
+    await grist.docApi.applyUserActions([['UpdateRecord', 'Corep_Sujets', editingSujetId, fields]]);
+  } else {
+    fields.Session = selectedSessionId;
+    await grist.docApi.applyUserActions([['AddRecord', 'Corep_Sujets', null, fields]]);
+  }
+  document.getElementById('modal-sujet').classList.remove('open');
+  await loadData();
+}
+
+async function deleteSujet(id) {
+  if (!confirm('Supprimer ce sujet ?')) return;
+  await grist.docApi.applyUserActions([['RemoveRecord', 'Corep_Sujets', id]]);
+  await loadData();
+}
+
+// ── New session ──
+async function saveNewSession() {
+  const dateStr = document.getElementById('ns-date').value;
+  if (!dateStr) { alert('Date requise.'); return; }
+  const fields = { Date: toTs(dateStr), Statut: 'Ouverte', Notes: document.getElementById('ns-notes').value.trim() };
+  const res = await grist.docApi.applyUserActions([['AddRecord', 'Corep_Sessions', null, fields]]);
+  const newId = res.retValues[0];
+  document.getElementById('modal-session').classList.remove('open');
+  await loadData();
+  selectSession(newId);
+}
+
+// ── Message modal ──
+function openMsgModal() {
+  const next = getNextSession();
+  if (!next) return;
+  const sujetsCount = sujets.filter(s => s.Session === next.id).length;
+  const dateStr = fmtDateShort(next.Date);
+  const isWed = isThisWednesday(next);
+
+  let msg;
+  if (isWed) {
+    msg = `Bonjour,
+
+Le COREP de demain ${dateStr} approche.
+
+Merci de me faire remonter vos sujets nécessitant un arbitrage d'ici ce soir.
+
+Sans sujet reçu d'ici demain 12h, la séance sera annulée.
+
+Cordialement,
+Nicolas`;
+  } else {
+    msg = `Bonjour,
+
+Le COREP de cet après-midi ${dateStr} a lieu dans quelques heures.
+
+Dernière chance pour soumettre un sujet avant 12h.${sujetsCount > 0 ? `\n\n${sujetsCount} sujet(s) déjà reçu(s).` : '\n\nAucun sujet reçu à ce stade — la séance sera annulée à 12h faute de sujets.'}
+
+Cordialement,
+Nicolas`;
+  }
+
+  document.getElementById('msg-title').textContent = isWed ? 'Message J-1 (mercredi)' : 'Message J — relance matin';
+  document.getElementById('msg-text').value = msg;
+  document.getElementById('modal-msg').classList.add('open');
+}
+
+// ── Events ──
+document.getElementById('btn-new-session').addEventListener('click', () => {
+  document.getElementById('ns-date').value = '';
+  document.getElementById('ns-notes').value = '';
+  document.getElementById('modal-session').classList.add('open');
+});
+document.getElementById('ns-close').addEventListener('click', () => document.getElementById('modal-session').classList.remove('open'));
+document.getElementById('ns-cancel').addEventListener('click', () => document.getElementById('modal-session').classList.remove('open'));
+document.getElementById('ns-save').addEventListener('click', saveNewSession);
+
+document.getElementById('btn-add-sujet').addEventListener('click', () => openSujetModal());
+document.getElementById('ms-close').addEventListener('click', () => document.getElementById('modal-sujet').classList.remove('open'));
+document.getElementById('ms-cancel').addEventListener('click', () => document.getElementById('modal-sujet').classList.remove('open'));
+document.getElementById('ms-save').addEventListener('click', saveSujet);
+
+document.getElementById('btn-confirm').addEventListener('click', () => confirmSession());
+document.getElementById('btn-cancel-session').addEventListener('click', () => cancelSession());
+document.getElementById('btn-msg').addEventListener('click', openMsgModal);
+
+document.getElementById('msg-close').addEventListener('click', () => document.getElementById('modal-msg').classList.remove('open'));
+document.getElementById('msg-close2').addEventListener('click', () => document.getElementById('modal-msg').classList.remove('open'));
+document.getElementById('btn-copy-msg').addEventListener('click', () => {
+  navigator.clipboard.writeText(document.getElementById('msg-text').value);
+  document.getElementById('btn-copy-msg').textContent = '✓ Copié !';
+  setTimeout(() => document.getElementById('btn-copy-msg').textContent = '📋 Copier', 2000);
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    ['modal-sujet','modal-session','modal-msg'].forEach(id => document.getElementById(id).classList.remove('open'));
+  }
+});
+
+// ── Boot ──
+grist.ready({ requiredAccess: 'full' });
+loadData();
+</script>
+</body>
+</html>
