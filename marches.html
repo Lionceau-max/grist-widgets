@@ -387,26 +387,33 @@ function renderTable(items) {
   const tbody = document.getElementById('table-body');
   tbody.innerHTML = '';
   const urgencyClass = { expired: 'urgent', urgent: 'urgent', warning: 'warning', ok: '', far: '' };
+  const na = v => (v && v.trim() && v.trim() !== 'n/a') ? v : '—';
   items.forEach(m => {
     const status = expiryStatus(m.Date_fin_prevision);
     const tr = document.createElement('tr');
     tr.className = urgencyClass[status] || '';
-    tr.innerHTML = `
-      <td><span class="td-topo">${m.Element_topologie || '—'}</span></td>
-      <td style="font-weight:600">${m.Composant || '—'}</td>
-      <td class="td-titulaire">${m.Titulaire || '—'}</td>
-      <td class="td-objet" title="${m.Intitule_lot || m.Objet || ''}">${m.Intitule_lot || m.Objet || '—'}</td>
-      <td><span class="card-suivi" style="font-size:10px">${m.Suivi_par || '—'}</span></td>
-      <td style="font-size:11px;color:var(--text-xs)">${fmtDate(m.Date_notification)}</td>
-      <td style="font-size:11px;text-align:center">${m.Duree_mois ? m.Duree_mois+'m' : '—'}</td>
-      <td><span class="expiry-badge ${expiryBadgeClass(status)}">${fmtDate(m.Date_fin_prevision)}</span></td>
-      <td style="font-size:10px;color:var(--text-xs);font-family:monospace">${m.EJ || '—'}</td>
-      <td style="font-size:11px;font-family:monospace;color:var(--text-xs)">${m.N_consultation || '—'}</td>
-      <td style="font-size:11px;color:var(--text-xs)">${m.Commandes_facturation && m.Commandes_facturation !== 'n/a' ? m.Commandes_facturation : '—'}</td>
-      <td style="font-size:11px;color:var(--text-xs)">${m.COEX && m.COEX !== 'n/a' ? m.COEX : '—'}</td>
-      <td style="font-size:11px;color:var(--text-xs)">${m.Procedure_AO && m.Procedure_AO !== 'n/a' ? m.Procedure_AO : '—'}</td>
-      <td style="font-size:11px;color:var(--text-xs)">${m.Avenant && m.Avenant !== 'n/a' ? m.Avenant : '—'}</td>
-    \`;
+    const cells = [
+      ['', '<span class="td-topo">' + (m.Element_topologie||'—') + '</span>'],
+      ['font-weight:600', m.Composant||'—'],
+      ['', '<span class="td-titulaire">' + (m.Titulaire||'—') + '</span>'],
+      ['max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap', m.Intitule_lot||m.Objet||'—'],
+      ['', '<span class="card-suivi" style="font-size:10px">' + (m.Suivi_par||'—') + '</span>'],
+      ['font-size:11px;color:var(--text-xs)', fmtDate(m.Date_notification)],
+      ['font-size:11px;text-align:center', m.Duree_mois ? m.Duree_mois+'m' : '—'],
+      ['', '<span class="expiry-badge ' + expiryBadgeClass(status) + '">' + fmtDate(m.Date_fin_prevision) + '</span>'],
+      ['font-size:10px;color:var(--text-xs);font-family:monospace', m.EJ||'—'],
+      ['font-size:11px;font-family:monospace;color:var(--text-xs)', m.N_consultation||'—'],
+      ['font-size:11px;color:var(--text-xs)', na(m.Commandes_facturation)],
+      ['font-size:11px;color:var(--text-xs)', na(m.COEX)],
+      ['font-size:11px;color:var(--text-xs)', na(m.Procedure_AO)],
+      ['font-size:11px;color:var(--text-xs)', na(m.Avenant)],
+    ];
+    cells.forEach(([style, content]) => {
+      const td = document.createElement('td');
+      if (style) td.style.cssText = style;
+      td.innerHTML = content;
+      tr.appendChild(td);
+    });
     tr.style.cursor = 'pointer';
     tr.addEventListener('click', () => openDetail(m));
     tbody.appendChild(tr);
@@ -497,7 +504,7 @@ document.getElementById('detail-overlay').addEventListener('click', closeDetail)
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetail(); });
 
 // ── Boot ──
-grist.ready({ requiredAccess: 'read table' });
+grist.ready({ requiredAccess: 'full' });
 loadData();
 </script>
 </body>
