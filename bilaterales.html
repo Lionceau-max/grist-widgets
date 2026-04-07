@@ -83,6 +83,8 @@
   #btn-gen-cr { padding:6px 14px; border-radius:6px; background:#fff; color:var(--text-sm); border:1px solid var(--border); font-size:13px; cursor:pointer; }
   #btn-gen-cr:hover { background:var(--gray-lt); }
   #btn-gen-cr:disabled { opacity:.5; cursor:default; }
+  #btn-view-mode { padding:6px 14px; border-radius:6px; background:#fff; color:var(--text-sm); border:1px solid var(--border); font-size:13px; cursor:pointer; }
+  #btn-view-mode:hover { background:var(--gray-lt); }
   #search-box { flex:1; max-width:280px; padding:6px 12px; border:1px solid var(--border); border-radius:6px; font-size:13px; outline:none; }
   #search-box:focus { border-color:var(--blue); }
 
@@ -100,6 +102,7 @@
   .point-card[data-statut="Résolu"]         { border-left-color:var(--green); }
   .point-card[data-statut="À surveiller"]   { border-left-color:var(--amber); }
   .point-card[data-statut="Action requise"] { border-left-color:var(--purple); }
+  .point-card[data-statut="En attente"]     { border-left-color:#c2410c; }
 
   .card-top { display:flex; align-items:flex-start; gap:8px; }
   .drag-handle {
@@ -128,6 +131,9 @@
   .badge-rs { background:var(--green-lt); color:var(--green); }
   .badge-sv { background:var(--amber-lt); color:var(--amber); }
   .badge-ar { background:var(--purple-lt); color:var(--purple); }
+  .badge-att { background:#fff7ed; color:#c2410c; }
+  .kpi.att { background:#fff7ed; color:#c2410c; }
+  .kpi.att.active { background:#c2410c; color:#fff; }
   .badge-age { background:#f3f4f6; color:var(--text-xs); font-size:10px; padding:2px 6px; border-radius:20px; }
   .badge-age.old { background:#fef3c7; color:#92400e; }
 
@@ -162,6 +168,17 @@
     letter-spacing: .04em;
   }
   .card-actor-line { color: var(--text-xs); }
+  .card-actor-meta { display:flex; flex-wrap:wrap; gap:6px; margin:4px 0; }
+  .mail-proof {
+    margin-top: 4px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: #fff;
+    border: 1px dashed var(--border);
+    color: var(--text-xs);
+    font-size: 11px;
+    white-space: pre-wrap;
+  }
   .sort-hint {
     grid-column: 1 / -1;
     padding: 10px 12px;
@@ -224,6 +241,17 @@
   .btn-add-actor:hover, .btn-remove-actor:hover { background: #fff7ed; border-color: #fdba74; }
   .btn-remove-actor { padding:5px 10px; color:var(--red); border-color:#fecaca; }
   .actors-empty { font-size:12px; color:var(--text-xs); font-style:italic; }
+  .drop-zone {
+    border: 1px dashed #93c5fd;
+    border-radius: 8px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    padding: 10px 12px;
+    font-size: 12px;
+    text-align: center;
+  }
+  .drop-zone.dragover { background: #dbeafe; border-color: #2563eb; }
+  .field-help { font-size:11px; color:var(--text-xs); }
   .btn-save { padding:8px 20px; border-radius:6px; background:var(--blue); color:#fff; border:none; font-size:13px; font-weight:600; cursor:pointer; }
   .btn-save:hover { background:#1d4ed8; }
   .btn-save:disabled { opacity:.5; cursor:default; }
@@ -314,6 +342,7 @@
     </div>
     <div id="toolbar" style="display:none">
       <button id="btn-new-point">+ Point</button>
+      <button id="btn-view-mode" title="Basculer l'affichage">Vue acteur</button>
       <input id="search-box" type="text" placeholder="Rechercher…">
       <button id="btn-export">📋 Résumé</button>
       <button id="btn-gen-cr" title="Générer le CR au format Word">📄 CR Word</button>
@@ -341,7 +370,7 @@
     <div class="field-group">
       <label class="field-label">Statut</label>
       <select id="f-statut" class="field-select">
-        <option>En cours</option><option>Bloqué</option><option>Action requise</option><option>À surveiller</option><option>Résolu</option>
+        <option>En cours</option><option>Bloqué</option><option>Action requise</option><option>En attente</option><option>À surveiller</option><option>Résolu</option>
       </select>
     </div>
     <div class="field-group"><label class="field-label">Description</label><textarea id="f-desc" class="field-textarea"></textarea></div>
@@ -425,9 +454,10 @@ let selectedBilatId=null, selectedPointId=null;
 let filterStatut='all', searchQ='', isDirty=false, isNewPoint=false;
 let sidebarSearchQ='', sidebarSort='date'; // 'date' or 'ben'
 let dragPointId=null;
+let contentViewMode='points';
 
 // ── Helpers ──
-const badgeClass = s => ({'En cours':'ec','Bloqué':'bl','Résolu':'rs','À surveiller':'sv','Action requise':'ar'}[s]||'ec');
+const badgeClass = s => ({'En cours':'ec','Bloqué':'bl','Résolu':'rs','À surveiller':'sv','Action requise':'ar','En attente':'att'}[s]||'ec');
 function fmtDate(ts) {
   if (!ts) return '—';
   return new Date(ts*1000).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'});
@@ -454,8 +484,11 @@ function parseActors(raw) {
         nom: String(actor.nom || actor.acteur || '').trim(),
         position: String(actor.position || '').trim(),
         action: String(actor.action || '').trim(),
+        statut: String(actor.statut || 'À faire').trim() || 'À faire',
+        attente: String(actor.attente || actor.en_attente_de || '').trim(),
+        mail: String(actor.mail || actor.piece || actor.trace || '').trim(),
       }))
-      .filter(actor => actor.nom || actor.position || actor.action);
+      .filter(actor => actor.nom || actor.position || actor.action || actor.mail);
   } catch (err) {
     console.warn('Acteurs_json invalide', err);
     return [];
@@ -467,20 +500,31 @@ function stringifyActors(actors) {
       nom: String(actor.nom || '').trim(),
       position: String(actor.position || '').trim(),
       action: String(actor.action || '').trim(),
+      statut: String(actor.statut || 'À faire').trim() || 'À faire',
+      attente: String(actor.attente || '').trim(),
+      mail: String(actor.mail || '').trim(),
     }))
-    .filter(actor => actor.nom || actor.position || actor.action);
+    .filter(actor => actor.nom || actor.position || actor.action || actor.mail);
   return cleaned.length ? JSON.stringify(cleaned) : '';
 }
 function renderActorSummary(actor) {
   const lines = [];
   if (actor.position) lines.push(`<div class="card-actor-line"><strong>Position :</strong> ${safeText(actor.position)}</div>`);
   if (actor.action) lines.push(`<div class="card-actor-line"><strong>Action :</strong> ${safeText(actor.action)}</div>`);
+  const meta = [];
+  if (actor.statut) meta.push(`<span class="badge ${actor.statut === 'En attente' ? 'badge-att' : actor.statut === 'Fait' ? 'badge-rs' : 'badge-ar'}">${safeText(actor.statut)}</span>`);
+  if (actor.attente) meta.push(`<span class="badge badge-sv">Attente: ${safeText(actor.attente)}</span>`);
   return `
     <div class="card-actor">
       <div class="card-actor-head"><span class="actor-badge">${safeText(actor.nom || 'Acteur')}</span></div>
+      ${meta.length ? `<div class="card-actor-meta">${meta.join('')}</div>` : ''}
       ${lines.join('')}
+      ${actor.mail ? `<div class="mail-proof">${safeText(actor.mail)}</div>` : ''}
     </div>
   `;
+}
+function actorStatusPriority(status) {
+  return ({'En attente': 0, 'À faire': 1, 'Fait': 2}[status] ?? 1);
 }
 function orderValue(point) {
   return Number.isFinite(point.Ordre) ? point.Ordre : Number.MAX_SAFE_INTEGER;
@@ -498,7 +542,7 @@ function sortPointsForDisplay(points) {
   });
 }
 function canManualSortCurrentView() {
-  return selectedBilatId && filterStatut === 'all' && !searchQ.trim();
+  return selectedBilatId && contentViewMode === 'points' && filterStatut === 'all' && !searchQ.trim();
 }
 
 async function ensurePointSchema() {
@@ -738,7 +782,7 @@ function renderSidebar() {
       return pointsAll.some(p => p.Bilaterale === b.id &&
         ((p.Titre||'').toLowerCase().includes(q) || (p.Description||'').toLowerCase().includes(q) ||
          (p.Reference_site||'').toLowerCase().includes(q) || (p.Action_suivante||'').toLowerCase().includes(q) ||
-         p.Acteurs.some(actor => [actor.nom, actor.position, actor.action].join(' ').toLowerCase().includes(q))));
+         p.Acteurs.some(actor => [actor.nom, actor.position, actor.action, actor.attente, actor.mail, actor.statut].join(' ').toLowerCase().includes(q))));
     });
   }
 
@@ -782,6 +826,7 @@ function makeBilatItem(b) {
 function selectBilat(id) {
   selectedBilatId=id; filterStatut='all'; searchQ='';
   document.getElementById('search-box').value='';
+  document.getElementById('btn-view-mode').textContent = contentViewMode === 'actors' ? 'Vue point' : 'Vue acteur';
   renderSidebar();
   const b=bilaterales.find(b=>b.id===id);
   document.getElementById('dashboard').style.display='none';
@@ -823,11 +868,11 @@ function selectBilat(id) {
 // ── KPIs ──
 function renderKPIs() {
   const pts=pointsAll.filter(p=>p.Bilaterale===selectedBilatId);
-  const c={all:pts.length,'En cours':0,'Bloqué':0,'Action requise':0,'À surveiller':0,'Résolu':0};
+  const c={all:pts.length,'En cours':0,'Bloqué':0,'Action requise':0,'En attente':0,'À surveiller':0,'Résolu':0};
   pts.forEach(p=>{if(c[p.Statut]!==undefined)c[p.Statut]++;});
   const bar=document.getElementById('kpi-bar'); bar.innerHTML='';
   [{key:'all',label:'Tous',cls:'all'},{key:'En cours',label:'En cours',cls:'ec'},{key:'Bloqué',label:'Bloqué',cls:'bl'},
-   {key:'Action requise',label:'Action requise',cls:'ar'},{key:'À surveiller',label:'À surveiller',cls:'sv'},{key:'Résolu',label:'Résolu',cls:'rs'}
+   {key:'Action requise',label:'Action requise',cls:'ar'},{key:'En attente',label:'En attente',cls:'att'},{key:'À surveiller',label:'À surveiller',cls:'sv'},{key:'Résolu',label:'Résolu',cls:'rs'}
   ].forEach(({key,label,cls})=>{
     if(c[key]===0&&key!=='all') return;
     const btn=document.createElement('button');
@@ -839,8 +884,8 @@ function renderKPIs() {
 }
 
 // ── Cards ──
-const STATUT_ORDER=['Bloqué','Action requise','En cours','À surveiller','Résolu'];
-const STATUTS=['En cours','Bloqué','Action requise','À surveiller','Résolu'];
+const STATUT_ORDER=['Bloqué','Action requise','En attente','En cours','À surveiller','Résolu'];
+const STATUTS=['En cours','Bloqué','Action requise','En attente','À surveiller','Résolu'];
 
 function actorEditorRowHtml(actor = {}, index = 0) {
   return `
@@ -863,6 +908,26 @@ function actorEditorRowHtml(actor = {}, index = 0) {
         <label class="field-label">Action associée</label>
         <textarea class="field-textarea actor-input" data-key="action" style="min-height:60px" placeholder="Action à mener vers cet acteur ou liée à cet acteur">${safeText(actor.action)}</textarea>
       </div>
+      <div class="actor-grid">
+        <div class="field-group">
+          <label class="field-label">Statut acteur</label>
+          <select class="field-select actor-input" data-key="statut">
+            <option value="À faire"${actor.statut === 'À faire' ? ' selected' : ''}>À faire</option>
+            <option value="En attente"${actor.statut === 'En attente' ? ' selected' : ''}>En attente</option>
+            <option value="Fait"${actor.statut === 'Fait' ? ' selected' : ''}>Fait</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">En attente de</label>
+          <input class="field-input actor-input" data-key="attente" type="text" value="${safeText(actor.attente)}" placeholder="DINUM, Can'L, management…">
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Trace mail / pièce / lien</label>
+        <textarea class="field-textarea actor-input" data-key="mail" style="min-height:72px" placeholder="Collez un lien, une note, ou déposez un mail/fichier ici">${safeText(actor.mail)}</textarea>
+        <div class="drop-zone actor-drop-zone">Déposez ici un mail, un fichier ou du texte pour garder une trace.</div>
+        <div class="field-help">V1: le dépôt enregistre une trace textuelle exploitable dans le point, pas une pièce jointe Outlook native.</div>
+      </div>
     </div>
   `;
 }
@@ -879,6 +944,18 @@ function bindActorEditorEvents() {
       refreshActorEditorTitles();
       markDirty();
       renderActorsEditorEmptyState();
+    });
+  });
+  container.querySelectorAll('.actor-drop-zone').forEach(zone => {
+    zone.addEventListener('dragover', e => {
+      e.preventDefault();
+      zone.classList.add('dragover');
+    });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', async e => {
+      e.preventDefault();
+      zone.classList.remove('dragover');
+      await appendDroppedContentToActorRow(zone.closest('.actor-row'), e.dataTransfer);
     });
   });
 }
@@ -931,10 +1008,100 @@ function collectActorsFromEditor() {
     nom: row.querySelector('[data-key="nom"]').value.trim(),
     position: row.querySelector('[data-key="position"]').value.trim(),
     action: row.querySelector('[data-key="action"]').value.trim(),
-  })).filter(actor => actor.nom || actor.position || actor.action);
+    statut: row.querySelector('[data-key="statut"]').value.trim(),
+    attente: row.querySelector('[data-key="attente"]').value.trim(),
+    mail: row.querySelector('[data-key="mail"]').value.trim(),
+  })).filter(actor => actor.nom || actor.position || actor.action || actor.mail);
+}
+
+async function appendDroppedContentToActorRow(row, dataTransfer) {
+  const mailField = row.querySelector('[data-key="mail"]');
+  if (!mailField) return;
+  const chunks = [];
+  if (dataTransfer.files && dataTransfer.files.length) {
+    const file = dataTransfer.files[0];
+    chunks.push(`[Fichier déposé] ${file.name}${file.size ? ` (${Math.round(file.size/1024)} Ko)` : ''}`);
+    if (/^text\//.test(file.type) || /\.(txt|eml|url|md)$/i.test(file.name)) {
+      const text = await file.text();
+      if (text.trim()) chunks.push(text.trim().slice(0, 4000));
+    }
+  }
+  const plain = dataTransfer.getData('text/plain');
+  if (plain && plain.trim()) chunks.push(plain.trim().slice(0, 4000));
+  const uri = dataTransfer.getData('text/uri-list');
+  if (uri && uri.trim()) chunks.push(uri.trim().slice(0, 2000));
+  if (!chunks.length) return;
+  mailField.value = [mailField.value.trim(), chunks.join('\n')].filter(Boolean).join('\n\n');
+  markDirty();
+}
+
+function actorStatusBadgeClass(status) {
+  return status === 'En attente' ? 'badge-att' : status === 'Fait' ? 'badge-rs' : 'badge-ar';
+}
+
+function renderActorView() {
+  const content = document.getElementById('content');
+  content.innerHTML = '';
+  const points = sortPointsForDisplay(pointsAll.filter(p => p.Bilaterale === selectedBilatId));
+  const actorGroups = new Map();
+  const query = searchQ.trim().toLowerCase();
+
+  points.forEach(point => {
+    if (filterStatut !== 'all' && point.Statut !== filterStatut) return;
+    point.Acteurs.forEach(actor => {
+      const haystack = [point.Titre, point.Description, point.Reference_site, point.Action_suivante, actor.nom, actor.position, actor.action, actor.attente, actor.mail, actor.statut].join(' ').toLowerCase();
+      if (query && !haystack.includes(query)) return;
+      const key = actor.nom || 'Sans acteur';
+      if (!actorGroups.has(key)) actorGroups.set(key, []);
+      actorGroups.get(key).push({ point, actor });
+    });
+  });
+
+  if (!actorGroups.size) {
+    content.innerHTML = '<div id="empty-state"><div class="icon">📭</div><div>Aucun acteur trouvé</div></div>';
+    return;
+  }
+
+  [...actorGroups.entries()].sort((a, b) => a[0].localeCompare(b[0], 'fr')).forEach(([actorName, entries]) => {
+    entries.sort((a, b) => {
+      const actorDiff = actorStatusPriority(a.actor.statut) - actorStatusPriority(b.actor.statut);
+      if (actorDiff !== 0) return actorDiff;
+      return orderValue(a.point) - orderValue(b.point);
+    });
+
+    const groupHeader = document.createElement('div');
+    groupHeader.className = 'sort-hint';
+    groupHeader.textContent = `${actorName} · ${entries.length} point(s) · ${entries.filter(entry => entry.actor.statut !== 'Fait').length} à suivre`;
+    content.appendChild(groupHeader);
+
+    entries.forEach(({ point, actor }) => {
+      const card = document.createElement('div');
+      card.className = 'point-card';
+      card.dataset.statut = point.Statut || '';
+      card.innerHTML = `
+        <div class="card-top">
+          <div class="card-titre">${safeText(point.Titre || '(Sans titre)')}</div>
+          <div class="card-badges">
+            <span class="badge badge-${badgeClass(point.Statut)}">${safeText(point.Statut || '—')}</span>
+            <span class="badge ${actorStatusBadgeClass(actor.statut)}">${safeText(actor.statut || 'À faire')}</span>
+          </div>
+        </div>
+        ${point.Reference_site ? `<div><span class="card-ref">${safeText(point.Reference_site)}</span></div>` : ''}
+        ${point.Description ? `<div class="card-desc expanded">${safeText(point.Description)}</div>` : ''}
+        ${renderActorSummary(actor)}
+        ${point.Action_suivante ? `<div class="card-action">${safeText(point.Action_suivante)}</div>` : ''}
+      `;
+      card.addEventListener('click', () => openPanel(point.id));
+      content.appendChild(card);
+    });
+  });
 }
 
 function renderCards() {
+  if (contentViewMode === 'actors') {
+    renderActorView();
+    return;
+  }
   const content=document.getElementById('content');
   content.innerHTML='';
   let pts=pointsAll.filter(p=>p.Bilaterale===selectedBilatId);
@@ -955,7 +1122,7 @@ function renderCards() {
 
   pts.forEach(p=>{
     const age=getAnciennete(p);
-    const ageBadge=age>=2?`<span class="badge-age${age>=3?' old':''}" title="${age} bilatérales">⏱ ${age} réunions</span>`:'';
+  const ageBadge=age>=2?`<span class="badge-age${age>=3?' old':''}" title="${age} bilatérales">⏱ ${age} réunions</span>`:'';
     const card=document.createElement('div');
     card.className='point-card'+(p.id===selectedPointId?' active':'');
     card.dataset.statut=p.Statut||'';
@@ -1288,8 +1455,11 @@ function generateResume() {
       lines.push('   Acteurs associés :');
       p.Acteurs.forEach(actor => {
         lines.push(`   - ${actor.nom || 'Acteur'}`);
+        if (actor.statut) lines.push(`     Statut acteur : ${actor.statut}`);
         if (actor.position) lines.push(`     Position : ${actor.position}`);
+        if (actor.attente) lines.push(`     En attente de : ${actor.attente}`);
         if (actor.action) lines.push(`     Action : ${actor.action}`);
+        if (actor.mail) lines.push(`     Trace : ${actor.mail.replace(/\n/g,'\n     ')}`);
       });
     }
   });
@@ -1329,6 +1499,11 @@ document.getElementById('recon-close').addEventListener('click',()=>document.get
 document.getElementById('recon-cancel').addEventListener('click',()=>document.getElementById('modal-recon').classList.remove('open'));
 document.getElementById('recon-confirm').addEventListener('click',confirmReconduction);
 document.getElementById('btn-new-point').addEventListener('click',openNewPointPanel);
+document.getElementById('btn-view-mode').addEventListener('click',()=>{
+  contentViewMode = contentViewMode === 'points' ? 'actors' : 'points';
+  document.getElementById('btn-view-mode').textContent = contentViewMode === 'actors' ? 'Vue point' : 'Vue acteur';
+  renderCards();
+});
 document.getElementById('btn-export').addEventListener('click',generateResume);
 document.getElementById('btn-add-actor').addEventListener('click',()=>addActorRow());
 document.getElementById('btn-save').addEventListener('click',savePoint);
@@ -1523,8 +1698,11 @@ async function generateCR() {
       if (p.Acteurs.length) {
         p.Acteurs.forEach(actor => {
           const actorParts = [actor.nom || 'Acteur'];
+          if (actor.statut) actorParts.push('Statut : ' + actor.statut);
           if (actor.position) actorParts.push('Position : ' + actor.position);
+          if (actor.attente) actorParts.push('En attente de : ' + actor.attente);
           if (actor.action) actorParts.push('Action : ' + actor.action);
+          if (actor.mail) actorParts.push('Trace : ' + actor.mail.replace(/\s+/g, ' ').slice(0, 220));
           children.push(new Paragraph({
             children: [tr('• ' + actorParts.join(' | '), { color: '404040' })],
             indent: { left: 1080 }, spacing: { after: 40 },
