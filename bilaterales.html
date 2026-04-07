@@ -85,6 +85,7 @@
   #btn-gen-cr:disabled { opacity:.5; cursor:default; }
   #btn-view-mode { padding:6px 14px; border-radius:6px; background:#fff; color:var(--text-sm); border:1px solid var(--border); font-size:13px; cursor:pointer; }
   #btn-view-mode:hover { background:var(--gray-lt); }
+  #actor-status-filter { padding:6px 10px; border:1px solid var(--border); border-radius:6px; background:#fff; font-size:13px; color:var(--text-sm); }
   #search-box { flex:1; max-width:280px; padding:6px 12px; border:1px solid var(--border); border-radius:6px; font-size:13px; outline:none; }
   #search-box:focus { border-color:var(--blue); }
 
@@ -178,6 +179,22 @@
     color: var(--text-xs);
     font-size: 11px;
     white-space: pre-wrap;
+  }
+  .actor-quick-actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  .actor-quick-btn {
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--text-sm);
+    font-size: 11px;
+    padding: 4px 8px;
+    cursor: pointer;
+  }
+  .actor-quick-btn:hover { border-color: var(--blue); color: var(--blue); }
+  .actor-group-waiting {
+    border-color: #fdba74;
+    background: #fff7ed;
+    color: #9a3412;
   }
   .sort-hint {
     grid-column: 1 / -1;
@@ -343,6 +360,12 @@
     <div id="toolbar" style="display:none">
       <button id="btn-new-point">+ Point</button>
       <button id="btn-view-mode" title="Basculer l'affichage">Vue acteur</button>
+      <select id="actor-status-filter" title="Filtrer par statut acteur" style="display:none">
+        <option value="">Tous les statuts acteur</option>
+        <option value="À faire">À faire</option>
+        <option value="En attente">En attente</option>
+        <option value="Fait">Fait</option>
+      </select>
       <input id="search-box" type="text" placeholder="Rechercher…">
       <button id="btn-export">📋 Résumé</button>
       <button id="btn-gen-cr" title="Générer le CR au format Word">📄 CR Word</button>
@@ -455,6 +478,7 @@ let filterStatut='all', searchQ='', isDirty=false, isNewPoint=false;
 let sidebarSearchQ='', sidebarSort='date'; // 'date' or 'ben'
 let dragPointId=null;
 let contentViewMode='points';
+let actorStatusFilter='';
 
 // ── Helpers ──
 const badgeClass = s => ({'En cours':'ec','Bloqué':'bl','Résolu':'rs','À surveiller':'sv','Action requise':'ar','En attente':'att'}[s]||'ec');
@@ -827,6 +851,8 @@ function selectBilat(id) {
   selectedBilatId=id; filterStatut='all'; searchQ='';
   document.getElementById('search-box').value='';
   document.getElementById('btn-view-mode').textContent = contentViewMode === 'actors' ? 'Vue point' : 'Vue acteur';
+  document.getElementById('actor-status-filter').style.display = contentViewMode === 'actors' ? '' : 'none';
+  document.getElementById('actor-status-filter').value = actorStatusFilter;
   renderSidebar();
   const b=bilaterales.find(b=>b.id===id);
   document.getElementById('dashboard').style.display='none';
@@ -1039,6 +1065,18 @@ function actorStatusBadgeClass(status) {
   return status === 'En attente' ? 'badge-att' : status === 'Fait' ? 'badge-rs' : 'badge-ar';
 }
 
+async function updateActorInPoint(pointId, actorName, updater) {
+  const point = pointsAll.find(p => p.id === pointId);
+  if (!point) return;
+  const actors = point.Acteurs.map(actor => {
+    if ((actor.nom || '') !== (actorName || '')) return actor;
+    return updater({...actor});
+  });
+  await grist.docApi.applyUserActions([['UpdateRecord', 'Points_bilaterales', pointId, {Acteurs_json: stringifyActors(actors)}]]);
+  await loadData();
+  if (selectedBilatId) selectBilat(selectedBilatId);
+}
+
 function renderActorView() {
   const content = document.getElementById('content');
   content.innerHTML = '';
@@ -1051,6 +1089,7 @@ function renderActorView() {
     point.Acteurs.forEach(actor => {
       const haystack = [point.Titre, point.Description, point.Reference_site, point.Action_suivante, actor.nom, actor.position, actor.action, actor.attente, actor.mail, actor.statut].join(' ').toLowerCase();
       if (query && !haystack.includes(query)) return;
+      if (actorStatusFilter && actor.statut !== actorStatusFilter) return;
       const key = actor.nom || 'Sans acteur';
       if (!actorGroups.has(key)) actorGroups.set(key, []);
       actorGroups.get(key).push({ point, actor });
@@ -1070,7 +1109,8 @@ function renderActorView() {
     });
 
     const groupHeader = document.createElement('div');
-    groupHeader.className = 'sort-hint';
+    const hasWaiting = entries.some(entry => entry.actor.statut === 'En attente');
+    groupHeader.className = `sort-hint${hasWaiting ? ' actor-group-waiting' : ''}`;
     groupHeader.textContent = `${actorName} · ${entries.length} point(s) · ${entries.filter(entry => entry.actor.statut !== 'Fait').length} à suivre`;
     content.appendChild(groupHeader);
 
@@ -1090,8 +1130,41 @@ function renderActorView() {
         ${point.Description ? `<div class="card-desc expanded">${safeText(point.Description)}</div>` : ''}
         ${renderActorSummary(actor)}
         ${point.Action_suivante ? `<div class="card-action">${safeText(point.Action_suivante)}</div>` : ''}
+        <div class="actor-quick-actions">
+          <button class="actor-quick-btn" data-action="waiting">En attente</button>
+          <button class="actor-quick-btn" data-action="mail">Mail envoyé</button>
+          <button class="actor-quick-btn" data-action="done">Fait</button>
+        </div>
       `;
       card.addEventListener('click', () => openPanel(point.id));
+      card.querySelectorAll('.actor-quick-btn').forEach(btn => {
+        btn.addEventListener('click', async e => {
+          e.stopPropagation();
+          const action = btn.dataset.action;
+          if (action === 'waiting') {
+            await updateActorInPoint(point.id, actor.nom, current => {
+              current.statut = 'En attente';
+              if (!current.attente) current.attente = actor.nom || '';
+              return current;
+            });
+          }
+          if (action === 'mail') {
+            await updateActorInPoint(point.id, actor.nom, current => {
+              current.statut = 'En attente';
+              current.attente = current.attente || current.nom || '';
+              const stamp = `Mail envoyé le ${new Date().toLocaleDateString('fr-FR')}`;
+              current.mail = [stamp, current.mail].filter(Boolean).join('\n');
+              return current;
+            });
+          }
+          if (action === 'done') {
+            await updateActorInPoint(point.id, actor.nom, current => {
+              current.statut = 'Fait';
+              return current;
+            });
+          }
+        });
+      });
       content.appendChild(card);
     });
   });
@@ -1502,6 +1575,11 @@ document.getElementById('btn-new-point').addEventListener('click',openNewPointPa
 document.getElementById('btn-view-mode').addEventListener('click',()=>{
   contentViewMode = contentViewMode === 'points' ? 'actors' : 'points';
   document.getElementById('btn-view-mode').textContent = contentViewMode === 'actors' ? 'Vue point' : 'Vue acteur';
+  document.getElementById('actor-status-filter').style.display = contentViewMode === 'actors' ? '' : 'none';
+  renderCards();
+});
+document.getElementById('actor-status-filter').addEventListener('change', e => {
+  actorStatusFilter = e.target.value;
   renderCards();
 });
 document.getElementById('btn-export').addEventListener('click',generateResume);
