@@ -179,6 +179,13 @@
   .btn-inline { padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: #fff; color: var(--text-sm); cursor: pointer; font-size: 12px; }
   .btn-inline:hover { background: var(--gray-lt); border-color: var(--blue); color: var(--blue); }
   .exchange-empty { font-size: 12px; color: var(--text-xs); padding: 10px 12px; border: 1px dashed var(--border); border-radius: 8px; background: #fff; }
+  .inline-editor { display:flex; flex-direction:column; gap:14px; }
+  .inline-editor-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; }
+  .inline-editor-actions { display:flex; gap:8px; flex-wrap:wrap; }
+  .inline-actors-editor { display:flex; flex-direction:column; gap:10px; }
+  .inline-actor-row { border:1px solid var(--border); border-radius:8px; background:#fff; padding:10px; display:flex; flex-direction:column; gap:8px; }
+  .inline-actor-top { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .inline-actor-title { font-size:11px; font-weight:700; color:var(--text-xs); text-transform:uppercase; letter-spacing:.04em; }
   .card-actors { display:flex; flex-direction:column; gap:6px; }
   .card-actor {
     border: 1px solid var(--border);
@@ -515,6 +522,7 @@ let contentViewMode='points';
 let actorStatusFilter='';
 let expandedPointId=null;
 let selectedExchangeIndexByPoint={};
+let editingPointId=null;
 
 // ── Helpers ──
 const badgeClass = s => ({'En cours':'ec','Bloqué':'bl','Résolu':'rs','À surveiller':'sv','Action requise':'ar','En attente':'att'}[s]||'ec');
@@ -663,6 +671,125 @@ function actorListLabel(actors) {
   if (!names.length) return 'Aucun acteur';
   if (names.length <= 2) return names.join(', ');
   return `${names.slice(0, 2).join(', ')} +${names.length - 2}`;
+}
+function inlineActorRowHtml(actor = {}, index = 0) {
+  return `
+    <div class="inline-actor-row" data-index="${index}">
+      <div class="inline-actor-top">
+        <div class="inline-actor-title">Acteur ${index + 1}</div>
+        <button type="button" class="btn-inline" data-inline-remove-actor="${index}">Supprimer</button>
+      </div>
+      <div class="inline-editor-grid">
+        <div class="field-group">
+          <label class="field-label">Acteur</label>
+          <input class="field-input" data-inline-actor="nom" type="text" value="${safeText(actor.nom || '')}">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Statut acteur</label>
+          <select class="field-select" data-inline-actor="statut">
+            <option value="À faire"${(actor.statut || 'À faire') === 'À faire' ? ' selected' : ''}>À faire</option>
+            <option value="En attente"${actor.statut === 'En attente' ? ' selected' : ''}>En attente</option>
+            <option value="Fait"${actor.statut === 'Fait' ? ' selected' : ''}>Fait</option>
+          </select>
+        </div>
+      </div>
+      <div class="inline-editor-grid">
+        <div class="field-group">
+          <label class="field-label">Position</label>
+          <input class="field-input" data-inline-actor="position" type="text" value="${safeText(actor.position || '')}">
+        </div>
+        <div class="field-group">
+          <label class="field-label">En attente de</label>
+          <input class="field-input" data-inline-actor="attente" type="text" value="${safeText(actor.attente || '')}">
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Action</label>
+        <textarea class="field-textarea" data-inline-actor="action" style="min-height:60px">${safeText(actor.action || '')}</textarea>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Trace</label>
+        <textarea class="field-textarea" data-inline-actor="mail" style="min-height:72px">${safeText(actor.mail || '')}</textarea>
+      </div>
+    </div>
+  `;
+}
+function renderInlineActorsEditor(actors) {
+  const rows = actors.length ? actors.map((actor, index) => inlineActorRowHtml(actor, index)).join('') : '<div class="exchange-empty">Aucun acteur pour ce point.</div>';
+  return `
+    <div class="inline-actors-editor" data-inline-actors>
+      ${rows}
+    </div>
+    <button type="button" class="btn-inline" data-inline-add-actor="1">Ajouter un acteur</button>
+  `;
+}
+function collectInlineActors(card) {
+  return [...card.querySelectorAll('.inline-actor-row')].map(row => ({
+    nom: row.querySelector('[data-inline-actor="nom"]').value.trim(),
+    position: row.querySelector('[data-inline-actor="position"]').value.trim(),
+    action: row.querySelector('[data-inline-actor="action"]').value.trim(),
+    statut: row.querySelector('[data-inline-actor="statut"]').value.trim(),
+    attente: row.querySelector('[data-inline-actor="attente"]').value.trim(),
+    mail: row.querySelector('[data-inline-actor="mail"]').value.trim(),
+  })).filter(actor => actor.nom || actor.position || actor.action || actor.mail);
+}
+function renderExpandedCardEditor(point) {
+  return `
+    <div class="card-expanded inline-editor">
+      <div class="inline-editor-grid">
+        <div class="field-group">
+          <label class="field-label">Titre</label>
+          <input class="field-input" data-inline-field="Titre" type="text" value="${safeText(point.Titre || '')}">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Reference site</label>
+          <input class="field-input" data-inline-field="Reference_site" type="text" value="${safeText(point.Reference_site || '')}">
+        </div>
+      </div>
+      <div class="inline-editor-grid">
+        <div class="field-group">
+          <label class="field-label">Statut</label>
+          <select class="field-select" data-inline-field="Statut">
+            ${STATUTS.map(s => `<option${s === point.Statut ? ' selected' : ''}>${s}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Prochaine action</label>
+        <textarea class="field-textarea" data-inline-field="Action_suivante" style="min-height:80px">${safeText(point.Action_suivante || '')}</textarea>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Description</label>
+        <textarea class="field-textarea" data-inline-field="Description" style="min-height:90px">${safeText(point.Description || '')}</textarea>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Acteurs</label>
+        ${renderInlineActorsEditor(point.Acteurs || [])}
+      </div>
+      <div class="inline-editor-actions">
+        <button type="button" class="btn-inline" data-inline-save="${point.id}">Enregistrer</button>
+        <button type="button" class="btn-inline" data-inline-cancel="${point.id}">Annuler</button>
+      </div>
+    </div>
+  `;
+}
+async function saveInlinePoint(pointId, card) {
+  const fields = {
+    Titre: (card.querySelector('[data-inline-field="Titre"]')?.value || '').trim(),
+    Reference_site: (card.querySelector('[data-inline-field="Reference_site"]')?.value || '').trim(),
+    Statut: (card.querySelector('[data-inline-field="Statut"]')?.value || 'En cours').trim(),
+    Action_suivante: (card.querySelector('[data-inline-field="Action_suivante"]')?.value || '').trim(),
+    Description: (card.querySelector('[data-inline-field="Description"]')?.value || '').trim(),
+    Acteurs_json: stringifyActors(collectInlineActors(card)),
+  };
+  await grist.docApi.applyUserActions([['UpdateRecord', 'Points_bilaterales', pointId, fields]]);
+  editingPointId = null;
+  await loadData();
+  if (selectedBilatId) {
+    selectBilat(selectedBilatId);
+    expandedPointId = pointId;
+    renderCards();
+  }
 }
 function renderActorSummary(actor) {
   const lines = [];
@@ -1336,6 +1463,7 @@ function renderExchangeDetail(pointId, echanges) {
 }
 
 function renderExpandedCard(point) {
+  if (editingPointId === point.id) return renderExpandedCardEditor(point);
   const echanges = getPointEchanges(point);
   const actorsHtml = point.Acteurs.length
     ? `<div class="card-actors-grid">${point.Acteurs.map(renderActorSummary).join('')}</div>`
@@ -1364,7 +1492,10 @@ function renderExpandedCard(point) {
         </details>
       </div>
       <div class="card-actions-row">
-        <button type="button" class="btn-inline" data-collapse-point="${point.id}">Refermer</button>
+        <div class="inline-editor-actions">
+          <button type="button" class="btn-inline" data-edit-point="${point.id}">Modifier</button>
+          <button type="button" class="btn-inline" data-collapse-point="${point.id}">Refermer</button>
+        </div>
         <div class="card-footer" style="border-top:none;margin-top:0;padding-top:0">
           <select class="quick-status" data-id="${point.id}">
             ${STATUTS.map(s=>`<option${s===point.Statut?' selected':''}>${s}</option>`).join('')}
@@ -1543,7 +1674,7 @@ renderCards = function() {
       ${expanded ? renderExpandedCard(p) : ''}
     `;
     card.addEventListener('click', e => {
-      if (e.target.closest('.quick-status') || e.target.closest('.exchange-chip') || e.target.closest('[data-collapse-point]')) return;
+      if (e.target.closest('.quick-status') || e.target.closest('.exchange-chip') || e.target.closest('[data-collapse-point]') || e.target.closest('[data-edit-point]') || e.target.closest('.inline-editor')) return;
       expandedPointId = expanded ? null : p.id;
       if (!(p.id in selectedExchangeIndexByPoint)) selectedExchangeIndexByPoint[p.id] = 0;
       renderCards();
@@ -1574,7 +1705,55 @@ renderCards = function() {
       btn.addEventListener('click', e => {
         e.stopPropagation();
         expandedPointId = null;
+        editingPointId = null;
         renderCards();
+      });
+    });
+    card.querySelectorAll('[data-edit-point]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        editingPointId = p.id;
+        renderCards();
+      });
+    });
+    card.querySelectorAll('[data-inline-cancel]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        editingPointId = null;
+        renderCards();
+      });
+    });
+    card.querySelectorAll('[data-inline-save]').forEach(btn => {
+      btn.addEventListener('click', async e => {
+        e.stopPropagation();
+        btn.disabled = true;
+        btn.textContent = 'Enregistrement...';
+        try {
+          await saveInlinePoint(p.id, card);
+        } catch (err) {
+          alert('Erreur : ' + err.message);
+          btn.disabled = false;
+          btn.textContent = 'Enregistrer';
+        }
+      });
+    });
+    card.querySelectorAll('[data-inline-add-actor]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const container = card.querySelector('[data-inline-actors]');
+        if (!container) return;
+        const empty = container.querySelector('.exchange-empty');
+        if (empty) empty.remove();
+        const rows = container.querySelectorAll('.inline-actor-row').length;
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = inlineActorRowHtml({}, rows);
+        container.appendChild(wrapper.firstElementChild);
+      });
+    });
+    card.querySelectorAll('[data-inline-remove-actor]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        btn.closest('.inline-actor-row')?.remove();
       });
     });
     if (manualSortEnabled) {
