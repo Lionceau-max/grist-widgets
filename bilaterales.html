@@ -749,17 +749,17 @@ function renderInlineEchangesEditor(items) {
   `;
 }
 function collectInlineEchanges(card) {
-  return [...card.querySelectorAll('.inline-exchange-row')].map(row => {
-    const raw = row.querySelector('[data-inline-exchange="raw"]').value.trim();
+  return [...card.querySelectorAll('[data-inline-echanges] .inline-exchange-row')].map(row => {
+    const raw = (row.querySelector('[data-inline-exchange="raw"]')?.value || '').trim();
     const parsed = parseOutlookMailText(raw);
     return {
-      type: row.querySelector('[data-inline-exchange="type"]').value.trim(),
-      date: row.querySelector('[data-inline-exchange="date"]').value.trim() || (parsed?.date || ''),
-      from: row.querySelector('[data-inline-exchange="from"]').value.trim() || (parsed?.from || ''),
-      to: row.querySelector('[data-inline-exchange="to"]').value.trim() || (parsed?.to || ''),
-      cc: row.querySelector('[data-inline-exchange="cc"]').value.trim() || (parsed?.cc || ''),
-      subject: row.querySelector('[data-inline-exchange="subject"]').value.trim() || (parsed?.subject || ''),
-      summary: row.querySelector('[data-inline-exchange="summary"]').value.trim(),
+      type: ((row.querySelector('[data-inline-exchange="type"]')?.value) || 'mail').trim(),
+      date: ((row.querySelector('[data-inline-exchange="date"]')?.value) || '').trim() || (parsed?.date || ''),
+      from: ((row.querySelector('[data-inline-exchange="from"]')?.value) || '').trim() || (parsed?.from || ''),
+      to: ((row.querySelector('[data-inline-exchange="to"]')?.value) || '').trim() || (parsed?.to || ''),
+      cc: ((row.querySelector('[data-inline-exchange="cc"]')?.value) || '').trim() || (parsed?.cc || ''),
+      subject: ((row.querySelector('[data-inline-exchange="subject"]')?.value) || '').trim() || (parsed?.subject || ''),
+      summary: ((row.querySelector('[data-inline-exchange="summary"]')?.value) || '').trim(),
       body: parsed?.body || '',
       raw,
     };
@@ -826,9 +826,9 @@ function renderInlineActorsEditor(actors) {
   `;
 }
 function collectInlineActors(card) {
-  return [...card.querySelectorAll('.inline-actor-row')].map(row => ({
-    nom: row.querySelector('[data-inline-actor="nom"]').value.trim(),
-    description: row.querySelector('[data-inline-actor="description"]').value.trim(),
+  return [...card.querySelectorAll('[data-inline-actors] .inline-actor-row')].map(row => ({
+    nom: ((row.querySelector('[data-inline-actor="nom"]')?.value) || '').trim(),
+    description: ((row.querySelector('[data-inline-actor="description"]')?.value) || '').trim(),
   })).filter(actor => actor.nom || actor.description);
 }
 function renderExpandedCardEditor(point) {
