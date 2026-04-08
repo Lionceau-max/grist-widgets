@@ -103,9 +103,9 @@
   .dot-valide   { background:var(--green); }
   .dot-refuse   { background:var(--red); }
   .dot-reporte  { background:var(--amber); }
-  .sujet-body { flex:1; }
-.sujet-desc { font-size:13px; color:var(--text); line-height:1.4; white-space:pre-wrap; }
-  .sujet-meta { font-size:11px; color:var(--text-xs); margin-top:3px; display:flex; gap:8px; }
+  .sujet-body { flex:1; min-width:0; }
+  .sujet-desc { font-size:13px; color:var(--text); line-height:1.4; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .sujet-meta { font-size:11px; color:var(--text-xs); margin-top:3px; display:flex; gap:8px; flex-wrap:wrap; }
   .sujet-actions { display:flex; gap:6px; flex-shrink:0; }
   .sujet-btn { padding:3px 8px; border-radius:4px; font-size:11px; font-weight:600; cursor:pointer; border:1px solid var(--border); background:#fff; color:var(--text-sm); }
   .sujet-btn:hover { background:var(--gray-lt); }
