@@ -145,6 +145,40 @@
   .card-expand:hover { text-decoration:underline; }
   .card-action { font-size:12px; color:var(--blue); }
   .card-action::before { content:'→ '; font-weight:700; }
+  .card-meta { display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-size:11px; color:var(--text-xs); }
+  .card-actors-inline { font-size:12px; color:var(--text-sm); }
+  .card-last-exchange {
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-sm);
+    line-height: 1.45;
+  }
+  .card-last-exchange strong { display:block; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-xs); margin-bottom:3px; }
+  .point-card.expanded { grid-column: 1 / -1; cursor: default; }
+  .point-card.expanded:hover { transform:none; }
+  .card-expanded { display:flex; flex-direction:column; gap:16px; padding-top:4px; }
+  .card-section { display:flex; flex-direction:column; gap:8px; }
+  .card-section-title { font-size:11px; font-weight:700; color:var(--text-xs); text-transform:uppercase; letter-spacing:.05em; }
+  .card-action-main { padding: 12px 14px; border-radius: 10px; background: var(--blue-lt); color: var(--blue); font-size: 14px; font-weight: 600; line-height: 1.5; }
+  .card-actors-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; }
+  .exchange-timeline { display:flex; flex-wrap:wrap; gap:8px; }
+  .exchange-chip { border: 1px solid var(--border); border-radius: 999px; background: #fff; color: var(--text-sm); padding: 7px 10px; font-size: 12px; cursor: pointer; }
+  .exchange-chip:hover { border-color: var(--blue); color: var(--blue); }
+  .exchange-chip.active { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .exchange-detail { border: 1px solid var(--border); border-radius: 10px; background: #fff; padding: 12px 14px; display:flex; flex-direction:column; gap:8px; }
+  .exchange-detail-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:8px 12px; font-size:12px; color:var(--text-sm); }
+  .exchange-detail-line strong { color:var(--text-xs); text-transform:uppercase; letter-spacing:.04em; font-size:10px; display:block; margin-bottom:2px; }
+  .exchange-detail-body { white-space: pre-wrap; font-size: 12px; color: var(--text-sm); line-height: 1.55; }
+  .card-secondary details { border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 10px 12px; }
+  .card-secondary summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text-sm); }
+  .card-secondary-body { margin-top: 10px; font-size: 12px; color: var(--text-sm); line-height: 1.55; }
+  .card-actions-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
+  .btn-inline { padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: #fff; color: var(--text-sm); cursor: pointer; font-size: 12px; }
+  .btn-inline:hover { background: var(--gray-lt); border-color: var(--blue); color: var(--blue); }
+  .exchange-empty { font-size: 12px; color: var(--text-xs); padding: 10px 12px; border: 1px dashed var(--border); border-radius: 8px; background: #fff; }
   .card-actors { display:flex; flex-direction:column; gap:6px; }
   .card-actor {
     border: 1px solid var(--border);
@@ -479,6 +513,8 @@ let sidebarSearchQ='', sidebarSort='date'; // 'date' or 'ben'
 let dragPointId=null;
 let contentViewMode='points';
 let actorStatusFilter='';
+let expandedPointId=null;
+let selectedExchangeIndexByPoint={};
 
 // ── Helpers ──
 const badgeClass = s => ({'En cours':'ec','Bloqué':'bl','Résolu':'rs','À surveiller':'sv','Action requise':'ar','En attente':'att'}[s]||'ec');
@@ -531,6 +567,103 @@ function stringifyActors(actors) {
     .filter(actor => actor.nom || actor.position || actor.action || actor.mail);
   return cleaned.length ? JSON.stringify(cleaned) : '';
 }
+function parseOutlookMailText(text) {
+  const raw = String(text || '').replace(/\r/g, '').trim();
+  if (!raw) return null;
+  const lines = raw.split('\n');
+  const data = { type:'mail', date:'', from:'', to:'', cc:'', subject:'', body:'', raw };
+  let bodyStart = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    const normalized = line.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const match = normalized.match(/^(De|From|Envoye|Envoye le|Sent|A|To|Cc|Objet|Subject)\s*:\s*(.+)$/i);
+    if (!match) {
+      if (bodyStart === -1 && line) bodyStart = i;
+      continue;
+    }
+    const key = match[1].toLowerCase();
+    const value = line.slice(line.indexOf(':') + 1).trim();
+    if (key === 'de' || key === 'from') data.from = value;
+    if (key === 'a' || key === 'to') data.to = value;
+    if (key === 'cc') data.cc = value;
+    if (key === 'objet' || key === 'subject') data.subject = value;
+    if (key === 'envoye' || key === 'envoye le' || key === 'sent') data.date = value;
+  }
+  if (bodyStart >= 0) {
+    data.body = lines.slice(bodyStart).join('\n').trim();
+  }
+  if (!(data.from || data.to || data.subject || data.body)) return null;
+  return data;
+}
+function parseEchanges(raw) {
+  if (!raw) return [];
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(item => ({
+      type: String(item.type || 'mail').trim() || 'mail',
+      date: String(item.date || '').trim(),
+      from: String(item.from || item.de || '').trim(),
+      to: String(item.to || item.a || '').trim(),
+      cc: String(item.cc || '').trim(),
+      subject: String(item.subject || item.objet || '').trim(),
+      summary: String(item.summary || item.resume || '').trim(),
+      body: String(item.body || item.extrait || '').trim(),
+      raw: String(item.raw || item.preuve || '').trim(),
+    })).filter(item => item.date || item.from || item.to || item.subject || item.body || item.raw);
+  } catch (err) {
+    console.warn('Echanges_json invalide', err);
+    return [];
+  }
+}
+function actorMailToExchange(actor) {
+  const mail = String(actor.mail || '').trim();
+  if (!mail) return null;
+  const parsed = parseOutlookMailText(mail);
+  if (parsed) {
+    return {
+      ...parsed,
+      summary: actor.nom ? `Trace ${actor.nom}` : '',
+      actor: actor.nom || '',
+    };
+  }
+  return {
+    type: 'trace',
+    date: '',
+    from: actor.nom || '',
+    to: actor.attente || '',
+    cc: '',
+    subject: actor.action || '',
+    summary: actor.nom ? `Trace ${actor.nom}` : 'Trace',
+    body: mail.slice(0, 500),
+    raw: mail,
+    actor: actor.nom || '',
+  };
+}
+function getPointEchanges(point) {
+  const structured = parseEchanges(point.Echanges_json || '');
+  if (structured.length) return structured;
+  return point.Acteurs.map(actorMailToExchange).filter(Boolean);
+}
+function exchangeLabel(item) {
+  if (item.type === 'appel') return 'Appel';
+  if (item.type === 'reunion') return 'Reunion';
+  if (item.type === 'trace') return 'Trace';
+  return 'Mail';
+}
+function exchangeDateLabel(item) {
+  return item.date || 'Sans date';
+}
+function exchangeShortLine(item) {
+  const route = [item.from, item.to].filter(Boolean).join(' -> ');
+  return route || item.subject || item.summary || 'Sans detail';
+}
+function actorListLabel(actors) {
+  const names = actors.map(actor => actor.nom).filter(Boolean);
+  if (!names.length) return 'Aucun acteur';
+  if (names.length <= 2) return names.join(', ');
+  return `${names.slice(0, 2).join(', ')} +${names.length - 2}`;
+}
 function renderActorSummary(actor) {
   const lines = [];
   if (actor.position) lines.push(`<div class="card-actor-line"><strong>Position :</strong> ${safeText(actor.position)}</div>`);
@@ -574,6 +707,9 @@ async function ensurePointSchema() {
   const actions = [];
   if (table.Acteurs_json === undefined) {
     actions.push(['AddColumn', 'Points_bilaterales', 'Acteurs_json', {type: 'Text', label: 'Acteurs'}]);
+  }
+  if (table.Echanges_json === undefined) {
+    actions.push(['AddColumn', 'Points_bilaterales', 'Echanges_json', {type: 'Text', label: 'Echanges'}]);
   }
   if (table.Ordre === undefined) {
     actions.push(['AddColumn', 'Points_bilaterales', 'Ordre', {type: 'Numeric', label: 'Ordre'}]);
@@ -625,6 +761,7 @@ async function loadData() {
     Description:pT.Description[i], Reference_site:pT.Reference_site[i],
     Statut:pT.Statut[i], Action_suivante:pT.Action_suivante[i], Sujet_PQP:refInt(pT.Sujet_PQP[i]),
     Acteurs_json:pT.Acteurs_json ? pT.Acteurs_json[i] : '',
+    Echanges_json:pT.Echanges_json ? pT.Echanges_json[i] : '',
     Acteurs:parseActors(pT.Acteurs_json ? pT.Acteurs_json[i] : ''),
     Ordre:pT.Ordre && pT.Ordre[i] !== null && pT.Ordre[i] !== '' ? Number(pT.Ordre[i]) : NaN,
   }));
@@ -640,6 +777,7 @@ async function loadData() {
       Description:refreshed.Description[i], Reference_site:refreshed.Reference_site[i],
       Statut:refreshed.Statut[i], Action_suivante:refreshed.Action_suivante[i], Sujet_PQP:refInt(refreshed.Sujet_PQP[i]),
       Acteurs_json:refreshed.Acteurs_json ? refreshed.Acteurs_json[i] : '',
+      Echanges_json:refreshed.Echanges_json ? refreshed.Echanges_json[i] : '',
       Acteurs:parseActors(refreshed.Acteurs_json ? refreshed.Acteurs_json[i] : ''),
       Ordre:refreshed.Ordre && refreshed.Ordre[i] !== null && refreshed.Ordre[i] !== '' ? Number(refreshed.Ordre[i]) : NaN,
     }));
@@ -848,7 +986,7 @@ function makeBilatItem(b) {
 
 // ── Select bilatérale ──
 function selectBilat(id) {
-  selectedBilatId=id; filterStatut='all'; searchQ='';
+  selectedBilatId=id; filterStatut='all'; searchQ=''; expandedPointId=null; selectedExchangeIndexByPoint={};
   document.getElementById('search-box').value='';
   document.getElementById('btn-view-mode').textContent = contentViewMode === 'actors' ? 'Vue point' : 'Vue acteur';
   document.getElementById('actor-status-filter').style.display = contentViewMode === 'actors' ? '' : 'none';
@@ -1170,6 +1308,73 @@ function renderActorView() {
   });
 }
 
+function renderExchangeDetail(pointId, echanges) {
+  if (!echanges.length) return '<div class="exchange-empty">Aucun echange consigne pour ce point.</div>';
+  const selectedIndex = Math.min(selectedExchangeIndexByPoint[pointId] || 0, echanges.length - 1);
+  const selected = echanges[selectedIndex];
+  return `
+    <div class="exchange-timeline">
+      ${echanges.map((item, index) => `
+        <button type="button" class="exchange-chip${index === selectedIndex ? ' active' : ''}" data-point-id="${pointId}" data-exchange-index="${index}">
+          ${exchangeLabel(item)} ${safeText(exchangeDateLabel(item))}
+        </button>
+      `).join('')}
+    </div>
+    <div class="exchange-detail">
+      <div class="exchange-detail-grid">
+        <div class="exchange-detail-line"><strong>Date</strong>${safeText(exchangeDateLabel(selected))}</div>
+        <div class="exchange-detail-line"><strong>Type</strong>${safeText(exchangeLabel(selected))}</div>
+        <div class="exchange-detail-line"><strong>De</strong>${safeText(selected.from || '—')}</div>
+        <div class="exchange-detail-line"><strong>A</strong>${safeText(selected.to || '—')}</div>
+        ${selected.cc ? `<div class="exchange-detail-line"><strong>Cc</strong>${safeText(selected.cc)}</div>` : ''}
+        ${(selected.subject || selected.summary) ? `<div class="exchange-detail-line"><strong>Objet</strong>${safeText(selected.subject || selected.summary)}</div>` : ''}
+      </div>
+      ${(selected.summary && selected.summary !== selected.subject) ? `<div class="exchange-detail-line"><strong>Resume</strong>${safeText(selected.summary)}</div>` : ''}
+      ${(selected.body || selected.raw) ? `<div class="exchange-detail-body">${safeText(selected.body || selected.raw)}</div>` : ''}
+    </div>
+  `;
+}
+
+function renderExpandedCard(point) {
+  const echanges = getPointEchanges(point);
+  const actorsHtml = point.Acteurs.length
+    ? `<div class="card-actors-grid">${point.Acteurs.map(renderActorSummary).join('')}</div>`
+    : '<div class="exchange-empty">Aucun acteur consigne pour ce point.</div>';
+  return `
+    <div class="card-expanded">
+      <div class="card-section">
+        <div class="card-section-title">Prochaine action</div>
+        <div class="card-action-main">${safeText(point.Action_suivante || 'Aucune action definie')}</div>
+      </div>
+      <div class="card-section">
+        <div class="card-section-title">Acteurs</div>
+        ${actorsHtml}
+      </div>
+      <div class="card-section">
+        <div class="card-section-title">Echanges</div>
+        ${renderExchangeDetail(point.id, echanges)}
+      </div>
+      <div class="card-secondary">
+        <details>
+          <summary>Infos secondaires</summary>
+          <div class="card-secondary-body">
+            ${point.Reference_site ? `<div><strong>Reference</strong> ${safeText(point.Reference_site)}</div>` : ''}
+            ${point.Description ? `<div style="margin-top:${point.Reference_site ? '8px' : '0'}">${safeText(point.Description)}</div>` : '<div>Aucune information complementaire.</div>'}
+          </div>
+        </details>
+      </div>
+      <div class="card-actions-row">
+        <button type="button" class="btn-inline" data-collapse-point="${point.id}">Refermer</button>
+        <div class="card-footer" style="border-top:none;margin-top:0;padding-top:0">
+          <select class="quick-status" data-id="${point.id}">
+            ${STATUTS.map(s=>`<option${s===point.Statut?' selected':''}>${s}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function renderCards() {
   if (contentViewMode === 'actors') {
     renderActorView();
@@ -1271,6 +1476,135 @@ function renderCards() {
 }
 
 // ── Panel ──
+renderCards = function() {
+  if (contentViewMode === 'actors') {
+    renderActorView();
+    return;
+  }
+  const content = document.getElementById('content');
+  content.innerHTML = '';
+  let pts = pointsAll.filter(p => p.Bilaterale === selectedBilatId);
+  if (filterStatut !== 'all') pts = pts.filter(p => p.Statut === filterStatut);
+  if (searchQ) {
+    const q = searchQ.toLowerCase();
+    pts = pts.filter(p =>
+      (p.Titre || '').toLowerCase().includes(q) ||
+      (p.Description || '').toLowerCase().includes(q) ||
+      (p.Reference_site || '').toLowerCase().includes(q) ||
+      (p.Action_suivante || '').toLowerCase().includes(q) ||
+      p.Acteurs.some(actor => [actor.nom, actor.position, actor.action, actor.attente, actor.mail].join(' ').toLowerCase().includes(q)) ||
+      getPointEchanges(p).some(item => [item.from, item.to, item.cc, item.subject, item.body, item.raw].join(' ').toLowerCase().includes(q))
+    );
+  }
+  if (!pts.length) {
+    content.innerHTML = '<div id="empty-state"><div class="icon">📭</div><div>Aucun point trouve</div></div>';
+    return;
+  }
+  pts = sortPointsForDisplay(pts);
+  const manualSortEnabled = canManualSortCurrentView();
+  if (!manualSortEnabled) {
+    const hint = document.createElement('div');
+    hint.className = 'sort-hint';
+    hint.textContent = 'Le glisse-depose est disponible sans filtre ni recherche active.';
+    content.appendChild(hint);
+  }
+
+  pts.forEach(p => {
+    const age = getAnciennete(p);
+    const ageBadge = age >= 2 ? `<span class="badge-age${age >= 3 ? ' old' : ''}" title="${age} bilaterales">⏱ ${age} reunions</span>` : '';
+    const echanges = getPointEchanges(p);
+    const latestExchange = echanges[0] || null;
+    const exchangeCount = echanges.length ? `<span class="badge badge-age">${echanges.length} echange${echanges.length > 1 ? 's' : ''}</span>` : '';
+    const latestExchangeHtml = latestExchange ? `
+      <div class="card-last-exchange">
+        <strong>Dernier echange</strong>
+        <div>${safeText(exchangeDateLabel(latestExchange))}</div>
+        <div>${safeText(exchangeShortLine(latestExchange))}</div>
+      </div>
+    ` : '';
+    const expanded = expandedPointId === p.id;
+    const card = document.createElement('div');
+    card.className = 'point-card' + (p.id === selectedPointId ? ' active' : '') + (expanded ? ' expanded' : '');
+    card.dataset.statut = p.Statut || '';
+    card.dataset.id = p.id;
+    card.draggable = manualSortEnabled && !expanded;
+    card.innerHTML = `
+      <div class="card-top">
+        <div class="drag-handle${manualSortEnabled ? '' : ' disabled'}" title="${manualSortEnabled ? 'Glisser pour reordonner' : 'Desactive avec filtre/recherche'}">⋮⋮</div>
+        <div class="card-titre">${safeText(p.Titre || '(Sans titre)')}</div>
+        <div class="card-badges">${ageBadge}${exchangeCount}<span class="badge badge-${badgeClass(p.Statut)}">${safeText(p.Statut || '—')}</span></div>
+      </div>
+      <div class="card-meta">
+        ${p.Reference_site ? `<span class="card-ref">${safeText(p.Reference_site)}</span>` : ''}
+        <span class="card-actors-inline">${safeText(actorListLabel(p.Acteurs))}</span>
+      </div>
+      ${p.Action_suivante ? `<div class="card-action">${safeText(p.Action_suivante)}</div>` : ''}
+      ${latestExchangeHtml}
+      ${expanded ? renderExpandedCard(p) : ''}
+    `;
+    card.addEventListener('click', e => {
+      if (e.target.closest('.quick-status') || e.target.closest('.exchange-chip') || e.target.closest('[data-collapse-point]')) return;
+      expandedPointId = expanded ? null : p.id;
+      if (!(p.id in selectedExchangeIndexByPoint)) selectedExchangeIndexByPoint[p.id] = 0;
+      renderCards();
+    });
+    card.querySelectorAll('.quick-status').forEach(select => {
+      select.addEventListener('change', async function(e) {
+        e.stopPropagation();
+        const newStatut = this.value;
+        this.disabled = true;
+        try {
+          await grist.docApi.applyUserActions([['UpdateRecord', 'Points_bilaterales', p.id, {Statut: newStatut}]]);
+          await loadData();
+          selectBilat(selectedBilatId);
+        } catch (err) {
+          alert('Erreur : ' + err.message);
+          this.disabled = false;
+        }
+      });
+    });
+    card.querySelectorAll('.exchange-chip').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        selectedExchangeIndexByPoint[p.id] = Number(btn.dataset.exchangeIndex) || 0;
+        renderCards();
+      });
+    });
+    card.querySelectorAll('[data-collapse-point]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        expandedPointId = null;
+        renderCards();
+      });
+    });
+    if (manualSortEnabled) {
+      card.addEventListener('dragstart', e => {
+        dragPointId = p.id;
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(p.id));
+      });
+      card.addEventListener('dragend', () => {
+        dragPointId = null;
+        card.classList.remove('dragging');
+        document.querySelectorAll('.point-card.drop-target').forEach(el => el.classList.remove('drop-target'));
+      });
+      card.addEventListener('dragover', e => {
+        e.preventDefault();
+        if (dragPointId && dragPointId !== p.id) card.classList.add('drop-target');
+      });
+      card.addEventListener('dragleave', () => card.classList.remove('drop-target'));
+      card.addEventListener('drop', async e => {
+        e.preventDefault();
+        card.classList.remove('drop-target');
+        if (!dragPointId || dragPointId === p.id) return;
+        await reorderPoints(dragPointId, p.id);
+      });
+    }
+    content.appendChild(card);
+  });
+};
+
 function openPanel(pointId) {
   isNewPoint=false; selectedPointId=pointId;
   const p=pointsAll.find(p=>p.id===pointId); if(!p) return;
