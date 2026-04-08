@@ -765,6 +765,39 @@ function collectInlineEchanges(card) {
     };
   }).filter(item => item.date || item.from || item.to || item.cc || item.subject || item.summary || item.body || item.raw);
 }
+function applyParsedExchangeToRow(row) {
+  if (!row) return;
+  const rawField = row.querySelector('[data-inline-exchange="raw"]');
+  if (!rawField) return;
+  const parsed = parseOutlookMailText(rawField.value);
+  if (!parsed) return;
+  const setIfEmpty = (key, value) => {
+    if (!value) return;
+    const field = row.querySelector(`[data-inline-exchange="${key}"]`);
+    if (field && !field.value.trim()) field.value = value;
+  };
+  setIfEmpty('date', parsed.date);
+  setIfEmpty('from', parsed.from);
+  setIfEmpty('to', parsed.to);
+  setIfEmpty('cc', parsed.cc);
+  setIfEmpty('subject', parsed.subject);
+  const summaryField = row.querySelector('[data-inline-exchange="summary"]');
+  if (summaryField && !summaryField.value.trim() && parsed.body) {
+    summaryField.value = parsed.body.split('\n').filter(Boolean).slice(0, 2).join(' ').slice(0, 280);
+  }
+}
+function bindInlineExchangeRowEvents(scope) {
+  scope.querySelectorAll('.inline-exchange-row').forEach(row => {
+    const rawField = row.querySelector('[data-inline-exchange="raw"]');
+    if (!rawField || rawField.dataset.autoparseBound === '1') return;
+    rawField.dataset.autoparseBound = '1';
+    rawField.addEventListener('paste', () => {
+      setTimeout(() => applyParsedExchangeToRow(row), 0);
+    });
+    rawField.addEventListener('change', () => applyParsedExchangeToRow(row));
+    rawField.addEventListener('blur', () => applyParsedExchangeToRow(row));
+  });
+}
 function inlineActorRowHtml(actor = {}, index = 0) {
   return `
     <div class="inline-actor-row" data-index="${index}">
@@ -1745,7 +1778,11 @@ renderCards = function() {
         const rows = container.querySelectorAll('.inline-exchange-row').length;
         const wrapper = document.createElement('div');
         wrapper.innerHTML = inlineExchangeRowHtml({}, rows);
-        container.appendChild(wrapper.firstElementChild);
+        const newRow = wrapper.firstElementChild;
+        container.appendChild(newRow);
+        bindInlineExchangeRowEvents(card);
+        const rawField = newRow.querySelector('[data-inline-exchange="raw"]');
+        if (rawField) rawField.focus();
       });
     });
     card.querySelectorAll('[data-inline-remove-exchange]').forEach(btn => {
@@ -1754,6 +1791,7 @@ renderCards = function() {
         btn.closest('.inline-exchange-row')?.remove();
       });
     });
+    bindInlineExchangeRowEvents(card);
     if (manualSortEnabled) {
       card.addEventListener('dragstart', e => {
         dragPointId = p.id;
