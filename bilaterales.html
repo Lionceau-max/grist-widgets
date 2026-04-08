@@ -147,16 +147,20 @@
   .card-action::before { content:'→ '; font-weight:700; }
   .card-meta { display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-size:11px; color:var(--text-xs); }
   .card-actors-inline { font-size:12px; color:var(--text-sm); }
-  .card-last-exchange {
-    padding: 8px 10px;
-    border-radius: 8px;
+  .card-inline-list { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .card-inline-chip {
+    display:inline-flex;
+    align-items:center;
+    padding: 4px 9px;
+    border-radius: 999px;
     background: #f8fafc;
     border: 1px solid var(--border);
-    font-size: 12px;
     color: var(--text-sm);
-    line-height: 1.45;
+    font-size: 11px;
+    line-height: 1.2;
   }
-  .card-last-exchange strong { display:block; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-xs); margin-bottom:3px; }
+  .card-inline-chip.mail { background: #fff; }
+  .card-inline-label { font-size:11px; color:var(--text-xs); min-width:52px; }
   .point-card.expanded { grid-column: 1 / -1; cursor: default; }
   .point-card.expanded:hover { transform:none; }
   .card-expanded { display:flex; flex-direction:column; gap:16px; padding-top:4px; }
@@ -722,6 +726,27 @@ function actorListLabel(actors) {
   if (!names.length) return 'Aucun acteur';
   if (names.length <= 2) return names.join(', ');
   return `${names.slice(0, 2).join(', ')} +${names.length - 2}`;
+}
+function actorTooltip(actor) {
+  return actor.description || actor.nom || 'Acteur';
+}
+function exchangeTooltip(item) {
+  return [
+    item.date ? `Date : ${item.date}` : '',
+    item.from ? `De : ${item.from}` : '',
+    item.to ? `A : ${item.to}` : '',
+    item.cc ? `Cc : ${item.cc}` : '',
+    item.subject ? `Objet : ${item.subject}` : '',
+    item.summary || item.body || item.raw || '',
+  ].filter(Boolean).join('\n');
+}
+function renderClosedActorList(actors) {
+  if (!actors.length) return '<span class="card-inline-chip">Aucun acteur</span>';
+  return actors.map(actor => `<span class="card-inline-chip" title="${safeText(actorTooltip(actor))}">${safeText(actor.nom || 'Acteur')}</span>`).join('');
+}
+function renderClosedExchangeList(echanges) {
+  if (!echanges.length) return '<span class="card-inline-chip mail">Aucun mail</span>';
+  return echanges.map(item => `<span class="card-inline-chip mail" title="${safeText(exchangeTooltip(item))}">${safeText(exchangeDateLabel(item))}</span>`).join('');
 }
 function inlineExchangeRowHtml(item = {}, index = 0) {
   return `
@@ -1693,15 +1718,9 @@ renderCards = function() {
     const age = getAnciennete(p);
     const ageBadge = age >= 2 ? `<span class="badge-age${age >= 3 ? ' old' : ''}" title="${age} bilaterales">⏱ ${age} reunions</span>` : '';
     const echanges = getPointEchanges(p);
-    const latestExchange = echanges[0] || null;
     const exchangeCount = echanges.length ? `<span class="badge badge-age">${echanges.length} echange${echanges.length > 1 ? 's' : ''}</span>` : '';
-    const latestExchangeHtml = latestExchange ? `
-      <div class="card-last-exchange">
-        <strong>Dernier echange</strong>
-        <div>${safeText(exchangeDateLabel(latestExchange))}</div>
-        <div>${safeText(exchangeShortLine(latestExchange))}</div>
-      </div>
-    ` : '';
+    const closedActorsHtml = renderClosedActorList(p.Acteurs);
+    const closedMailsHtml = renderClosedExchangeList(echanges);
     const expanded = expandedPointId === p.id;
     const card = document.createElement('div');
     card.className = 'point-card' + (p.id === selectedPointId ? ' active' : '') + (expanded ? ' expanded' : '');
@@ -1719,7 +1738,14 @@ renderCards = function() {
         <span class="card-actors-inline">${safeText(actorListLabel(p.Acteurs))}</span>
       </div>
       ${p.Action_suivante ? `<div class="card-action">${safeText(p.Action_suivante)}</div>` : ''}
-      ${latestExchangeHtml}
+      <div class="card-meta">
+        <span class="card-inline-label">Acteurs</span>
+        <div class="card-inline-list">${closedActorsHtml}</div>
+      </div>
+      <div class="card-meta">
+        <span class="card-inline-label">Mails</span>
+        <div class="card-inline-list">${closedMailsHtml}</div>
+      </div>
       ${expanded ? renderExpandedCard(p) : ''}
     `;
     card.addEventListener('click', e => {
