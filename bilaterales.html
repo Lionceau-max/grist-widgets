@@ -511,8 +511,14 @@ function parseActors(raw) {
         statut: String(actor.statut || 'À faire').trim() || 'À faire',
         attente: String(actor.attente || actor.en_attente_de || '').trim(),
         mail: String(actor.mail || actor.piece || actor.trace || '').trim(),
+        mail_from: String(actor.mail_from || actor.expediteur || actor.from || '').trim(),
+        mail_to: String(actor.mail_to || actor.destinataire || actor.to || '').trim(),
+        mail_cc: String(actor.mail_cc || actor.cc || '').trim(),
+        mail_sent: String(actor.mail_sent || actor.envoye || actor.sent || '').trim(),
+        mail_subject: String(actor.mail_subject || actor.objet || actor.subject || '').trim(),
+        mail_body: String(actor.mail_body || actor.corps || actor.body || '').trim(),
       }))
-      .filter(actor => actor.nom || actor.position || actor.action || actor.mail);
+      .filter(actor => actor.nom || actor.position || actor.action || actor.mail || actor.mail_from || actor.mail_to || actor.mail_body);
   } catch (err) {
     console.warn('Acteurs_json invalide', err);
     return [];
@@ -527,14 +533,24 @@ function stringifyActors(actors) {
       statut: String(actor.statut || 'À faire').trim() || 'À faire',
       attente: String(actor.attente || '').trim(),
       mail: String(actor.mail || '').trim(),
+      mail_from: String(actor.mail_from || '').trim(),
+      mail_to: String(actor.mail_to || '').trim(),
+      mail_cc: String(actor.mail_cc || '').trim(),
+      mail_sent: String(actor.mail_sent || '').trim(),
+      mail_subject: String(actor.mail_subject || '').trim(),
+      mail_body: String(actor.mail_body || '').trim(),
     }))
-    .filter(actor => actor.nom || actor.position || actor.action || actor.mail);
+    .filter(actor => actor.nom || actor.position || actor.action || actor.mail || actor.mail_from || actor.mail_to || actor.mail_body);
   return cleaned.length ? JSON.stringify(cleaned) : '';
 }
 function renderActorSummary(actor) {
   const lines = [];
   if (actor.position) lines.push(`<div class="card-actor-line"><strong>Position :</strong> ${safeText(actor.position)}</div>`);
   if (actor.action) lines.push(`<div class="card-actor-line"><strong>Action :</strong> ${safeText(actor.action)}</div>`);
+  if (actor.mail_from) lines.push(`<div class="card-actor-line"><strong>Expediteur :</strong> ${safeText(actor.mail_from)}</div>`);
+  if (actor.mail_to) lines.push(`<div class="card-actor-line"><strong>Destinataire :</strong> ${safeText(actor.mail_to)}</div>`);
+  if (actor.mail_sent) lines.push(`<div class="card-actor-line"><strong>Envoye :</strong> ${safeText(actor.mail_sent)}</div>`);
+  if (actor.mail_subject) lines.push(`<div class="card-actor-line"><strong>Objet :</strong> ${safeText(actor.mail_subject)}</div>`);
   const meta = [];
   if (actor.statut) meta.push(`<span class="badge ${actor.statut === 'En attente' ? 'badge-att' : actor.statut === 'Fait' ? 'badge-rs' : 'badge-ar'}">${safeText(actor.statut)}</span>`);
   if (actor.attente) meta.push(`<span class="badge badge-sv">Attente: ${safeText(actor.attente)}</span>`);
@@ -964,6 +980,14 @@ function bindActorEditorEvents() {
     input.addEventListener('input', markDirty);
     input.addEventListener('change', markDirty);
   });
+  container.querySelectorAll('[data-key="mail"]').forEach(input => {
+    input.addEventListener('paste', async e => {
+      const text = e.clipboardData && e.clipboardData.getData('text/plain');
+      if (!text || !text.trim()) return;
+      e.preventDefault();
+      await appendMailTextToActorRow(input.closest('.actor-row'), text);
+    });
+  });
   container.querySelectorAll('.btn-remove-actor').forEach(btn => {
     btn.addEventListener('click', () => {
       btn.closest('.actor-row').remove();
@@ -1030,14 +1054,116 @@ function addActorRow(actor = {}) {
 }
 
 function collectActorsFromEditor() {
-  return [...document.querySelectorAll('#f-acteurs .actor-row')].map(row => ({
-    nom: row.querySelector('[data-key="nom"]').value.trim(),
-    position: row.querySelector('[data-key="position"]').value.trim(),
-    action: row.querySelector('[data-key="action"]').value.trim(),
-    statut: row.querySelector('[data-key="statut"]').value.trim(),
-    attente: row.querySelector('[data-key="attente"]').value.trim(),
-    mail: row.querySelector('[data-key="mail"]').value.trim(),
-  })).filter(actor => actor.nom || actor.position || actor.action || actor.mail);
+  return [...document.querySelectorAll('#f-acteurs .actor-row')].map(row => {
+    const actor = {
+      nom: row.querySelector('[data-key="nom"]').value.trim(),
+      position: row.querySelector('[data-key="position"]').value.trim(),
+      action: row.querySelector('[data-key="action"]').value.trim(),
+      statut: row.querySelector('[data-key="statut"]').value.trim(),
+      attente: row.querySelector('[data-key="attente"]').value.trim(),
+      mail: row.querySelector('[data-key="mail"]').value.trim(),
+    };
+    const parsedMail = parseOutlookMailText(actor.mail);
+    if (parsedMail) {
+      actor.mail_from = parsedMail.from || '';
+      actor.mail_to = parsedMail.to || '';
+      actor.mail_cc = parsedMail.cc || '';
+      actor.mail_sent = parsedMail.sent || '';
+      actor.mail_subject = parsedMail.subject || '';
+      actor.mail_body = parsedMail.body || '';
+    }
+    return actor;
+  }).filter(actor => actor.nom || actor.position || actor.action || actor.mail || actor.mail_from || actor.mail_to || actor.mail_body);
+}
+
+function parseOutlookMailText(text) {
+  const normalized = String(text || '').replace(/\r\n/g, '\n').trim();
+  if (!normalized) return null;
+  const lines = normalized.split('\n');
+  const normalizeHeader = value => String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  const headerMap = {
+    de: 'from',
+    from: 'from',
+    envoye: 'sent',
+    sent: 'sent',
+    a: 'to',
+    to: 'to',
+    cc: 'cc',
+    objet: 'subject',
+    subject: 'subject',
+  };
+  const result = {};
+  let bodyStart = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    if (!trimmed) {
+      if (Object.keys(result).length) {
+        bodyStart = i + 1;
+        break;
+      }
+      continue;
+    }
+    const separatorIndex = trimmed.indexOf(':');
+    let matched = false;
+    if (separatorIndex > 0) {
+      const label = normalizeHeader(trimmed.slice(0, separatorIndex).trim());
+      const value = trimmed.slice(separatorIndex + 1).trim();
+      const targetKey = headerMap[label];
+      if (targetKey) {
+        result[targetKey] = value;
+        matched = true;
+      }
+    }
+    if (!matched && Object.keys(result).length) {
+      bodyStart = i;
+      break;
+    }
+  }
+  if (bodyStart >= 0) result.body = lines.slice(bodyStart).join('\n').trim();
+  return result.from || result.to || result.subject || result.sent ? result : null;
+}
+
+function formatParsedMail(parsed) {
+  const parts = [];
+  if (parsed.from) parts.push(`De : ${parsed.from}`);
+  if (parsed.sent) parts.push(`Envoye : ${parsed.sent}`);
+  if (parsed.to) parts.push(`A : ${parsed.to}`);
+  if (parsed.cc) parts.push(`Cc : ${parsed.cc}`);
+  if (parsed.subject) parts.push(`Objet : ${parsed.subject}`);
+  if (parsed.body) parts.push('', parsed.body);
+  return parts.join('\n').trim();
+}
+
+function fillActorRowFromParsedMail(row, parsed, rawText) {
+  if (!row || !parsed) return false;
+  const actorField = row.querySelector('[data-key="nom"]');
+  const waitingField = row.querySelector('[data-key="attente"]');
+  const mailField = row.querySelector('[data-key="mail"]');
+  if (actorField && !actorField.value.trim() && parsed.from) actorField.value = parsed.from;
+  if (waitingField && !waitingField.value.trim() && parsed.to) waitingField.value = parsed.to;
+  if (mailField) {
+    const formatted = formatParsedMail(parsed);
+    mailField.value = [mailField.value.trim(), formatted || rawText.trim()].filter(Boolean).join('\n\n');
+  }
+  markDirty();
+  return true;
+}
+
+async function appendMailTextToActorRow(row, text) {
+  const normalized = String(text || '').trim();
+  if (!normalized) return;
+  const parsed = parseOutlookMailText(normalized);
+  if (parsed) {
+    fillActorRowFromParsedMail(row, parsed, normalized.slice(0, 6000));
+    return;
+  }
+  const mailField = row.querySelector('[data-key="mail"]');
+  if (!mailField) return;
+  mailField.value = [mailField.value.trim(), normalized.slice(0, 4000)].filter(Boolean).join('\n\n');
+  markDirty();
 }
 
 async function appendDroppedContentToActorRow(row, dataTransfer) {
@@ -1049,16 +1175,15 @@ async function appendDroppedContentToActorRow(row, dataTransfer) {
     chunks.push(`[Fichier déposé] ${file.name}${file.size ? ` (${Math.round(file.size/1024)} Ko)` : ''}`);
     if (/^text\//.test(file.type) || /\.(txt|eml|url|md)$/i.test(file.name)) {
       const text = await file.text();
-      if (text.trim()) chunks.push(text.trim().slice(0, 4000));
+      if (text.trim()) chunks.push(text.trim().slice(0, 6000));
     }
   }
   const plain = dataTransfer.getData('text/plain');
-  if (plain && plain.trim()) chunks.push(plain.trim().slice(0, 4000));
+  if (plain && plain.trim()) chunks.push(plain.trim().slice(0, 6000));
   const uri = dataTransfer.getData('text/uri-list');
   if (uri && uri.trim()) chunks.push(uri.trim().slice(0, 2000));
   if (!chunks.length) return;
-  mailField.value = [mailField.value.trim(), chunks.join('\n')].filter(Boolean).join('\n\n');
-  markDirty();
+  await appendMailTextToActorRow(row, chunks.join('\n'));
 }
 
 function actorStatusBadgeClass(status) {
