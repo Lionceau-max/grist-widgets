@@ -462,16 +462,12 @@ const DOT_CLASS = { 'Soumis': 'dot-soumis', 'Validé': 'dot-valide', 'Refusé': 
 
 function renderSujets(items) {
   const list = document.getElementById('sujets-list');
-  const empty = document.getElementById('sujets-empty');
   document.getElementById('sujets-title').textContent = `Sujets (${items.length})`;
 
   if (!items.length) {
-    list.innerHTML = '';
-    list.appendChild(empty);
-    empty.style.display = '';
+    list.innerHTML = '<div id="sujets-empty">Aucun sujet pour cette session.<br>Ajoute le premier avec le bouton ci-dessus.</div>';
     return;
   }
-  empty.style.display = 'none';
   list.innerHTML = '';
 
   const statuts = ['Soumis', 'Validé', 'Refusé', 'Reporté'];
@@ -498,7 +494,6 @@ function renderSujets(items) {
     `;
     list.appendChild(row);
   });
-  list.appendChild(document.getElementById('sujets-empty'));
 }
 
 // ── Quick status ──
