@@ -165,6 +165,36 @@
   .point-card.expanded { grid-column: 1 / -1; cursor: default; }
   .point-card.expanded:hover { transform:none; }
   .card-expanded { display:flex; flex-direction:column; gap:16px; padding-top:4px; }
+  .card-sticky-bar {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    display:flex;
+    gap:10px;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    margin:-2px 0 2px;
+    padding:10px 12px;
+    border:1px solid var(--border);
+    border-radius:10px;
+    background:rgba(255,255,255,.96);
+    backdrop-filter: blur(8px);
+    box-shadow:0 6px 18px rgba(15,23,42,.08);
+  }
+  .card-sticky-info {
+    font-size:11px;
+    font-weight:700;
+    color:var(--text-xs);
+    text-transform:uppercase;
+    letter-spacing:.04em;
+  }
+  .card-sticky-actions {
+    display:flex;
+    gap:8px;
+    align-items:center;
+    flex-wrap:wrap;
+  }
   .card-section { display:flex; flex-direction:column; gap:8px; }
   .card-section-title { font-size:11px; font-weight:700; color:var(--text-xs); text-transform:uppercase; letter-spacing:.05em; }
   .card-action-main { padding: 12px 14px; border-radius: 10px; background: var(--blue-lt); color: var(--blue); font-size: 14px; font-weight: 600; line-height: 1.5; }
@@ -207,6 +237,17 @@
   .card-actions-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
   .btn-inline { padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: #fff; color: var(--text-sm); cursor: pointer; font-size: 12px; }
   .btn-inline:hover { background: var(--gray-lt); border-color: var(--blue); color: var(--blue); }
+  .btn-inline.primary {
+    background: var(--blue);
+    border-color: var(--blue);
+    color:#fff;
+    font-weight:600;
+  }
+  .btn-inline.primary:hover {
+    background:#1d4ed8;
+    border-color:#1d4ed8;
+    color:#fff;
+  }
   .exchange-empty { font-size: 12px; color: var(--text-xs); padding: 10px 12px; border: 1px dashed var(--border); border-radius: 8px; background: #fff; }
   .inline-editor { display:flex; flex-direction:column; gap:14px; }
   .inline-editor-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; }
@@ -1021,6 +1062,13 @@ function collectInlineActors(card) {
 function renderExpandedCardEditor(point) {
   return `
     <div class="card-expanded inline-editor">
+      <div class="card-sticky-bar">
+        <div class="card-sticky-info">Mode edition</div>
+        <div class="card-sticky-actions">
+          <button type="button" class="btn-inline primary" data-inline-save="${point.id}">Enregistrer</button>
+          <button type="button" class="btn-inline" data-inline-cancel="${point.id}">Annuler</button>
+        </div>
+      </div>
       <div class="inline-editor-grid">
         <div class="field-group">
           <label class="field-label">Titre</label>
@@ -1056,7 +1104,7 @@ function renderExpandedCardEditor(point) {
         ${renderInlineEchangesEditor(getPointEchanges(point))}
       </div>
       <div class="inline-editor-actions">
-        <button type="button" class="btn-inline" data-inline-save="${point.id}">Enregistrer</button>
+        <button type="button" class="btn-inline primary" data-inline-save="${point.id}">Enregistrer</button>
         <button type="button" class="btn-inline" data-inline-cancel="${point.id}">Annuler</button>
       </div>
     </div>
@@ -1790,6 +1838,17 @@ function renderExpandedCard(point) {
     : '<div class="exchange-empty">Aucun acteur consigne pour ce point.</div>';
   return `
     <div class="card-expanded">
+      <div class="card-sticky-bar">
+        <div class="card-sticky-info">Actions rapides</div>
+        <div class="card-sticky-actions">
+          <button type="button" class="btn-inline" data-edit-point="${point.id}">Modifier</button>
+          <button type="button" class="btn-inline" data-open-corep="${point.id}">${getCorepSujetForPoint(point) ? 'Mettre a jour COREP' : 'Passer en COREP'}</button>
+          <button type="button" class="btn-inline" data-collapse-point="${point.id}">Refermer</button>
+          <select class="quick-status" data-id="${point.id}">
+            ${STATUTS.map(s=>`<option${s===point.Statut?' selected':''}>${s}</option>`).join('')}
+          </select>
+        </div>
+      </div>
       ${renderCorepBanner(point)}
       <div class="card-section">
         <div class="card-section-title">Prochaine action</div>
@@ -1811,18 +1870,6 @@ function renderExpandedCard(point) {
             ${point.Description ? `<div style="margin-top:${point.Reference_site ? '8px' : '0'}">${safeText(point.Description)}</div>` : '<div>Aucune information complementaire.</div>'}
           </div>
         </details>
-      </div>
-      <div class="card-actions-row">
-        <div class="inline-editor-actions">
-          <button type="button" class="btn-inline" data-edit-point="${point.id}">Modifier</button>
-          <button type="button" class="btn-inline" data-open-corep="${point.id}">${getCorepSujetForPoint(point) ? 'Mettre a jour COREP' : 'Passer en COREP'}</button>
-          <button type="button" class="btn-inline" data-collapse-point="${point.id}">Refermer</button>
-        </div>
-        <div class="card-footer" style="border-top:none;margin-top:0;padding-top:0">
-          <select class="quick-status" data-id="${point.id}">
-            ${STATUTS.map(s=>`<option${s===point.Statut?' selected':''}>${s}</option>`).join('')}
-          </select>
-        </div>
       </div>
     </div>
   `;
