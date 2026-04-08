@@ -104,7 +104,26 @@
   .dot-refuse   { background:var(--red); }
   .dot-reporte  { background:var(--amber); }
   .sujet-body { flex:1; min-width:0; }
-  .sujet-desc { font-size:13px; color:var(--text); line-height:1.4; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .sujet-desc { font-size:13px; color:var(--text); line-height:1.45; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .sujet-desc.collapsed {
+    display:-webkit-box;
+    -webkit-line-clamp:8;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
+    white-space:pre-wrap;
+  }
+  .sujet-toggle {
+    margin-top:8px;
+    padding:0;
+    border:none;
+    background:none;
+    color:var(--blue);
+    font-size:12px;
+    font-weight:600;
+    cursor:pointer;
+    align-self:flex-start;
+  }
+  .sujet-toggle:hover { text-decoration:underline; }
   .sujet-meta { font-size:11px; color:var(--text-xs); margin-top:3px; display:flex; gap:8px; flex-wrap:wrap; }
   .sujet-actions { display:flex; gap:6px; flex-shrink:0; }
   .sujet-btn { padding:3px 8px; border-radius:4px; font-size:11px; font-weight:600; cursor:pointer; border:1px solid var(--border); background:#fff; color:var(--text-sm); }
@@ -258,6 +277,13 @@ function fmtDateShort(ts) {
 function toTs(s) { return s ? Math.floor(new Date(s).getTime() / 1000) : 0; }
 function toInputDate(ts) { return ts ? new Date(ts * 1000).toISOString().slice(0, 10) : ''; }
 function refInt(v) { return typeof v === 'string' ? parseInt(v) || 0 : (v || 0); }
+function escapeHtml(v) {
+  return String(v || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 async function ensureCorepSchema() {
   const actions = [];
   const sessionsTable = await grist.docApi.fetchTable('Corep_Sessions');
@@ -474,13 +500,16 @@ function renderSujets(items) {
   items.forEach(su => {
     const row = document.createElement('div');
     row.className = 'sujet-row';
+    const description = String(su.Description || '(sans description)');
+    const isLong = description.length > 420 || (description.match(/\n/g) || []).length > 8;
     const select = `<select class="sujet-btn" onchange="quickStatusSujet(${su.id}, this.value)" style="font-size:11px;padding:3px 6px">
       ${statuts.map(s => `<option${s===su.Statut?' selected':''}>${s}</option>`).join('')}
     </select>`;
     row.innerHTML = `
       <div class="sujet-statut-dot ${DOT_CLASS[su.Statut] || 'dot-soumis'}"></div>
       <div class="sujet-body">
-        <div class="sujet-desc">${su.Description || '(sans description)'}</div>
+        <div class="sujet-desc${isLong ? ' collapsed' : ''}">${escapeHtml(description)}</div>
+        ${isLong ? '<button type="button" class="sujet-toggle">Voir plus</button>' : ''}
         <div class="sujet-meta">
           ${su.Soumetteur ? `<span>👤 ${su.Soumetteur}</span>` : ''}
           ${su.Canal ? `<span>📡 ${su.Canal}</span>` : ''}
@@ -492,6 +521,14 @@ function renderSujets(items) {
         <button class="sujet-btn" onclick="deleteSujet(${su.id})" style="color:#dc2626">🗑</button>
       </div>
     `;
+    const toggle = row.querySelector('.sujet-toggle');
+    if (toggle) {
+      toggle.addEventListener('click', () => {
+        const desc = row.querySelector('.sujet-desc');
+        const collapsed = desc.classList.toggle('collapsed');
+        toggle.textContent = collapsed ? 'Voir plus' : 'Voir moins';
+      });
+    }
     list.appendChild(row);
   });
 }
