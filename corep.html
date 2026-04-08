@@ -258,6 +258,19 @@ function fmtDateShort(ts) {
 function toTs(s) { return s ? Math.floor(new Date(s).getTime() / 1000) : 0; }
 function toInputDate(ts) { return ts ? new Date(ts * 1000).toISOString().slice(0, 10) : ''; }
 function refInt(v) { return typeof v === 'string' ? parseInt(v) || 0 : (v || 0); }
+async function ensureCorepSchema() {
+  const actions = [];
+  const sessionsTable = await grist.docApi.fetchTable('Corep_Sessions');
+  const sujetsTable = await grist.docApi.fetchTable('Corep_Sujets');
+  if (sessionsTable.Statut === undefined) actions.push(['AddColumn', 'Corep_Sessions', 'Statut', {type: 'Text', label: 'Statut'}]);
+  if (sessionsTable.Notes === undefined) actions.push(['AddColumn', 'Corep_Sessions', 'Notes', {type: 'Text', label: 'Notes'}]);
+  if (sujetsTable.Soumetteur === undefined) actions.push(['AddColumn', 'Corep_Sujets', 'Soumetteur', {type: 'Text', label: 'Soumetteur'}]);
+  if (sujetsTable.Description === undefined) actions.push(['AddColumn', 'Corep_Sujets', 'Description', {type: 'Text', label: 'Description'}]);
+  if (sujetsTable.Statut === undefined) actions.push(['AddColumn', 'Corep_Sujets', 'Statut', {type: 'Text', label: 'Statut'}]);
+  if (sujetsTable.Canal === undefined) actions.push(['AddColumn', 'Corep_Sujets', 'Canal', {type: 'Text', label: 'Canal'}]);
+  if (sujetsTable.Point_bilaterale === undefined) actions.push(['AddColumn', 'Corep_Sujets', 'Point_bilaterale', {type: 'Numeric', label: 'Point bilaterale'}]);
+  if (actions.length) await grist.docApi.applyUserActions(actions);
+}
 
 // Day of week helpers (real today)
 const NOW = new Date();
@@ -346,36 +359,41 @@ function renderAlert() {
 
 // ── Load ──
 async function loadData() {
-  const [sT, suT] = await Promise.all([
-    grist.docApi.fetchTable('Corep_Sessions'),
-    grist.docApi.fetchTable('Corep_Sujets'),
-  ]);
+  try {
+    await ensureCorepSchema();
+    const [sT, suT] = await Promise.all([
+      grist.docApi.fetchTable('Corep_Sessions'),
+      grist.docApi.fetchTable('Corep_Sujets'),
+    ]);
 
-  sessions = sT.id.map((id, i) => ({
-    id, Date: sT.Date[i], Statut: sT.Statut[i], Notes: sT.Notes[i] || ''
-  })).sort((a, b) => a.Date - b.Date);
+    sessions = sT.id.map((id, i) => ({
+      id, Date: sT.Date[i], Statut: (sT.Statut ? sT.Statut[i] : '') || 'Ouverte', Notes: (sT.Notes ? sT.Notes[i] : '') || ''
+    })).sort((a, b) => a.Date - b.Date);
 
-  sujets = suT.id.map((id, i) => ({
-    id,
-    Session:     refInt(suT.Session[i]),
-    Soumetteur:  suT.Soumetteur[i] || '',
-    Description: suT.Description[i] || '',
-    Statut:      suT.Statut[i] || 'Soumis',
-    Canal:       suT.Canal[i] || '',
-  }));
+    sujets = suT.id.map((id, i) => ({
+      id,
+      Session:     refInt(suT.Session[i]),
+      Soumetteur:  (suT.Soumetteur ? suT.Soumetteur[i] : '') || '',
+      Description: (suT.Description ? suT.Description[i] : '') || '',
+      Statut:      (suT.Statut ? suT.Statut[i] : '') || 'Soumis',
+      Canal:       (suT.Canal ? suT.Canal[i] : '') || '',
+    }));
 
-  renderSidebar();
-  renderAlert();
+    renderSidebar();
+    renderAlert();
 
-  // Auto-select next upcoming session
-  if (!selectedSessionId) {
-    const next = getNextSession();
-    if (next) selectSession(next.id);
-  } else {
-    selectSession(selectedSessionId);
+    if (!selectedSessionId) {
+      const next = getNextSession();
+      if (next) selectSession(next.id);
+    } else {
+      selectSession(selectedSessionId);
+    }
+  } catch (err) {
+    console.error('Erreur loadData COREP', err);
+    alert('Erreur chargement COREP : ' + err.message);
+  } finally {
+    document.getElementById('loader').style.display = 'none';
   }
-
-  document.getElementById('loader').style.display = 'none';
 }
 
 // ── Sidebar ──
