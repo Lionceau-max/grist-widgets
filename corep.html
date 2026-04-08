@@ -80,7 +80,7 @@
   .hdr-btn.red:hover { background:#b91c1c; }
 
   /* ── Content ── */
-  #content { flex:1; min-height:0; overflow-y:auto; padding:16px 20px; display:flex; flex-direction:column; gap:14px; }
+  #content { padding:16px 20px; display:flex; flex-direction:column; gap:14px; }
 
   /* ── Notes ── */
   #notes-section { background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); padding:14px 16px; }
@@ -190,9 +190,9 @@
   <div id="main">
     <div id="no-session">← Sélectionnez une session</div>
 
-    <div id="session-content" style="display:none; flex:1; flex-direction:column; overflow:hidden; min-height:0;">
+    <div id="session-content" style="display:none; flex:1; flex-direction:column; overflow-y:auto; min-height:0;">
       <div id="session-header">
-      <div style="flex:1; min-height:0; overflow:hidden;">
+      <div style="flex:1; min-width:0;">
           <div id="session-title">—</div>
           <div id="session-subtitle"></div>
         </div>
