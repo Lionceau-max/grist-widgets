@@ -160,6 +160,7 @@
     line-height: 1.2;
   }
   .card-inline-chip.mail { background: #fff; }
+  .card-inline-chip.corep { background: #ecfdf5; border-color: #bbf7d0; color: #166534; font-weight: 600; }
   .card-inline-label { font-size:11px; color:var(--text-xs); min-width:52px; }
   .point-card.expanded { grid-column: 1 / -1; cursor: default; }
   .point-card.expanded:hover { transform:none; }
@@ -167,6 +168,30 @@
   .card-section { display:flex; flex-direction:column; gap:8px; }
   .card-section-title { font-size:11px; font-weight:700; color:var(--text-xs); text-transform:uppercase; letter-spacing:.05em; }
   .card-action-main { padding: 12px 14px; border-radius: 10px; background: var(--blue-lt); color: var(--blue); font-size: 14px; font-weight: 600; line-height: 1.5; }
+  .card-corep-banner {
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    align-items:center;
+    padding:10px 12px;
+    border:1px solid #bbf7d0;
+    border-radius:10px;
+    background:#f0fdf4;
+    color:#166534;
+    font-size:12px;
+  }
+  .corep-pill {
+    display:inline-flex;
+    align-items:center;
+    padding:4px 9px;
+    border-radius:999px;
+    background:#dcfce7;
+    color:#166534;
+    font-size:11px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+  }
   .card-actors-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; }
   .exchange-timeline { display:flex; flex-wrap:wrap; gap:8px; }
   .exchange-chip { border: 1px solid var(--border); border-radius: 999px; background: #fff; color: var(--text-sm); padding: 7px 10px; font-size: 12px; cursor: pointer; }
@@ -515,9 +540,55 @@
   </div>
 </div>
 
+<!-- Modal : Passage COREP -->
+<div class="modal-backdrop" id="modal-corep">
+  <div class="modal-box">
+    <div class="modal-header"><h3 id="corep-title">Passer en COREP</h3><button class="modal-close" id="corep-close">âœ•</button></div>
+    <div class="modal-body">
+      <div class="field-group">
+        <label class="field-label">Session COREP</label>
+        <select id="corep-session" class="field-select"><option value="">â€” Choisir â€”</option></select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Soumetteur</label>
+        <input id="corep-soumetteur" class="field-input" type="text" placeholder="Prenom NOM">
+      </div>
+      <div class="inline-editor-grid">
+        <div class="field-group">
+          <label class="field-label">Canal</label>
+          <select id="corep-canal" class="field-select">
+            <option>Oral</option>
+            <option>Mail</option>
+            <option>Tchap</option>
+            <option>Teams</option>
+            <option>Autre</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Statut</label>
+          <select id="corep-statut" class="field-select">
+            <option>Soumis</option>
+            <option>ValidÃ©</option>
+            <option>RefusÃ©</option>
+            <option>ReportÃ©</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Description COREP</label>
+        <textarea id="corep-desc" class="field-textarea" style="min-height:180px"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" id="corep-cancel">Annuler</button>
+      <button class="btn-primary" id="corep-confirm">Creer le sujet COREP</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ── State ──
-let bilaterales=[], pointsAll=[], beneficiaires=[], sujets_v2=[];
+let bilaterales=[], pointsAll=[], beneficiaires=[], sujets_v2=[], corepSessions=[], corepSujets=[];
 let selectedBilatId=null, selectedPointId=null;
 let filterStatut='all', searchQ='', isDirty=false, isNewPoint=false;
 let sidebarSearchQ='', sidebarSort='date'; // 'date' or 'ben'
@@ -527,6 +598,7 @@ let actorStatusFilter='';
 let expandedPointId=null;
 let selectedExchangeIndexByPoint={};
 let editingPointId=null;
+let corepSourcePointId=null;
 
 // ── Helpers ──
 const badgeClass = s => ({'En cours':'ec','Bloqué':'bl','Résolu':'rs','À surveiller':'sv','Action requise':'ar','En attente':'att'}[s]||'ec');
@@ -580,6 +652,16 @@ function stringifyActors(actors) {
     }))
     .filter(actor => actor.nom || actor.description);
   return cleaned.length ? JSON.stringify(cleaned) : '';
+}
+function buildCorepDescription(point) {
+  const lines = [];
+  if (point.Titre) lines.push(point.Titre);
+  if (point.Reference_site) lines.push(`Reference site : ${point.Reference_site}`);
+  if (point.Description) lines.push('', point.Description.trim());
+  if (point.Action_suivante) lines.push('', `Prochaine action : ${point.Action_suivante.trim()}`);
+  const actorNames = (point.Acteurs || []).map(actor => actor.nom).filter(Boolean);
+  if (actorNames.length) lines.push('', `Acteurs : ${actorNames.join(', ')}`);
+  return lines.join('\n').trim();
 }
 function parseOutlookMailText(text) {
   const raw = String(text || '').replace(/\r/g, '').trim();
@@ -739,6 +821,49 @@ function exchangeTooltip(item) {
     item.subject ? `Objet : ${item.subject}` : '',
     item.summary || item.body || item.raw || '',
   ].filter(Boolean).join('\n');
+}
+function getCorepSujetForPoint(point) {
+  if (!point) return null;
+  if (point.Corep_Sujet) {
+    const linked = corepSujets.find(item => item.id === point.Corep_Sujet);
+    if (linked) return linked;
+  }
+  return corepSujets.find(item => item.Point_bilaterale === point.id) || null;
+}
+function getCorepSessionById(id) {
+  return corepSessions.find(item => item.id === id) || null;
+}
+function corepSessionLabel(session) {
+  if (!session) return 'Session inconnue';
+  return `${fmtDate(session.Date)}${session.Statut ? ` - ${session.Statut}` : ''}`;
+}
+function renderCorepClosedChip(point) {
+  const sujet = getCorepSujetForPoint(point);
+  if (!sujet) return '';
+  const session = getCorepSessionById(sujet.Session);
+  const tooltipParts = [
+    session ? `Session : ${corepSessionLabel(session)}` : '',
+    sujet.Statut ? `Statut : ${sujet.Statut}` : '',
+    sujet.Canal ? `Canal : ${sujet.Canal}` : '',
+    sujet.Description || '',
+  ].filter(Boolean);
+  return `<span class="card-inline-chip corep" title="${safeText(tooltipParts.join('\n'))}">COREP</span>`;
+}
+function renderCorepBanner(point) {
+  const sujet = getCorepSujetForPoint(point);
+  if (!sujet) return '';
+  const session = getCorepSessionById(sujet.Session);
+  const details = [
+    session ? corepSessionLabel(session) : '',
+    sujet.Statut ? `statut ${sujet.Statut}` : '',
+    sujet.Canal ? `canal ${sujet.Canal}` : '',
+  ].filter(Boolean).join(' - ');
+  return `
+    <div class="card-corep-banner">
+      <span class="corep-pill">COREP</span>
+      <span>${safeText(details || 'Sujet COREP cree')}</span>
+    </div>
+  `;
 }
 function renderClosedActorList(actors) {
   if (!actors.length) return '<span class="card-inline-chip">Aucun acteur</span>';
@@ -995,7 +1120,22 @@ async function ensurePointSchema() {
   if (table.Ordre === undefined) {
     actions.push(['AddColumn', 'Points_bilaterales', 'Ordre', {type: 'Numeric', label: 'Ordre'}]);
   }
+  if (table.Corep_Sujet === undefined) {
+    actions.push(['AddColumn', 'Points_bilaterales', 'Corep_Sujet', {type: 'Numeric', label: 'Sujet COREP'}]);
+  }
   if (actions.length) await grist.docApi.applyUserActions(actions);
+}
+async function ensureCorepSchema() {
+  try {
+    const table = await grist.docApi.fetchTable('Corep_Sujets');
+    const actions = [];
+    if (table.Point_bilaterale === undefined) {
+      actions.push(['AddColumn', 'Corep_Sujets', 'Point_bilaterale', {type: 'Numeric', label: 'Point bilaterale'}]);
+    }
+    if (actions.length) await grist.docApi.applyUserActions(actions);
+  } catch (err) {
+    console.warn('Schema COREP indisponible', err);
+  }
 }
 
 async function normalizePointOrder() {
@@ -1024,11 +1164,14 @@ async function normalizePointOrder() {
 // ── Load ──
 async function loadData() {
   await ensurePointSchema();
-  const [bT,pT,benT,sT] = await Promise.all([
+  await ensureCorepSchema();
+  const [bT,pT,benT,sT,corepSessT,corepSujT] = await Promise.all([
     grist.docApi.fetchTable('Bilaterales'),
     grist.docApi.fetchTable('Points_bilaterales'),
     grist.docApi.fetchTable('Beneficiaires'),
     grist.docApi.fetchTable('Sujets_v2'),
+    grist.docApi.fetchTable('Corep_Sessions').catch(() => null),
+    grist.docApi.fetchTable('Corep_Sujets').catch(() => null),
   ]);
   bilaterales = bT.id.map((id,i)=>({
     id, Beneficiaire:refInt(bT.Beneficiaire[i]), Date:bT.Date[i],
@@ -1043,12 +1186,28 @@ async function loadData() {
     Statut:pT.Statut[i], Action_suivante:pT.Action_suivante[i], Sujet_PQP:refInt(pT.Sujet_PQP[i]),
     Acteurs_json:pT.Acteurs_json ? pT.Acteurs_json[i] : '',
     Echanges_json:pT.Echanges_json ? pT.Echanges_json[i] : '',
+    Corep_Sujet:pT.Corep_Sujet ? refInt(pT.Corep_Sujet[i]) : 0,
     Acteurs:parseActors(pT.Acteurs_json ? pT.Acteurs_json[i] : ''),
     Ordre:pT.Ordre && pT.Ordre[i] !== null && pT.Ordre[i] !== '' ? Number(pT.Ordre[i]) : NaN,
   }));
 
   beneficiaires = benT.id.map((id,i)=>({id,Beneficiaire:benT.Beneficiaire[i],Entite:benT.Entite[i]}));
   sujets_v2 = sT.id.map((id,i)=>({id,Code:sT.Code[i],Objet:sT.Objet[i]}));
+  corepSessions = corepSessT ? corepSessT.id.map((id,i)=>({
+    id,
+    Date: corepSessT.Date[i],
+    Statut: corepSessT.Statut[i] || '',
+    Notes: corepSessT.Notes[i] || '',
+  })) : [];
+  corepSujets = corepSujT ? corepSujT.id.map((id,i)=>({
+    id,
+    Session: refInt(corepSujT.Session[i]),
+    Soumetteur: corepSujT.Soumetteur[i] || '',
+    Description: corepSujT.Description[i] || '',
+    Statut: corepSujT.Statut[i] || 'Soumis',
+    Canal: corepSujT.Canal[i] || '',
+    Point_bilaterale: corepSujT.Point_bilaterale ? refInt(corepSujT.Point_bilaterale[i]) : 0,
+  })) : [];
 
   await normalizePointOrder();
   if (pointsAll.some(p => !Number.isFinite(p.Ordre))) {
@@ -1059,6 +1218,7 @@ async function loadData() {
       Statut:refreshed.Statut[i], Action_suivante:refreshed.Action_suivante[i], Sujet_PQP:refInt(refreshed.Sujet_PQP[i]),
       Acteurs_json:refreshed.Acteurs_json ? refreshed.Acteurs_json[i] : '',
       Echanges_json:refreshed.Echanges_json ? refreshed.Echanges_json[i] : '',
+      Corep_Sujet:refreshed.Corep_Sujet ? refInt(refreshed.Corep_Sujet[i]) : 0,
       Acteurs:parseActors(refreshed.Acteurs_json ? refreshed.Acteurs_json[i] : ''),
       Ordre:refreshed.Ordre && refreshed.Ordre[i] !== null && refreshed.Ordre[i] !== '' ? Number(refreshed.Ordre[i]) : NaN,
     }));
@@ -1070,6 +1230,92 @@ async function loadData() {
   // Re-render dashboard if visible
   if (document.getElementById('dashboard').style.display === 'block') renderDashboard();
   document.getElementById('loader').style.display='none';
+}
+function getPreferredCorepSessionId() {
+  if (!corepSessions.length) return '';
+  const nowTs = Math.floor(Date.now() / 1000);
+  const active = corepSessions.filter(item => item.Statut !== 'AnnulÃ©e');
+  const upcoming = active.filter(item => item.Date >= nowTs).sort((a,b) => a.Date - b.Date);
+  if (upcoming.length) return upcoming[0].id;
+  const ouvertes = active.filter(item => item.Statut === 'Ouverte').sort((a,b) => b.Date - a.Date);
+  if (ouvertes.length) return ouvertes[0].id;
+  return [...active].sort((a,b) => b.Date - a.Date)[0]?.id || '';
+}
+function openCorepModal(pointId) {
+  const point = pointsAll.find(item => item.id === pointId);
+  if (!point) return;
+  if (!corepSessions.length) {
+    alert('Aucune session COREP disponible.');
+    return;
+  }
+  corepSourcePointId = pointId;
+  const linked = getCorepSujetForPoint(point);
+  document.getElementById('corep-title').textContent = `${linked ? 'Mettre a jour' : 'Passer'} en COREP`;
+  const sessionSelect = document.getElementById('corep-session');
+  const sortedSessions = [...corepSessions].sort((a,b) => b.Date - a.Date);
+  sessionSelect.innerHTML = '<option value="">â€” Choisir â€”</option>' + sortedSessions.map(session => (
+    `<option value="${session.id}">${safeText(corepSessionLabel(session))}</option>`
+  )).join('');
+  sessionSelect.value = String(linked?.Session || getPreferredCorepSessionId() || '');
+  document.getElementById('corep-soumetteur').value = linked?.Soumetteur || '';
+  document.getElementById('corep-canal').value = linked?.Canal || 'Oral';
+  document.getElementById('corep-statut').value = linked?.Statut || 'Soumis';
+  document.getElementById('corep-desc').value = linked?.Description || buildCorepDescription(point);
+  document.getElementById('corep-confirm').textContent = linked ? 'Mettre a jour le sujet COREP' : 'Creer le sujet COREP';
+  document.getElementById('modal-corep').classList.add('open');
+}
+function closeCorepModal() {
+  corepSourcePointId = null;
+  document.getElementById('modal-corep').classList.remove('open');
+}
+async function saveCorepFromPoint() {
+  const point = pointsAll.find(item => item.id === corepSourcePointId);
+  if (!point) return;
+  const sessionId = refInt(document.getElementById('corep-session').value);
+  if (!sessionId) {
+    alert('Choisissez une session COREP.');
+    return;
+  }
+  const fields = {
+    Session: sessionId,
+    Description: document.getElementById('corep-desc').value.trim(),
+    Soumetteur: document.getElementById('corep-soumetteur').value.trim(),
+    Canal: document.getElementById('corep-canal').value,
+    Statut: document.getElementById('corep-statut').value,
+    Point_bilaterale: point.id,
+  };
+  if (!fields.Description) {
+    alert('La description COREP est requise.');
+    return;
+  }
+  const linked = getCorepSujetForPoint(point);
+  const actions = [];
+  if (linked) {
+    actions.push(['UpdateRecord', 'Corep_Sujets', linked.id, fields]);
+    actions.push(['UpdateRecord', 'Points_bilaterales', point.id, {Corep_Sujet: linked.id}]);
+  } else {
+    const result = await grist.docApi.applyUserActions([['AddRecord', 'Corep_Sujets', null, fields]]);
+    let newId = Array.isArray(result) ? result[0]?.stored?.[0] : null;
+    if (!newId) {
+      const createdTable = await grist.docApi.fetchTable('Corep_Sujets');
+      const matches = createdTable.id.map((id, i) => ({
+        id,
+        Point_bilaterale: createdTable.Point_bilaterale ? refInt(createdTable.Point_bilaterale[i]) : 0,
+      })).filter(item => item.Point_bilaterale === point.id);
+      newId = matches.length ? matches[matches.length - 1].id : 0;
+    }
+    if (newId) {
+      actions.push(['UpdateRecord', 'Points_bilaterales', point.id, {Corep_Sujet: newId}]);
+    }
+  }
+  if (actions.length) await grist.docApi.applyUserActions(actions);
+  closeCorepModal();
+  await loadData();
+  if (selectedBilatId) {
+    selectBilat(selectedBilatId);
+    expandedPointId = point.id;
+    renderCards();
+  }
 }
 
 function populateBenSelect() {
@@ -1544,6 +1790,7 @@ function renderExpandedCard(point) {
     : '<div class="exchange-empty">Aucun acteur consigne pour ce point.</div>';
   return `
     <div class="card-expanded">
+      ${renderCorepBanner(point)}
       <div class="card-section">
         <div class="card-section-title">Prochaine action</div>
         <div class="card-action-main">${safeText(point.Action_suivante || 'Aucune action definie')}</div>
@@ -1568,6 +1815,7 @@ function renderExpandedCard(point) {
       <div class="card-actions-row">
         <div class="inline-editor-actions">
           <button type="button" class="btn-inline" data-edit-point="${point.id}">Modifier</button>
+          <button type="button" class="btn-inline" data-open-corep="${point.id}">${getCorepSujetForPoint(point) ? 'Mettre a jour COREP' : 'Passer en COREP'}</button>
           <button type="button" class="btn-inline" data-collapse-point="${point.id}">Refermer</button>
         </div>
         <div class="card-footer" style="border-top:none;margin-top:0;padding-top:0">
@@ -1721,6 +1969,7 @@ renderCards = function() {
     const exchangeCount = echanges.length ? `<span class="badge badge-age">${echanges.length} echange${echanges.length > 1 ? 's' : ''}</span>` : '';
     const closedActorsHtml = renderClosedActorList(p.Acteurs);
     const closedMailsHtml = renderClosedExchangeList(echanges);
+    const corepChip = renderCorepClosedChip(p);
     const expanded = expandedPointId === p.id;
     const card = document.createElement('div');
     card.className = 'point-card' + (p.id === selectedPointId ? ' active' : '') + (expanded ? ' expanded' : '');
@@ -1736,6 +1985,7 @@ renderCards = function() {
       <div class="card-meta">
         ${p.Reference_site ? `<span class="card-ref">${safeText(p.Reference_site)}</span>` : ''}
         <span class="card-actors-inline">${safeText(actorListLabel(p.Acteurs))}</span>
+        ${corepChip}
       </div>
       ${p.Action_suivante ? `<div class="card-action">${safeText(p.Action_suivante)}</div>` : ''}
       <div class="card-meta">
@@ -1749,7 +1999,7 @@ renderCards = function() {
       ${expanded ? renderExpandedCard(p) : ''}
     `;
     card.addEventListener('click', e => {
-      if (e.target.closest('.quick-status') || e.target.closest('.exchange-chip') || e.target.closest('[data-collapse-point]') || e.target.closest('[data-edit-point]') || e.target.closest('.inline-editor')) return;
+      if (e.target.closest('.quick-status') || e.target.closest('.exchange-chip') || e.target.closest('[data-collapse-point]') || e.target.closest('[data-edit-point]') || e.target.closest('[data-open-corep]') || e.target.closest('.inline-editor')) return;
       expandedPointId = expanded ? null : p.id;
       if (!(p.id in selectedExchangeIndexByPoint)) selectedExchangeIndexByPoint[p.id] = 0;
       renderCards();
@@ -1789,6 +2039,12 @@ renderCards = function() {
         e.stopPropagation();
         editingPointId = p.id;
         renderCards();
+      });
+    });
+    card.querySelectorAll('[data-open-corep]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        openCorepModal(p.id);
       });
     });
     card.querySelectorAll('[data-inline-cancel]').forEach(btn => {
@@ -2197,6 +2453,9 @@ document.getElementById('panel-close').addEventListener('click',closePanel);
 document.getElementById('overlay').addEventListener('click',closePanel);
 document.getElementById('export-close').addEventListener('click',()=>document.getElementById('modal-export').classList.remove('open'));
 document.getElementById('export-close2').addEventListener('click',()=>document.getElementById('modal-export').classList.remove('open'));
+document.getElementById('corep-close').addEventListener('click',closeCorepModal);
+document.getElementById('corep-cancel').addEventListener('click',closeCorepModal);
+document.getElementById('corep-confirm').addEventListener('click',saveCorepFromPoint);
 document.getElementById('btn-copy').addEventListener('click',()=>{
   navigator.clipboard.writeText(document.getElementById('export-text').value);
   document.getElementById('btn-copy').textContent='✓ Copié !';
@@ -2207,6 +2466,7 @@ document.addEventListener('keydown',e=>{
   if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();if(document.getElementById('panel').classList.contains('open'))savePoint();}
   if(e.key==='Escape'){
     if(document.getElementById('modal-export').classList.contains('open')){document.getElementById('modal-export').classList.remove('open');return;}
+    if(document.getElementById('modal-corep').classList.contains('open')){closeCorepModal();return;}
     if(document.getElementById('modal-recon').classList.contains('open')){document.getElementById('modal-recon').classList.remove('open');return;}
     if(document.getElementById('modal-edit-bilat').classList.contains('open')){document.getElementById('modal-edit-bilat').classList.remove('open');return;}
     if(document.getElementById('modal-new-bilat').classList.contains('open')){document.getElementById('modal-new-bilat').classList.remove('open');return;}
