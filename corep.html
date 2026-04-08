@@ -112,6 +112,11 @@
     overflow:hidden;
     white-space:pre-wrap;
   }
+  .sujet-desc.expanded {
+    max-height:50vh;
+    overflow-y:auto;
+    padding-right:8px;
+  }
   .sujet-toggle {
     margin-top:8px;
     padding:0;
@@ -526,6 +531,7 @@ function renderSujets(items) {
       toggle.addEventListener('click', () => {
         const desc = row.querySelector('.sujet-desc');
         const collapsed = desc.classList.toggle('collapsed');
+        desc.classList.toggle('expanded', !collapsed);
         toggle.textContent = collapsed ? 'Voir plus' : 'Voir moins';
       });
     }
