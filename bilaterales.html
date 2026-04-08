@@ -270,18 +270,37 @@
   .drop-zone.dragover { background: #dbeafe; border-color: #2563eb; }
   .field-help { font-size:11px; color:var(--text-xs); }
   .exchange-list { display:flex; flex-direction:column; gap:10px; }
-  .exchange-row { border:1px solid var(--border); border-radius:8px; padding:10px; background:var(--gray-lt); display:flex; flex-direction:column; gap:8px; }
+  .exchange-row {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    background: var(--gray-lt);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
   .exchange-row-top { display:flex; align-items:center; justify-content:space-between; gap:10px; }
   .exchange-row-title { font-size:11px; font-weight:700; color:var(--text-xs); text-transform:uppercase; letter-spacing:.04em; }
-  .exchange-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
-  .exchange-empty { font-size:12px; color:var(--text-xs); font-style:italic; }
+  .exchange-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .btn-add-exchange, .btn-remove-exchange {
-    border-radius:6px; border:1px solid var(--border); background:#fff; color:var(--text-sm); cursor:pointer; font-size:12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--text-sm);
+    cursor: pointer;
+    font-size: 12px;
   }
   .btn-add-exchange { align-self:flex-start; padding:7px 12px; }
   .btn-remove-exchange { padding:5px 10px; color:var(--red); border-color:#fecaca; }
+  .exchange-empty { font-size:12px; color:var(--text-xs); font-style:italic; }
   .exchange-summary {
-    margin-top: 6px; padding: 7px 9px; border-radius: 6px; background: #eff6ff; color: #1d4ed8; font-size: 11px; line-height: 1.45;
+    margin-top: 6px;
+    padding: 7px 9px;
+    border-radius: 6px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 11px;
+    line-height: 1.45;
   }
   .btn-save { padding:8px 20px; border-radius:6px; background:var(--blue); color:#fff; border:none; font-size:13px; font-weight:600; cursor:pointer; }
   .btn-save:hover { background:#1d4ed8; }
@@ -525,14 +544,8 @@ function parseActors(raw) {
         statut: String(actor.statut || 'Ã€ faire').trim() || 'Ã€ faire',
         attente: String(actor.attente || actor.en_attente_de || '').trim(),
         mail: String(actor.mail || actor.piece || actor.trace || '').trim(),
-        mail_from: String(actor.mail_from || actor.expediteur || actor.from || '').trim(),
-        mail_to: String(actor.mail_to || actor.destinataire || actor.to || '').trim(),
-        mail_cc: String(actor.mail_cc || actor.cc || '').trim(),
-        mail_sent: String(actor.mail_sent || actor.envoye || actor.sent || '').trim(),
-        mail_subject: String(actor.mail_subject || actor.objet || actor.subject || '').trim(),
-        mail_body: String(actor.mail_body || actor.corps || actor.body || '').trim(),
       }))
-      .filter(actor => actor.nom || actor.position || actor.action || actor.mail || actor.mail_from || actor.mail_to || actor.mail_body);
+      .filter(actor => actor.nom || actor.position || actor.action || actor.mail);
   } catch (err) {
     console.warn('Acteurs_json invalide', err);
     return [];
@@ -547,14 +560,8 @@ function stringifyActors(actors) {
       statut: String(actor.statut || 'Ã€ faire').trim() || 'Ã€ faire',
       attente: String(actor.attente || '').trim(),
       mail: String(actor.mail || '').trim(),
-      mail_from: String(actor.mail_from || '').trim(),
-      mail_to: String(actor.mail_to || '').trim(),
-      mail_cc: String(actor.mail_cc || '').trim(),
-      mail_sent: String(actor.mail_sent || '').trim(),
-      mail_subject: String(actor.mail_subject || '').trim(),
-      mail_body: String(actor.mail_body || '').trim(),
     }))
-    .filter(actor => actor.nom || actor.position || actor.action || actor.mail || actor.mail_from || actor.mail_to || actor.mail_body);
+    .filter(actor => actor.nom || actor.position || actor.action || actor.mail);
   return cleaned.length ? JSON.stringify(cleaned) : '';
 }
 function parseEchanges(raw) {
@@ -565,13 +572,13 @@ function parseEchanges(raw) {
     return parsed.map(item => ({
       type: String(item.type || 'mail').trim() || 'mail',
       date: String(item.date || '').trim(),
-      from: String(item.from || item.expediteur || '').trim(),
-      to: String(item.to || item.destinataire || '').trim(),
+      from: String(item.from || '').trim(),
+      to: String(item.to || '').trim(),
       cc: String(item.cc || '').trim(),
-      subject: String(item.subject || item.objet || '').trim(),
-      body: String(item.body || item.corps || '').trim(),
-      summary: String(item.summary || item.resume || '').trim(),
-    })).filter(item => item.date || item.from || item.to || item.subject || item.body || item.summary);
+      subject: String(item.subject || '').trim(),
+      summary: String(item.summary || '').trim(),
+      body: String(item.body || '').trim(),
+    })).filter(item => item.date || item.from || item.to || item.subject || item.summary || item.body);
   } catch (err) {
     console.warn('Echanges_json invalide', err);
     return [];
@@ -585,9 +592,9 @@ function stringifyEchanges(items) {
     to: String(item.to || '').trim(),
     cc: String(item.cc || '').trim(),
     subject: String(item.subject || '').trim(),
-    body: String(item.body || '').trim(),
     summary: String(item.summary || '').trim(),
-  })).filter(item => item.date || item.from || item.to || item.subject || item.body || item.summary);
+    body: String(item.body || '').trim(),
+  })).filter(item => item.date || item.from || item.to || item.subject || item.summary || item.body);
   return cleaned.length ? JSON.stringify(cleaned) : '';
 }
 function lastEchange(point) {
@@ -599,10 +606,6 @@ function renderActorSummary(actor) {
   const lines = [];
   if (actor.position) lines.push(`<div class="card-actor-line"><strong>Position :</strong> ${safeText(actor.position)}</div>`);
   if (actor.action) lines.push(`<div class="card-actor-line"><strong>Action :</strong> ${safeText(actor.action)}</div>`);
-  if (actor.mail_from) lines.push(`<div class="card-actor-line"><strong>Expediteur :</strong> ${safeText(actor.mail_from)}</div>`);
-  if (actor.mail_to) lines.push(`<div class="card-actor-line"><strong>Destinataire :</strong> ${safeText(actor.mail_to)}</div>`);
-  if (actor.mail_sent) lines.push(`<div class="card-actor-line"><strong>Envoye :</strong> ${safeText(actor.mail_sent)}</div>`);
-  if (actor.mail_subject) lines.push(`<div class="card-actor-line"><strong>Objet :</strong> ${safeText(actor.mail_subject)}</div>`);
   const meta = [];
   if (actor.statut) meta.push(`<span class="badge ${actor.statut === 'En attente' ? 'badge-att' : actor.statut === 'Fait' ? 'badge-rs' : 'badge-ar'}">${safeText(actor.statut)}</span>`);
   if (actor.attente) meta.push(`<span class="badge badge-sv">Attente: ${safeText(actor.attente)}</span>`);
@@ -1039,14 +1042,6 @@ function bindActorEditorEvents() {
     input.addEventListener('input', markDirty);
     input.addEventListener('change', markDirty);
   });
-  container.querySelectorAll('[data-key="mail"]').forEach(input => {
-    input.addEventListener('paste', async e => {
-      const text = e.clipboardData && e.clipboardData.getData('text/plain');
-      if (!text || !text.trim()) return;
-      e.preventDefault();
-      await appendMailTextToActorRow(input.closest('.actor-row'), text);
-    });
-  });
   container.querySelectorAll('.btn-remove-actor').forEach(btn => {
     btn.addEventListener('click', () => {
       btn.closest('.actor-row').remove();
@@ -1113,26 +1108,14 @@ function addActorRow(actor = {}) {
 }
 
 function collectActorsFromEditor() {
-  return [...document.querySelectorAll('#f-acteurs .actor-row')].map(row => {
-    const actor = {
-      nom: row.querySelector('[data-key="nom"]').value.trim(),
-      position: row.querySelector('[data-key="position"]').value.trim(),
-      action: row.querySelector('[data-key="action"]').value.trim(),
-      statut: row.querySelector('[data-key="statut"]').value.trim(),
-      attente: row.querySelector('[data-key="attente"]').value.trim(),
-      mail: row.querySelector('[data-key="mail"]').value.trim(),
-    };
-    const parsedMail = parseOutlookMailText(actor.mail);
-    if (parsedMail) {
-      actor.mail_from = parsedMail.from || '';
-      actor.mail_to = parsedMail.to || '';
-      actor.mail_cc = parsedMail.cc || '';
-      actor.mail_sent = parsedMail.sent || '';
-      actor.mail_subject = parsedMail.subject || '';
-      actor.mail_body = parsedMail.body || '';
-    }
-    return actor;
-  }).filter(actor => actor.nom || actor.position || actor.action || actor.mail || actor.mail_from || actor.mail_to || actor.mail_body);
+  return [...document.querySelectorAll('#f-acteurs .actor-row')].map(row => ({
+    nom: row.querySelector('[data-key="nom"]').value.trim(),
+    position: row.querySelector('[data-key="position"]').value.trim(),
+    action: row.querySelector('[data-key="action"]').value.trim(),
+    statut: row.querySelector('[data-key="statut"]').value.trim(),
+    attente: row.querySelector('[data-key="attente"]').value.trim(),
+    mail: row.querySelector('[data-key="mail"]').value.trim(),
+  })).filter(actor => actor.nom || actor.position || actor.action || actor.mail);
 }
 
 function parseOutlookMailText(text) {
@@ -1183,46 +1166,6 @@ function parseOutlookMailText(text) {
   }
   if (bodyStart >= 0) result.body = lines.slice(bodyStart).join('\n').trim();
   return result.from || result.to || result.subject || result.sent ? result : null;
-}
-
-function formatParsedMail(parsed) {
-  const parts = [];
-  if (parsed.from) parts.push(`De : ${parsed.from}`);
-  if (parsed.sent) parts.push(`Envoye : ${parsed.sent}`);
-  if (parsed.to) parts.push(`A : ${parsed.to}`);
-  if (parsed.cc) parts.push(`Cc : ${parsed.cc}`);
-  if (parsed.subject) parts.push(`Objet : ${parsed.subject}`);
-  if (parsed.body) parts.push('', parsed.body);
-  return parts.join('\n').trim();
-}
-
-function fillActorRowFromParsedMail(row, parsed, rawText) {
-  if (!row || !parsed) return false;
-  const actorField = row.querySelector('[data-key="nom"]');
-  const waitingField = row.querySelector('[data-key="attente"]');
-  const mailField = row.querySelector('[data-key="mail"]');
-  if (actorField && !actorField.value.trim() && parsed.from) actorField.value = parsed.from;
-  if (waitingField && !waitingField.value.trim() && parsed.to) waitingField.value = parsed.to;
-  if (mailField) {
-    const formatted = formatParsedMail(parsed);
-    mailField.value = [mailField.value.trim(), formatted || rawText.trim()].filter(Boolean).join('\n\n');
-  }
-  markDirty();
-  return true;
-}
-
-async function appendMailTextToActorRow(row, text) {
-  const normalized = String(text || '').trim();
-  if (!normalized) return;
-  const parsed = parseOutlookMailText(normalized);
-  if (parsed) {
-    fillActorRowFromParsedMail(row, parsed, normalized.slice(0, 6000));
-    return;
-  }
-  const mailField = row.querySelector('[data-key="mail"]');
-  if (!mailField) return;
-  mailField.value = [mailField.value.trim(), normalized.slice(0, 4000)].filter(Boolean).join('\n\n');
-  markDirty();
 }
 
 function exchangeRowHtml(item = {}, index = 0) {
@@ -1277,8 +1220,24 @@ function exchangeRowHtml(item = {}, index = 0) {
   `;
 }
 
+function ensureEchangesPanel() {
+  if (document.getElementById('f-echanges')) return;
+  const sujetGroup = document.getElementById('f-sujet') && document.getElementById('f-sujet').closest('.field-group');
+  if (!sujetGroup) return;
+  const wrapper = document.createElement('div');
+  wrapper.className = 'field-group';
+  wrapper.innerHTML = `
+    <label class="field-label">Echanges / temoins</label>
+    <div id="f-echanges" class="exchange-list"></div>
+    <button id="btn-add-exchange" class="btn-add-exchange" type="button">+ Ajouter un echange</button>
+  `;
+  sujetGroup.parentNode.insertBefore(wrapper, sujetGroup);
+  document.getElementById('btn-add-exchange').addEventListener('click', () => addExchangeRow());
+}
+
 function bindExchangeEditorEvents() {
   const container = document.getElementById('f-echanges');
+  if (!container) return;
   container.querySelectorAll('.exchange-input').forEach(input => {
     input.addEventListener('input', markDirty);
     input.addEventListener('change', markDirty);
@@ -1313,13 +1272,14 @@ function refreshExchangeTitles() {
 
 function renderEchangesEmptyState() {
   const container = document.getElementById('f-echanges');
+  if (!container) return;
   const hasRows = container.querySelector('.exchange-row');
   let empty = container.querySelector('.exchange-empty');
   if (!hasRows) {
     if (!empty) {
       empty = document.createElement('div');
       empty.className = 'exchange-empty';
-      empty.textContent = 'Aucun echange consigne pour lâ€™instant.';
+      empty.textContent = 'Aucun echange consigne pour le moment.';
       container.appendChild(empty);
     }
   } else if (empty) {
@@ -1330,13 +1290,16 @@ function renderEchangesEmptyState() {
 function renderEchangesEditor(items) {
   ensureEchangesPanel();
   const container = document.getElementById('f-echanges');
+  if (!container) return;
   container.innerHTML = items.map((item, index) => exchangeRowHtml(item, index)).join('');
   bindExchangeEditorEvents();
   renderEchangesEmptyState();
 }
 
 function addExchangeRow(item = {}) {
+  ensureEchangesPanel();
   const container = document.getElementById('f-echanges');
+  if (!container) return;
   const empty = container.querySelector('.exchange-empty');
   if (empty) empty.remove();
   const wrapper = document.createElement('div');
@@ -1368,7 +1331,9 @@ function fillExchangeRowFromParsedMail(row, parsed, rawText) {
 }
 
 function collectEchangesFromEditor() {
-  return [...document.querySelectorAll('#f-echanges .exchange-row')].map(row => ({
+  const container = document.getElementById('f-echanges');
+  if (!container) return [];
+  return [...container.querySelectorAll('.exchange-row')].map(row => ({
     type: row.querySelector('[data-key="type"]').value.trim(),
     date: row.querySelector('[data-key="date"]').value.trim(),
     from: row.querySelector('[data-key="from"]').value.trim(),
@@ -1380,21 +1345,6 @@ function collectEchangesFromEditor() {
   })).filter(item => item.date || item.from || item.to || item.subject || item.summary || item.body);
 }
 
-function ensureEchangesPanel() {
-  if (document.getElementById('f-echanges')) return;
-  const sujetGroup = document.getElementById('f-sujet') && document.getElementById('f-sujet').closest('.field-group');
-  if (!sujetGroup) return;
-  const wrapper = document.createElement('div');
-  wrapper.className = 'field-group';
-  wrapper.innerHTML = `
-    <label class="field-label">Echanges / temoins</label>
-    <div id="f-echanges" class="exchange-list"></div>
-    <button id="btn-add-exchange" class="btn-add-exchange" type="button">+ Ajouter un echange</button>
-  `;
-  sujetGroup.parentNode.insertBefore(wrapper, sujetGroup);
-  document.getElementById('btn-add-exchange').addEventListener('click', () => addExchangeRow());
-}
-
 async function appendDroppedContentToActorRow(row, dataTransfer) {
   const mailField = row.querySelector('[data-key="mail"]');
   if (!mailField) return;
@@ -1404,15 +1354,16 @@ async function appendDroppedContentToActorRow(row, dataTransfer) {
     chunks.push(`[Fichier dÃ©posÃ©] ${file.name}${file.size ? ` (${Math.round(file.size/1024)} Ko)` : ''}`);
     if (/^text\//.test(file.type) || /\.(txt|eml|url|md)$/i.test(file.name)) {
       const text = await file.text();
-      if (text.trim()) chunks.push(text.trim().slice(0, 6000));
+      if (text.trim()) chunks.push(text.trim().slice(0, 4000));
     }
   }
   const plain = dataTransfer.getData('text/plain');
-  if (plain && plain.trim()) chunks.push(plain.trim().slice(0, 6000));
+  if (plain && plain.trim()) chunks.push(plain.trim().slice(0, 4000));
   const uri = dataTransfer.getData('text/uri-list');
   if (uri && uri.trim()) chunks.push(uri.trim().slice(0, 2000));
   if (!chunks.length) return;
-  await appendMailTextToActorRow(row, chunks.join('\n'));
+  mailField.value = [mailField.value.trim(), chunks.join('\n')].filter(Boolean).join('\n\n');
+  markDirty();
 }
 
 function actorStatusBadgeClass(status) {
@@ -1632,6 +1583,7 @@ function renderCards() {
 function openPanel(pointId) {
   isNewPoint=false; selectedPointId=pointId;
   const p=pointsAll.find(p=>p.id===pointId); if(!p) return;
+  ensureEchangesPanel();
   document.getElementById('panel-title').textContent=p.Titre||'Point';
   document.getElementById('f-titre').value=p.Titre||'';
   document.getElementById('f-ref').value=p.Reference_site||'';
@@ -1669,6 +1621,7 @@ function openPanel(pointId) {
 function openNewPointPanel() {
   if(!selectedBilatId) return;
   isNewPoint=true; selectedPointId=null;
+  ensureEchangesPanel();
   document.getElementById('panel-title').textContent='Nouveau point';
   ['f-titre','f-ref','f-desc','f-action'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('f-statut').value='En cours';
