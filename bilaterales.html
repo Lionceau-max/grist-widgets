@@ -626,6 +626,20 @@ function parseEchanges(raw) {
     return [];
   }
 }
+function stringifyEchanges(items) {
+  const cleaned = items.map(item => ({
+    type: String(item.type || 'mail').trim() || 'mail',
+    date: String(item.date || '').trim(),
+    from: String(item.from || '').trim(),
+    to: String(item.to || '').trim(),
+    cc: String(item.cc || '').trim(),
+    subject: String(item.subject || '').trim(),
+    summary: String(item.summary || '').trim(),
+    body: String(item.body || '').trim(),
+    raw: String(item.raw || '').trim(),
+  })).filter(item => item.date || item.from || item.to || item.cc || item.subject || item.summary || item.body || item.raw);
+  return cleaned.length ? JSON.stringify(cleaned) : '';
+}
 function actorMailToExchange(actor) {
   const mail = String(actor.description || '').trim();
   if (!mail) return null;
@@ -673,6 +687,83 @@ function actorListLabel(actors) {
   if (!names.length) return 'Aucun acteur';
   if (names.length <= 2) return names.join(', ');
   return `${names.slice(0, 2).join(', ')} +${names.length - 2}`;
+}
+function inlineExchangeRowHtml(item = {}, index = 0) {
+  return `
+    <div class="inline-actor-row inline-exchange-row" data-index="${index}">
+      <div class="inline-actor-top">
+        <div class="inline-actor-title">Echange ${index + 1}</div>
+        <button type="button" class="btn-inline" data-inline-remove-exchange="${index}">Supprimer</button>
+      </div>
+      <div class="inline-editor-grid">
+        <div class="field-group">
+          <label class="field-label">Type</label>
+          <select class="field-select" data-inline-exchange="type">
+            <option value="mail"${(item.type || 'mail') === 'mail' ? ' selected' : ''}>Mail</option>
+            <option value="appel"${item.type === 'appel' ? ' selected' : ''}>Appel</option>
+            <option value="reunion"${item.type === 'reunion' ? ' selected' : ''}>Reunion</option>
+            <option value="trace"${item.type === 'trace' ? ' selected' : ''}>Trace</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Date</label>
+          <input class="field-input" data-inline-exchange="date" type="text" value="${safeText(item.date || '')}" placeholder="08/04/2026 09:25">
+        </div>
+      </div>
+      <div class="inline-editor-grid">
+        <div class="field-group">
+          <label class="field-label">De</label>
+          <input class="field-input" data-inline-exchange="from" type="text" value="${safeText(item.from || '')}">
+        </div>
+        <div class="field-group">
+          <label class="field-label">A</label>
+          <input class="field-input" data-inline-exchange="to" type="text" value="${safeText(item.to || '')}">
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Cc</label>
+        <input class="field-input" data-inline-exchange="cc" type="text" value="${safeText(item.cc || '')}">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Objet</label>
+        <input class="field-input" data-inline-exchange="subject" type="text" value="${safeText(item.subject || '')}">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Resume</label>
+        <textarea class="field-textarea" data-inline-exchange="summary" style="min-height:60px">${safeText(item.summary || '')}</textarea>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Preuve / extrait</label>
+        <textarea class="field-textarea" data-inline-exchange="raw" style="min-height:110px" placeholder="Collez ici un mail Outlook brut ou un extrait">${safeText(item.raw || item.body || '')}</textarea>
+      </div>
+    </div>
+  `;
+}
+function renderInlineEchangesEditor(items) {
+  const rows = items.length ? items.map((item, index) => inlineExchangeRowHtml(item, index)).join('') : '<div class="exchange-empty">Aucun echange pour ce point.</div>';
+  return `
+    <div class="inline-actors-editor" data-inline-echanges>
+      ${rows}
+    </div>
+    <button type="button" class="btn-inline" data-inline-add-exchange="1">Ajouter un echange</button>
+  `;
+}
+function collectInlineEchanges(card) {
+  return [...card.querySelectorAll('.inline-exchange-row')].map(row => {
+    const raw = row.querySelector('[data-inline-exchange="raw"]').value.trim();
+    const parsed = parseOutlookMailText(raw);
+    return {
+      type: row.querySelector('[data-inline-exchange="type"]').value.trim(),
+      date: row.querySelector('[data-inline-exchange="date"]').value.trim() || (parsed?.date || ''),
+      from: row.querySelector('[data-inline-exchange="from"]').value.trim() || (parsed?.from || ''),
+      to: row.querySelector('[data-inline-exchange="to"]').value.trim() || (parsed?.to || ''),
+      cc: row.querySelector('[data-inline-exchange="cc"]').value.trim() || (parsed?.cc || ''),
+      subject: row.querySelector('[data-inline-exchange="subject"]').value.trim() || (parsed?.subject || ''),
+      summary: row.querySelector('[data-inline-exchange="summary"]').value.trim(),
+      body: parsed?.body || '',
+      raw,
+    };
+  }).filter(item => item.date || item.from || item.to || item.cc || item.subject || item.summary || item.body || item.raw);
 }
 function inlineActorRowHtml(actor = {}, index = 0) {
   return `
@@ -740,6 +831,10 @@ function renderExpandedCardEditor(point) {
         <label class="field-label">Acteurs</label>
         ${renderInlineActorsEditor(point.Acteurs || [])}
       </div>
+      <div class="field-group">
+        <label class="field-label">Echanges</label>
+        ${renderInlineEchangesEditor(getPointEchanges(point))}
+      </div>
       <div class="inline-editor-actions">
         <button type="button" class="btn-inline" data-inline-save="${point.id}">Enregistrer</button>
         <button type="button" class="btn-inline" data-inline-cancel="${point.id}">Annuler</button>
@@ -755,6 +850,7 @@ async function saveInlinePoint(pointId, card) {
     Action_suivante: (card.querySelector('[data-inline-field="Action_suivante"]')?.value || '').trim(),
     Description: (card.querySelector('[data-inline-field="Description"]')?.value || '').trim(),
     Acteurs_json: stringifyActors(collectInlineActors(card)),
+    Echanges_json: stringifyEchanges(collectInlineEchanges(card)),
   };
   await grist.docApi.applyUserActions([['UpdateRecord', 'Points_bilaterales', pointId, fields]]);
   editingPointId = null;
@@ -1637,6 +1733,25 @@ renderCards = function() {
       btn.addEventListener('click', e => {
         e.stopPropagation();
         btn.closest('.inline-actor-row')?.remove();
+      });
+    });
+    card.querySelectorAll('[data-inline-add-exchange]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const container = card.querySelector('[data-inline-echanges]');
+        if (!container) return;
+        const empty = container.querySelector('.exchange-empty');
+        if (empty) empty.remove();
+        const rows = container.querySelectorAll('.inline-exchange-row').length;
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = inlineExchangeRowHtml({}, rows);
+        container.appendChild(wrapper.firstElementChild);
+      });
+    });
+    card.querySelectorAll('[data-inline-remove-exchange]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        btn.closest('.inline-exchange-row')?.remove();
       });
     });
     if (manualSortEnabled) {
