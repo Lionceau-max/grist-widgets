@@ -548,15 +548,21 @@ function parseActors(raw) {
     const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
     if (!Array.isArray(parsed)) return [];
     return parsed
-      .map(actor => ({
-        nom: String(actor.nom || actor.acteur || '').trim(),
-        position: String(actor.position || '').trim(),
-        action: String(actor.action || '').trim(),
-        statut: String(actor.statut || 'À faire').trim() || 'À faire',
-        attente: String(actor.attente || actor.en_attente_de || '').trim(),
-        mail: String(actor.mail || actor.piece || actor.trace || '').trim(),
-      }))
-      .filter(actor => actor.nom || actor.position || actor.action || actor.mail);
+      .map(actor => {
+        const nom = String(actor.nom || actor.acteur || '').trim();
+        const description = String(
+          actor.description ||
+          [
+            actor.position ? `Position : ${actor.position}` : '',
+            actor.action ? `Action : ${actor.action}` : '',
+            actor.attente || actor.en_attente_de ? `Attente : ${actor.attente || actor.en_attente_de}` : '',
+            actor.statut ? `Statut : ${actor.statut}` : '',
+            actor.mail || actor.piece || actor.trace ? `Trace : ${actor.mail || actor.piece || actor.trace}` : '',
+          ].filter(Boolean).join('\n')
+        ).trim();
+        return { nom, description };
+      })
+      .filter(actor => actor.nom || actor.description);
   } catch (err) {
     console.warn('Acteurs_json invalide', err);
     return [];
@@ -566,13 +572,9 @@ function stringifyActors(actors) {
   const cleaned = actors
     .map(actor => ({
       nom: String(actor.nom || '').trim(),
-      position: String(actor.position || '').trim(),
-      action: String(actor.action || '').trim(),
-      statut: String(actor.statut || 'À faire').trim() || 'À faire',
-      attente: String(actor.attente || '').trim(),
-      mail: String(actor.mail || '').trim(),
+      description: String(actor.description || '').trim(),
     }))
-    .filter(actor => actor.nom || actor.position || actor.action || actor.mail);
+    .filter(actor => actor.nom || actor.description);
   return cleaned.length ? JSON.stringify(cleaned) : '';
 }
 function parseOutlookMailText(text) {
@@ -625,7 +627,7 @@ function parseEchanges(raw) {
   }
 }
 function actorMailToExchange(actor) {
-  const mail = String(actor.mail || '').trim();
+  const mail = String(actor.description || '').trim();
   if (!mail) return null;
   const parsed = parseOutlookMailText(mail);
   if (parsed) {
@@ -639,9 +641,9 @@ function actorMailToExchange(actor) {
     type: 'trace',
     date: '',
     from: actor.nom || '',
-    to: actor.attente || '',
+    to: '',
     cc: '',
-    subject: actor.action || '',
+    subject: '',
     summary: actor.nom ? `Trace ${actor.nom}` : 'Trace',
     body: mail.slice(0, 500),
     raw: mail,
@@ -679,37 +681,13 @@ function inlineActorRowHtml(actor = {}, index = 0) {
         <div class="inline-actor-title">Acteur ${index + 1}</div>
         <button type="button" class="btn-inline" data-inline-remove-actor="${index}">Supprimer</button>
       </div>
-      <div class="inline-editor-grid">
-        <div class="field-group">
-          <label class="field-label">Acteur</label>
-          <input class="field-input" data-inline-actor="nom" type="text" value="${safeText(actor.nom || '')}">
-        </div>
-        <div class="field-group">
-          <label class="field-label">Statut acteur</label>
-          <select class="field-select" data-inline-actor="statut">
-            <option value="À faire"${(actor.statut || 'À faire') === 'À faire' ? ' selected' : ''}>À faire</option>
-            <option value="En attente"${actor.statut === 'En attente' ? ' selected' : ''}>En attente</option>
-            <option value="Fait"${actor.statut === 'Fait' ? ' selected' : ''}>Fait</option>
-          </select>
-        </div>
-      </div>
-      <div class="inline-editor-grid">
-        <div class="field-group">
-          <label class="field-label">Position</label>
-          <input class="field-input" data-inline-actor="position" type="text" value="${safeText(actor.position || '')}">
-        </div>
-        <div class="field-group">
-          <label class="field-label">En attente de</label>
-          <input class="field-input" data-inline-actor="attente" type="text" value="${safeText(actor.attente || '')}">
-        </div>
+      <div class="field-group">
+        <label class="field-label">Acteur</label>
+        <input class="field-input" data-inline-actor="nom" type="text" value="${safeText(actor.nom || '')}">
       </div>
       <div class="field-group">
-        <label class="field-label">Action</label>
-        <textarea class="field-textarea" data-inline-actor="action" style="min-height:60px">${safeText(actor.action || '')}</textarea>
-      </div>
-      <div class="field-group">
-        <label class="field-label">Trace</label>
-        <textarea class="field-textarea" data-inline-actor="mail" style="min-height:72px">${safeText(actor.mail || '')}</textarea>
+        <label class="field-label">Description</label>
+        <textarea class="field-textarea" data-inline-actor="description" style="min-height:90px">${safeText(actor.description || '')}</textarea>
       </div>
     </div>
   `;
@@ -726,12 +704,8 @@ function renderInlineActorsEditor(actors) {
 function collectInlineActors(card) {
   return [...card.querySelectorAll('.inline-actor-row')].map(row => ({
     nom: row.querySelector('[data-inline-actor="nom"]').value.trim(),
-    position: row.querySelector('[data-inline-actor="position"]').value.trim(),
-    action: row.querySelector('[data-inline-actor="action"]').value.trim(),
-    statut: row.querySelector('[data-inline-actor="statut"]').value.trim(),
-    attente: row.querySelector('[data-inline-actor="attente"]').value.trim(),
-    mail: row.querySelector('[data-inline-actor="mail"]').value.trim(),
-  })).filter(actor => actor.nom || actor.position || actor.action || actor.mail);
+    description: row.querySelector('[data-inline-actor="description"]').value.trim(),
+  })).filter(actor => actor.nom || actor.description);
 }
 function renderExpandedCardEditor(point) {
   return `
@@ -792,23 +766,12 @@ async function saveInlinePoint(pointId, card) {
   }
 }
 function renderActorSummary(actor) {
-  const lines = [];
-  if (actor.position) lines.push(`<div class="card-actor-line"><strong>Position :</strong> ${safeText(actor.position)}</div>`);
-  if (actor.action) lines.push(`<div class="card-actor-line"><strong>Action :</strong> ${safeText(actor.action)}</div>`);
-  const meta = [];
-  if (actor.statut) meta.push(`<span class="badge ${actor.statut === 'En attente' ? 'badge-att' : actor.statut === 'Fait' ? 'badge-rs' : 'badge-ar'}">${safeText(actor.statut)}</span>`);
-  if (actor.attente) meta.push(`<span class="badge badge-sv">Attente: ${safeText(actor.attente)}</span>`);
   return `
     <div class="card-actor">
       <div class="card-actor-head"><span class="actor-badge">${safeText(actor.nom || 'Acteur')}</span></div>
-      ${meta.length ? `<div class="card-actor-meta">${meta.join('')}</div>` : ''}
-      ${lines.join('')}
-      ${actor.mail ? `<div class="mail-proof">${safeText(actor.mail)}</div>` : ''}
+      ${actor.description ? `<div class="card-actor-line">${safeText(actor.description).replace(/\n/g, '<br>')}</div>` : '<div class="card-actor-line">Aucune description.</div>'}
     </div>
   `;
-}
-function actorStatusPriority(status) {
-  return ({'En attente': 0, 'À faire': 1, 'Fait': 2}[status] ?? 1);
 }
 function orderValue(point) {
   return Number.isFinite(point.Ordre) ? point.Ordre : Number.MAX_SAFE_INTEGER;
@@ -1071,7 +1034,7 @@ function renderSidebar() {
       return pointsAll.some(p => p.Bilaterale === b.id &&
         ((p.Titre||'').toLowerCase().includes(q) || (p.Description||'').toLowerCase().includes(q) ||
          (p.Reference_site||'').toLowerCase().includes(q) || (p.Action_suivante||'').toLowerCase().includes(q) ||
-         p.Acteurs.some(actor => [actor.nom, actor.position, actor.action, actor.attente, actor.mail, actor.statut].join(' ').toLowerCase().includes(q))));
+         p.Acteurs.some(actor => [actor.nom, actor.description].join(' ').toLowerCase().includes(q))));
     });
   }
 
@@ -1116,8 +1079,8 @@ function selectBilat(id) {
   selectedBilatId=id; filterStatut='all'; searchQ=''; expandedPointId=null; selectedExchangeIndexByPoint={};
   document.getElementById('search-box').value='';
   document.getElementById('btn-view-mode').textContent = contentViewMode === 'actors' ? 'Vue point' : 'Vue acteur';
-  document.getElementById('actor-status-filter').style.display = contentViewMode === 'actors' ? '' : 'none';
-  document.getElementById('actor-status-filter').value = actorStatusFilter;
+  document.getElementById('actor-status-filter').style.display = 'none';
+  document.getElementById('actor-status-filter').value = '';
   renderSidebar();
   const b=bilaterales.find(b=>b.id===id);
   document.getElementById('dashboard').style.display='none';
@@ -1185,39 +1148,13 @@ function actorEditorRowHtml(actor = {}, index = 0) {
         <div class="actor-row-title">Acteur ${index + 1}</div>
         <button type="button" class="btn-remove-actor">Supprimer</button>
       </div>
-      <div class="actor-grid">
-        <div class="field-group">
-          <label class="field-label">Acteur</label>
-          <input class="field-input actor-input" data-key="nom" type="text" value="${safeText(actor.nom)}" placeholder="DINUM, Can'L, opérateur…">
-        </div>
-        <div class="field-group">
-          <label class="field-label">Position / attente</label>
-          <input class="field-input actor-input" data-key="position" type="text" value="${safeText(actor.position)}" placeholder="Position à rappeler, point de vue…">
-        </div>
+      <div class="field-group">
+        <label class="field-label">Acteur</label>
+        <input class="field-input actor-input" data-key="nom" type="text" value="${safeText(actor.nom)}" placeholder="DINUM, Can'L, operateur...">
       </div>
       <div class="field-group">
-        <label class="field-label">Action associée</label>
-        <textarea class="field-textarea actor-input" data-key="action" style="min-height:60px" placeholder="Action à mener vers cet acteur ou liée à cet acteur">${safeText(actor.action)}</textarea>
-      </div>
-      <div class="actor-grid">
-        <div class="field-group">
-          <label class="field-label">Statut acteur</label>
-          <select class="field-select actor-input" data-key="statut">
-            <option value="À faire"${actor.statut === 'À faire' ? ' selected' : ''}>À faire</option>
-            <option value="En attente"${actor.statut === 'En attente' ? ' selected' : ''}>En attente</option>
-            <option value="Fait"${actor.statut === 'Fait' ? ' selected' : ''}>Fait</option>
-          </select>
-        </div>
-        <div class="field-group">
-          <label class="field-label">En attente de</label>
-          <input class="field-input actor-input" data-key="attente" type="text" value="${safeText(actor.attente)}" placeholder="DINUM, Can'L, management…">
-        </div>
-      </div>
-      <div class="field-group">
-        <label class="field-label">Trace mail / pièce / lien</label>
-        <textarea class="field-textarea actor-input" data-key="mail" style="min-height:72px" placeholder="Collez un lien, une note, ou déposez un mail/fichier ici">${safeText(actor.mail)}</textarea>
-        <div class="drop-zone actor-drop-zone">Déposez ici un mail, un fichier ou du texte pour garder une trace.</div>
-        <div class="field-help">V1: le dépôt enregistre une trace textuelle exploitable dans le point, pas une pièce jointe Outlook native.</div>
+        <label class="field-label">Description</label>
+        <textarea class="field-textarea actor-input" data-key="description" style="min-height:90px" placeholder="Role, contexte, ce qu'il faut retenir...">${safeText(actor.description)}</textarea>
       </div>
     </div>
   `;
@@ -1297,17 +1234,13 @@ function addActorRow(actor = {}) {
 function collectActorsFromEditor() {
   return [...document.querySelectorAll('#f-acteurs .actor-row')].map(row => ({
     nom: row.querySelector('[data-key="nom"]').value.trim(),
-    position: row.querySelector('[data-key="position"]').value.trim(),
-    action: row.querySelector('[data-key="action"]').value.trim(),
-    statut: row.querySelector('[data-key="statut"]').value.trim(),
-    attente: row.querySelector('[data-key="attente"]').value.trim(),
-    mail: row.querySelector('[data-key="mail"]').value.trim(),
-  })).filter(actor => actor.nom || actor.position || actor.action || actor.mail);
+    description: row.querySelector('[data-key="description"]').value.trim(),
+  })).filter(actor => actor.nom || actor.description);
 }
 
 async function appendDroppedContentToActorRow(row, dataTransfer) {
-  const mailField = row.querySelector('[data-key="mail"]');
-  if (!mailField) return;
+  const descriptionField = row.querySelector('[data-key="description"]');
+  if (!descriptionField) return;
   const chunks = [];
   if (dataTransfer.files && dataTransfer.files.length) {
     const file = dataTransfer.files[0];
@@ -1322,24 +1255,8 @@ async function appendDroppedContentToActorRow(row, dataTransfer) {
   const uri = dataTransfer.getData('text/uri-list');
   if (uri && uri.trim()) chunks.push(uri.trim().slice(0, 2000));
   if (!chunks.length) return;
-  mailField.value = [mailField.value.trim(), chunks.join('\n')].filter(Boolean).join('\n\n');
+  descriptionField.value = [descriptionField.value.trim(), chunks.join('\n')].filter(Boolean).join('\n\n');
   markDirty();
-}
-
-function actorStatusBadgeClass(status) {
-  return status === 'En attente' ? 'badge-att' : status === 'Fait' ? 'badge-rs' : 'badge-ar';
-}
-
-async function updateActorInPoint(pointId, actorName, updater) {
-  const point = pointsAll.find(p => p.id === pointId);
-  if (!point) return;
-  const actors = point.Acteurs.map(actor => {
-    if ((actor.nom || '') !== (actorName || '')) return actor;
-    return updater({...actor});
-  });
-  await grist.docApi.applyUserActions([['UpdateRecord', 'Points_bilaterales', pointId, {Acteurs_json: stringifyActors(actors)}]]);
-  await loadData();
-  if (selectedBilatId) selectBilat(selectedBilatId);
 }
 
 function renderActorView() {
@@ -1352,9 +1269,8 @@ function renderActorView() {
   points.forEach(point => {
     if (filterStatut !== 'all' && point.Statut !== filterStatut) return;
     point.Acteurs.forEach(actor => {
-      const haystack = [point.Titre, point.Description, point.Reference_site, point.Action_suivante, actor.nom, actor.position, actor.action, actor.attente, actor.mail, actor.statut].join(' ').toLowerCase();
+      const haystack = [point.Titre, point.Description, point.Reference_site, point.Action_suivante, actor.nom, actor.description].join(' ').toLowerCase();
       if (query && !haystack.includes(query)) return;
-      if (actorStatusFilter && actor.statut !== actorStatusFilter) return;
       const key = actor.nom || 'Sans acteur';
       if (!actorGroups.has(key)) actorGroups.set(key, []);
       actorGroups.get(key).push({ point, actor });
@@ -1367,16 +1283,11 @@ function renderActorView() {
   }
 
   [...actorGroups.entries()].sort((a, b) => a[0].localeCompare(b[0], 'fr')).forEach(([actorName, entries]) => {
-    entries.sort((a, b) => {
-      const actorDiff = actorStatusPriority(a.actor.statut) - actorStatusPriority(b.actor.statut);
-      if (actorDiff !== 0) return actorDiff;
-      return orderValue(a.point) - orderValue(b.point);
-    });
+    entries.sort((a, b) => orderValue(a.point) - orderValue(b.point));
 
     const groupHeader = document.createElement('div');
-    const hasWaiting = entries.some(entry => entry.actor.statut === 'En attente');
-    groupHeader.className = `sort-hint${hasWaiting ? ' actor-group-waiting' : ''}`;
-    groupHeader.textContent = `${actorName} · ${entries.length} point(s) · ${entries.filter(entry => entry.actor.statut !== 'Fait').length} à suivre`;
+    groupHeader.className = 'sort-hint';
+    groupHeader.textContent = `${actorName} · ${entries.length} point(s)`;
     content.appendChild(groupHeader);
 
     entries.forEach(({ point, actor }) => {
@@ -1388,47 +1299,19 @@ function renderActorView() {
           <div class="card-titre">${safeText(point.Titre || '(Sans titre)')}</div>
           <div class="card-badges">
             <span class="badge badge-${badgeClass(point.Statut)}">${safeText(point.Statut || '—')}</span>
-            <span class="badge ${actorStatusBadgeClass(actor.statut)}">${safeText(actor.statut || 'À faire')}</span>
           </div>
         </div>
         ${point.Reference_site ? `<div><span class="card-ref">${safeText(point.Reference_site)}</span></div>` : ''}
         ${point.Description ? `<div class="card-desc expanded">${safeText(point.Description)}</div>` : ''}
         ${renderActorSummary(actor)}
         ${point.Action_suivante ? `<div class="card-action">${safeText(point.Action_suivante)}</div>` : ''}
-        <div class="actor-quick-actions">
-          <button class="actor-quick-btn" data-action="waiting">En attente</button>
-          <button class="actor-quick-btn" data-action="mail">Mail envoyé</button>
-          <button class="actor-quick-btn" data-action="done">Fait</button>
-        </div>
       `;
-      card.addEventListener('click', () => openPanel(point.id));
-      card.querySelectorAll('.actor-quick-btn').forEach(btn => {
-        btn.addEventListener('click', async e => {
-          e.stopPropagation();
-          const action = btn.dataset.action;
-          if (action === 'waiting') {
-            await updateActorInPoint(point.id, actor.nom, current => {
-              current.statut = 'En attente';
-              if (!current.attente) current.attente = actor.nom || '';
-              return current;
-            });
-          }
-          if (action === 'mail') {
-            await updateActorInPoint(point.id, actor.nom, current => {
-              current.statut = 'En attente';
-              current.attente = current.attente || current.nom || '';
-              const stamp = `Mail envoyé le ${new Date().toLocaleDateString('fr-FR')}`;
-              current.mail = [stamp, current.mail].filter(Boolean).join('\n');
-              return current;
-            });
-          }
-          if (action === 'done') {
-            await updateActorInPoint(point.id, actor.nom, current => {
-              current.statut = 'Fait';
-              return current;
-            });
-          }
-        });
+      card.addEventListener('click', () => {
+        expandedPointId = point.id;
+        contentViewMode = 'points';
+        document.getElementById('btn-view-mode').textContent = 'Vue acteur';
+        document.getElementById('actor-status-filter').style.display = 'none';
+        renderCards();
       });
       content.appendChild(card);
     });
@@ -1517,7 +1400,7 @@ function renderCards() {
   if(filterStatut!=='all') pts=pts.filter(p=>p.Statut===filterStatut);
   if(searchQ){
     const q=searchQ.toLowerCase();
-    pts=pts.filter(p=>(p.Titre||'').toLowerCase().includes(q)||(p.Description||'').toLowerCase().includes(q)||(p.Reference_site||'').toLowerCase().includes(q)||(p.Action_suivante||'').toLowerCase().includes(q)||p.Acteurs.some(actor=>[actor.nom, actor.position, actor.action].join(' ').toLowerCase().includes(q)));
+    pts=pts.filter(p=>(p.Titre||'').toLowerCase().includes(q)||(p.Description||'').toLowerCase().includes(q)||(p.Reference_site||'').toLowerCase().includes(q)||(p.Action_suivante||'').toLowerCase().includes(q)||p.Acteurs.some(actor=>[actor.nom, actor.description].join(' ').toLowerCase().includes(q)));
   }
   if(!pts.length){content.innerHTML='<div id="empty-state"><div class="icon">📭</div><div>Aucun point trouvé</div></div>';return;}
   pts=sortPointsForDisplay(pts);
@@ -1623,7 +1506,7 @@ renderCards = function() {
       (p.Description || '').toLowerCase().includes(q) ||
       (p.Reference_site || '').toLowerCase().includes(q) ||
       (p.Action_suivante || '').toLowerCase().includes(q) ||
-      p.Acteurs.some(actor => [actor.nom, actor.position, actor.action, actor.attente, actor.mail].join(' ').toLowerCase().includes(q)) ||
+      p.Acteurs.some(actor => [actor.nom, actor.description].join(' ').toLowerCase().includes(q)) ||
       getPointEchanges(p).some(item => [item.from, item.to, item.cc, item.subject, item.body, item.raw].join(' ').toLowerCase().includes(q))
     );
   }
@@ -2041,21 +1924,16 @@ function generateResume() {
       lines.push('   Acteurs associés :');
       p.Acteurs.forEach(actor => {
         lines.push(`   - ${actor.nom || 'Acteur'}`);
-        if (actor.statut) lines.push(`     Statut acteur : ${actor.statut}`);
-        if (actor.position) lines.push(`     Position : ${actor.position}`);
-        if (actor.attente) lines.push(`     En attente de : ${actor.attente}`);
-        if (actor.action) lines.push(`     Action : ${actor.action}`);
-        if (actor.mail) lines.push(`     Trace : ${actor.mail.replace(/\n/g,'\n     ')}`);
+        if (actor.description) lines.push(`     ${actor.description.replace(/\n/g,'\n     ')}`);
       });
     }
   });
-  const actions=pts.filter(p=>p.Statut!=='Résolu'&&(p.Action_suivante||p.Acteurs.some(actor=>actor.action)));
+  const actions=pts.filter(p=>p.Statut!=='Résolu'&&p.Action_suivante);
   if(actions.length){
     lines.push('','─'.repeat(60),'ACTIONS À SUIVRE','─'.repeat(60));
     actions.forEach(p=>{
       lines.push(`• [${p.Statut}] ${p.Titre}${p.Reference_site?` [${p.Reference_site}]`:''}`);
       if (p.Action_suivante) lines.push(`  → ${p.Action_suivante}`);
-      p.Acteurs.filter(actor=>actor.action).forEach(actor => lines.push(`  → ${actor.nom || 'Acteur'} : ${actor.action}`));
     });
   }
   document.getElementById('export-title').textContent=`Résumé – ${benShort(b.Beneficiaire)} – ${fmtDate(b.Date)}`;
@@ -2088,7 +1966,7 @@ document.getElementById('btn-new-point').addEventListener('click',openNewPointPa
 document.getElementById('btn-view-mode').addEventListener('click',()=>{
   contentViewMode = contentViewMode === 'points' ? 'actors' : 'points';
   document.getElementById('btn-view-mode').textContent = contentViewMode === 'actors' ? 'Vue point' : 'Vue acteur';
-  document.getElementById('actor-status-filter').style.display = contentViewMode === 'actors' ? '' : 'none';
+  document.getElementById('actor-status-filter').style.display = 'none';
   renderCards();
 });
 document.getElementById('actor-status-filter').addEventListener('change', e => {
@@ -2289,11 +2167,7 @@ async function generateCR() {
       if (p.Acteurs.length) {
         p.Acteurs.forEach(actor => {
           const actorParts = [actor.nom || 'Acteur'];
-          if (actor.statut) actorParts.push('Statut : ' + actor.statut);
-          if (actor.position) actorParts.push('Position : ' + actor.position);
-          if (actor.attente) actorParts.push('En attente de : ' + actor.attente);
-          if (actor.action) actorParts.push('Action : ' + actor.action);
-          if (actor.mail) actorParts.push('Trace : ' + actor.mail.replace(/\s+/g, ' ').slice(0, 220));
+          if (actor.description) actorParts.push(actor.description.replace(/\s+/g, ' ').slice(0, 220));
           children.push(new Paragraph({
             children: [tr('• ' + actorParts.join(' | '), { color: '404040' })],
             indent: { left: 1080 }, spacing: { after: 40 },
