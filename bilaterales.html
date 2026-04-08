@@ -640,6 +640,41 @@ function stringifyEchanges(items) {
   })).filter(item => item.date || item.from || item.to || item.cc || item.subject || item.summary || item.body || item.raw);
   return cleaned.length ? JSON.stringify(cleaned) : '';
 }
+function parseExchangeDateValue(value) {
+  const text = String(value || '').trim().toLowerCase();
+  if (!text) return 0;
+  const normalized = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const months = {
+    janvier: 0, fevrier: 1, mars: 2, avril: 3, mai: 4, juin: 5,
+    juillet: 6, aout: 7, septembre: 8, octobre: 9, novembre: 10, decembre: 11,
+  };
+  const frMatch = normalized.match(/(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)?\s*(\d{1,2})\s+([a-z]+)\s+(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/i);
+  if (frMatch && months[frMatch[2]] !== undefined) {
+    return new Date(
+      Number(frMatch[3]),
+      months[frMatch[2]],
+      Number(frMatch[1]),
+      Number(frMatch[4] || 0),
+      Number(frMatch[5] || 0),
+      0,
+      0
+    ).getTime();
+  }
+  const numMatch = normalized.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
+  if (numMatch) {
+    return new Date(
+      Number(numMatch[3]),
+      Number(numMatch[2]) - 1,
+      Number(numMatch[1]),
+      Number(numMatch[4] || 0),
+      Number(numMatch[5] || 0),
+      0,
+      0
+    ).getTime();
+  }
+  const fallback = Date.parse(value);
+  return Number.isFinite(fallback) ? fallback : 0;
+}
 function actorMailToExchange(actor) {
   const mail = String(actor.description || '').trim();
   if (!mail) return null;
@@ -666,8 +701,8 @@ function actorMailToExchange(actor) {
 }
 function getPointEchanges(point) {
   const structured = parseEchanges(point.Echanges_json || '');
-  if (structured.length) return structured;
-  return point.Acteurs.map(actorMailToExchange).filter(Boolean);
+  const items = structured.length ? structured : point.Acteurs.map(actorMailToExchange).filter(Boolean);
+  return items.sort((a, b) => parseExchangeDateValue(b.date) - parseExchangeDateValue(a.date));
 }
 function exchangeLabel(item) {
   if (item.type === 'appel') return 'Appel';
@@ -752,6 +787,7 @@ function collectInlineEchanges(card) {
   return [...card.querySelectorAll('[data-inline-echanges] .inline-exchange-row')].map(row => {
     const raw = (row.querySelector('[data-inline-exchange="raw"]')?.value || '').trim();
     const parsed = parseOutlookMailText(raw);
+    const summary = ((row.querySelector('[data-inline-exchange="summary"]')?.value) || '').trim() || (parsed?.body || '');
     return {
       type: ((row.querySelector('[data-inline-exchange="type"]')?.value) || 'mail').trim(),
       date: ((row.querySelector('[data-inline-exchange="date"]')?.value) || '').trim() || (parsed?.date || ''),
@@ -759,8 +795,8 @@ function collectInlineEchanges(card) {
       to: ((row.querySelector('[data-inline-exchange="to"]')?.value) || '').trim() || (parsed?.to || ''),
       cc: ((row.querySelector('[data-inline-exchange="cc"]')?.value) || '').trim() || (parsed?.cc || ''),
       subject: ((row.querySelector('[data-inline-exchange="subject"]')?.value) || '').trim() || (parsed?.subject || ''),
-      summary: ((row.querySelector('[data-inline-exchange="summary"]')?.value) || '').trim(),
-      body: parsed?.body || '',
+      summary,
+      body: parsed?.body || summary,
       raw,
     };
   }).filter(item => item.date || item.from || item.to || item.cc || item.subject || item.summary || item.body || item.raw);
@@ -783,8 +819,9 @@ function applyParsedExchangeToRow(row) {
   setIfEmpty('subject', parsed.subject);
   const summaryField = row.querySelector('[data-inline-exchange="summary"]');
   if (summaryField && !summaryField.value.trim() && parsed.body) {
-    summaryField.value = parsed.body.split('\n').filter(Boolean).slice(0, 2).join(' ').slice(0, 280);
+    summaryField.value = parsed.body;
   }
+  rawField.value = '';
 }
 function bindInlineExchangeRowEvents(scope) {
   scope.querySelectorAll('.inline-exchange-row').forEach(row => {
@@ -1468,7 +1505,7 @@ function renderExchangeDetail(pointId, echanges) {
         ${selected.cc ? `<div class="exchange-detail-line"><strong>Cc</strong>${safeText(selected.cc)}</div>` : ''}
         ${(selected.subject || selected.summary) ? `<div class="exchange-detail-line"><strong>Objet</strong>${safeText(selected.subject || selected.summary)}</div>` : ''}
       </div>
-      ${(selected.summary && selected.summary !== selected.subject) ? `<div class="exchange-detail-line"><strong>Resume</strong>${safeText(selected.summary)}</div>` : ''}
+      ${(selected.summary && selected.summary !== selected.subject && selected.summary !== (selected.body || selected.raw)) ? `<div class="exchange-detail-line"><strong>Resume</strong>${safeText(selected.summary)}</div>` : ''}
       ${(selected.body || selected.raw) ? `<div class="exchange-detail-body">${safeText(selected.body || selected.raw)}</div>` : ''}
     </div>
   `;
