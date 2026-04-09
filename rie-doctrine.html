@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Memo Doctrine RIE</title>
+<title>Mémo Doctrine RIE</title>
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -304,28 +304,28 @@
   <div class="shell">
     <section class="hero">
       <div>
-        <div class="eyebrow">Memo Doctrine RIE</div>
-        <h1>Aide a la qualification</h1>
+        <div class="eyebrow">Mémo Doctrine RIE</div>
+        <h1>Aide à la qualification</h1>
         <p>
-          Ce memo aide a retrouver rapidement la doctrine applicable selon la categorie de site,
-          le perimetre et le type d'usage. Il s'appuie sur la table
-          <strong>RIE_Doctrine_Reference</strong> sans alourdir les vues metier.
+          Cet outil permet de retrouver rapidement la doctrine applicable selon la catégorie de site,
+          le périmètre et le type d'usage. Il s'appuie sur la table
+          <strong>RIE_Doctrine_Reference</strong> sans alourdir les vues métier.
         </p>
       </div>
       <div class="hero-tip">
-        Choisis d'abord une <strong>categorie</strong> et un <strong>perimetre</strong>.
-        Le memo te donnera ensuite le zonage minimal, les niveaux de service et les
-        types de raccordement a garder en tete.
+        La sélection d'une <strong>catégorie</strong> et d'un <strong>périmètre</strong>
+        permet d'afficher le zonage minimal, les niveaux de service et les
+        types de raccordement à prendre en compte.
       </div>
     </section>
 
     <section class="filters">
       <div class="field">
-        <label class="label" for="f-categorie">Categorie</label>
+        <label class="label" for="f-categorie">Catégorie</label>
         <select id="f-categorie" class="control"></select>
       </div>
       <div class="field">
-        <label class="label" for="f-perimetre">Perimetre</label>
+        <label class="label" for="f-perimetre">Périmètre</label>
         <select id="f-perimetre" class="control"></select>
       </div>
       <div class="field">
@@ -337,7 +337,7 @@
         <input id="f-search" class="control" type="text" placeholder="ex. FTTO, Orange, DROM...">
       </div>
       <div class="field">
-        <button id="btn-reset" class="btn-reset" type="button">Reinitialiser</button>
+        <button id="btn-reset" class="btn-reset" type="button">Réinitialiser</button>
       </div>
     </section>
 
@@ -408,11 +408,11 @@ function renderSummary(rows) {
   summary.innerHTML = `
     <div class="summary-top">
       <div>
-        <div class="summary-title">${rows.length} doctrine${rows.length > 1 ? 's' : ''} trouvee${rows.length > 1 ? 's' : ''}</div>
+        <div class="summary-title">${rows.length} doctrine${rows.length > 1 ? 's' : ''} trouvée${rows.length > 1 ? 's' : ''}</div>
         <div class="summary-subtitle">
           ${filters.categorie || filters.perimetre || filters.usage || filters.search
-            ? 'Vue filtree pour clarifier rapidement les options pertinentes.'
-            : 'Vue d ensemble du memo. Utilise les filtres pour aller droit a la bonne doctrine.'}
+            ? 'Vue filtrée pour clarifier rapidement les options pertinentes.'
+            : 'Vue d’ensemble du mémo. Les filtres permettent d’identifier rapidement la doctrine adaptée.'}
         </div>
       </div>
       <div class="chip-row">
@@ -435,8 +435,8 @@ function renderCards(rows) {
   if (!rows.length) {
     results.innerHTML = `
       <div class="empty">
-        Aucun resultat ne correspond aux filtres en cours.<br>
-        Elargis la categorie, le perimetre ou la recherche.
+        Aucun résultat ne correspond aux filtres en cours.<br>
+        Élargir la catégorie, le périmètre ou la recherche permet d'afficher davantage de résultats.
       </div>
     `;
     return;
@@ -462,7 +462,7 @@ function renderCards(rows) {
           <div class="datum-value">${safe(row.lienSecours || '—')}</div>
         </div>
         <div class="datum">
-          <div class="datum-label">Debits</div>
+          <div class="datum-label">Débits</div>
           <div class="datum-value">${safe(row.debits || '—')}</div>
         </div>
         <div class="datum">
@@ -472,13 +472,13 @@ function renderCards(rows) {
       </div>
 
       <div class="card-block">
-        <div class="card-block-title">Resume doctrine</div>
-        <div class="card-block-text">${safe(row.resume || 'Aucun resume')}</div>
+        <div class="card-block-title">Résumé doctrine</div>
+        <div class="card-block-text">${safe(row.resume || 'Aucun résumé')}</div>
       </div>
 
       ${(row.notes || row.source) ? `
         <div class="card-block">
-          <div class="card-block-title">Repere</div>
+          <div class="card-block-title">Repère</div>
           <div class="card-block-text muted">${safe([row.notes, row.source].filter(Boolean).join(' | '))}</div>
         </div>
       ` : ''}
@@ -533,8 +533,8 @@ async function loadData() {
   try {
     const table = await grist.docApi.fetchTable('RIE_Doctrine_Reference');
     doctrineRows = table.id.map((_, i) => normalizeRow(table, i));
-    buildOptions('f-categorie', uniq(doctrineRows.map(r => r.categorie)), 'Toutes les categories');
-    buildOptions('f-perimetre', uniq(doctrineRows.map(r => r.perimetre)), 'Tous les perimetres');
+    buildOptions('f-categorie', uniq(doctrineRows.map(r => r.categorie)), 'Toutes les catégories');
+    buildOptions('f-perimetre', uniq(doctrineRows.map(r => r.perimetre)), 'Tous les périmètres');
     buildOptions('f-usage', uniq(doctrineRows.map(r => r.usage)), 'Tous les usages');
     applyFilters();
   } catch (err) {
