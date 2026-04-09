@@ -106,7 +106,7 @@
     font-size: 13px;
     line-height: 1.5;
   }
-  .filters, .summary, .empty, .error {
+  .filters, .summary, .glossary, .empty, .error {
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -158,6 +158,12 @@
     flex-direction: column;
     gap: 14px;
   }
+  .glossary {
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
   .summary-top {
     display: flex;
     justify-content: space-between;
@@ -192,6 +198,42 @@
   .chip.green { background: var(--greenLt); color: var(--green); border-color: #bbf7d0; }
   .chip.amber { background: var(--amberLt); color: var(--amber); border-color: #fde68a; }
   .chip.purple { background: var(--purpleLt); color: var(--purple); border-color: #ddd6fe; }
+  .glossary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+  }
+  .glossary-card {
+    border: 1px solid var(--border);
+    background: #f8fafc;
+    border-radius: 16px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .glossary-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .glossary-kind {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  .glossary-name {
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .glossary-text {
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--text);
+  }
   #results {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -342,6 +384,7 @@
     </section>
 
     <section class="summary" id="summary"></section>
+    <section class="glossary" id="glossary"></section>
     <section id="results"></section>
   </div>
 </div>
@@ -349,6 +392,52 @@
 <script>
 let doctrineRows = [];
 let filters = { categorie: '', perimetre: '', usage: '', search: '' };
+const GLOSSARY = {
+  zonages: [
+    {
+      key: 'Rouge',
+      label: 'Zone rouge',
+      text: 'Zone la plus sensible. Elle héberge les équipements les plus critiques du RIE et impose les exigences de protection, de contrôle d’accès et de traçabilité les plus fortes.'
+    },
+    {
+      key: 'Orange',
+      label: 'Zone orange',
+      text: 'Zone technique à protection renforcée. Elle accueille des équipements importants pour le service et nécessite un contrôle d’accès strict ainsi que des mesures de sûreté renforcées.'
+    },
+    {
+      key: 'Verte',
+      label: 'Zone verte',
+      text: 'Zone technique sous contrôle, avec des exigences de protection standard adaptées au service rendu et aux équipements hébergés.'
+    },
+    {
+      key: 'Non classée',
+      label: 'Zone non classée',
+      text: 'Zone qui ne relève pas d’un zonage PSSI RIE renforcé. Elle ne doit pas accueillir d’équipements nécessitant un niveau de protection supérieur.'
+    }
+  ],
+  categories: [
+    {
+      key: 'A1',
+      label: 'Catégorie A1',
+      text: 'Site critique pour le RIE ou pour son épine dorsale, avec un impact majeur en cas d’indisponibilité.'
+    },
+    {
+      key: 'A2',
+      label: 'Catégorie A2',
+      text: 'Site critique pour un bénéficiaire important, avec un besoin de continuité de service élevé.'
+    },
+    {
+      key: 'B',
+      label: 'Catégorie B',
+      text: 'Site sensible, pour lequel une indisponibilité a un impact significatif sans relever du niveau critique maximal.'
+    },
+    {
+      key: 'C',
+      label: 'Catégorie C',
+      text: 'Site à impact plus limité, relevant d’un cadre de service et de protection moins contraint.'
+    }
+  ]
+};
 
 function safe(v) {
   return String(v || '')
@@ -426,6 +515,45 @@ function renderSummary(rows) {
   `;
 }
 
+function renderGlossary(rows) {
+  const glossary = document.getElementById('glossary');
+  if (!doctrineRows.length) {
+    glossary.innerHTML = '';
+    return;
+  }
+
+  const activeZonages = new Set(rows.flatMap(r => splitMulti(r.zonage)));
+  const activeCategories = new Set(rows.map(r => r.categorie).filter(Boolean));
+  const zonages = GLOSSARY.zonages.filter(item => !activeZonages.size || activeZonages.has(item.key));
+  const categories = GLOSSARY.categories.filter(item => !activeCategories.size || activeCategories.has(item.key));
+  const cards = [...categories.map(item => ({ ...item, kind: 'Catégorie', tone: 'blue' })), ...zonages.map(item => ({ ...item, kind: 'Zonage', tone: 'amber' }))];
+
+  glossary.innerHTML = `
+    <div class="summary-top">
+      <div>
+        <div class="summary-title">Repères PSSI RIE</div>
+        <div class="summary-subtitle">
+          Définitions synthétiques des catégories et des zonages mobilisés dans la doctrine.
+        </div>
+      </div>
+    </div>
+    <div class="glossary-grid">
+      ${cards.map(item => `
+        <article class="glossary-card">
+          <div class="glossary-head">
+            <div>
+              <div class="glossary-kind">${safe(item.kind)}</div>
+              <div class="glossary-name">${safe(item.label)}</div>
+            </div>
+            <span class="chip ${item.tone}">${safe(item.key)}</span>
+          </div>
+          <div class="glossary-text">${safe(item.text)}</div>
+        </article>
+      `).join('')}
+    </div>
+  `;
+}
+
 function renderCards(rows) {
   const results = document.getElementById('results');
   if (!doctrineRows.length) {
@@ -499,6 +627,7 @@ function applyFilters() {
     ].join(' ').toLowerCase().includes(q);
   });
   renderSummary(rows);
+  renderGlossary(rows);
   renderCards(rows);
 }
 
