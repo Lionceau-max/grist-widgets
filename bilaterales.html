@@ -2469,7 +2469,7 @@ async function confirmReconduction() {
       await grist.docApi.applyUserActions(ptsToClone.map(p=>['AddRecord','Points_bilaterales',null,{
         Bilaterale:newId,Titre:p.Titre,Reference_site:p.Reference_site,
         Description:p.Description,Statut:p.Statut,Action_suivante:p.Action_suivante,Sujet_PQP:p.Sujet_PQP||0,
-        Acteurs_json:p.Acteurs_json||'', Ordre:Number.isFinite(p.Ordre) ? p.Ordre : 0,
+        Acteurs_json:p.Acteurs_json||'', Echanges_json:p.Echanges_json||'', Ordre:Number.isFinite(p.Ordre) ? p.Ordre : 0,
       }]));
     }
     document.getElementById('modal-recon').classList.remove('open');
