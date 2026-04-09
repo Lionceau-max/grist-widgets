@@ -197,6 +197,9 @@
   .chip.blue { background: var(--blueLt); color: var(--blue); border-color: #bfdbfe; }
   .chip.green { background: var(--greenLt); color: var(--green); border-color: #bbf7d0; }
   .chip.amber { background: var(--amberLt); color: var(--amber); border-color: #fde68a; }
+  .chip.red { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+  .chip.orange { background: #fff7ed; color: #c2410c; border-color: #fdba74; }
+  .chip.gray { background: #f8fafc; color: #475569; border-color: #cbd5e1; }
   .chip.purple { background: var(--purpleLt); color: var(--purple); border-color: #ddd6fe; }
   .glossary-grid {
     display: grid;
@@ -397,22 +400,26 @@ const GLOSSARY = {
     {
       key: 'Rouge',
       label: 'Zone rouge',
-      text: 'Zone la plus sensible. Elle héberge les équipements les plus critiques du RIE et impose les exigences de protection, de contrôle d’accès et de traçabilité les plus fortes.'
+      text: 'Zone la plus sensible. Elle héberge les équipements les plus critiques du RIE et impose les exigences de protection, de contrôle d’accès et de traçabilité les plus fortes.',
+      tone: 'red'
     },
     {
       key: 'Orange',
       label: 'Zone orange',
-      text: 'Zone technique à protection renforcée. Elle accueille des équipements importants pour le service et nécessite un contrôle d’accès strict ainsi que des mesures de sûreté renforcées.'
+      text: 'Zone technique à protection renforcée. Elle accueille des équipements importants pour le service et nécessite un contrôle d’accès strict ainsi que des mesures de sûreté renforcées.',
+      tone: 'orange'
     },
     {
       key: 'Verte',
       label: 'Zone verte',
-      text: 'Zone technique sous contrôle, avec des exigences de protection standard adaptées au service rendu et aux équipements hébergés.'
+      text: 'Zone technique sous contrôle, avec des exigences de protection standard adaptées au service rendu et aux équipements hébergés.',
+      tone: 'green'
     },
     {
       key: 'Non classée',
       label: 'Zone non classée',
-      text: 'Zone qui ne relève pas d’un zonage PSSI RIE renforcé. Elle ne doit pas accueillir d’équipements nécessitant un niveau de protection supérieur.'
+      text: 'Zone qui ne relève pas d’un zonage PSSI RIE renforcé. Elle ne doit pas accueillir d’équipements nécessitant un niveau de protection supérieur.',
+      tone: 'gray'
     }
   ],
   categories: [
@@ -526,7 +533,7 @@ function renderGlossary(rows) {
   const activeCategories = new Set(rows.map(r => r.categorie).filter(Boolean));
   const zonages = GLOSSARY.zonages.filter(item => !activeZonages.size || activeZonages.has(item.key));
   const categories = GLOSSARY.categories.filter(item => !activeCategories.size || activeCategories.has(item.key));
-  const cards = [...categories.map(item => ({ ...item, kind: 'Catégorie', tone: 'blue' })), ...zonages.map(item => ({ ...item, kind: 'Zonage', tone: 'amber' }))];
+  const cards = [...categories.map(item => ({ ...item, kind: 'Catégorie', tone: 'blue' })), ...zonages.map(item => ({ ...item, kind: 'Zonage', tone: item.tone || 'amber' }))];
 
   glossary.innerHTML = `
     <div class="summary-top">
