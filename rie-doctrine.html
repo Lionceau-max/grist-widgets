@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Memo Doctrine RIE</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f7fb;
+    --panel: #ffffff;
+    --border: #dbe2ea;
+    --text: #0f172a;
+    --muted: #64748b;
+    --blue: #2563eb;
+    --blueLt: #eff6ff;
+    --green: #15803d;
+    --greenLt: #f0fdf4;
+    --amber: #b45309;
+    --amberLt: #fffbeb;
+    --purple: #7c3aed;
+    --purpleLt: #f5f3ff;
+    --shadow: 0 10px 24px rgba(15, 23, 42, .08);
+    --radius: 16px;
+  }
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(circle at top left, #e0ecff 0, transparent 28%),
+      linear-gradient(180deg, #f8fbff 0%, var(--bg) 100%);
+    min-height: 100vh;
+  }
+  #app {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  #loader {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(248, 251, 255, .95);
+    z-index: 10;
+  }
+  .spinner {
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    border: 3px solid #cbd5e1;
+    border-top-color: var(--blue);
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .shell {
+    width: min(1200px, 100%);
+    margin: 0 auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .hero {
+    background: rgba(255,255,255,.8);
+    border: 1px solid rgba(219,226,234,.9);
+    box-shadow: var(--shadow);
+    border-radius: 24px;
+    padding: 22px 24px;
+    display: flex;
+    gap: 18px;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    backdrop-filter: blur(10px);
+  }
+  .eyebrow {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--muted);
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  h1 {
+    font-size: 28px;
+    line-height: 1.1;
+    margin-bottom: 8px;
+  }
+  .hero p {
+    max-width: 720px;
+    color: var(--muted);
+    line-height: 1.55;
+    font-size: 14px;
+  }
+  .hero-tip {
+    min-width: 260px;
+    max-width: 320px;
+    padding: 14px 16px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #eff6ff 0%, #f8fbff 100%);
+    border: 1px solid #bfdbfe;
+    color: #1e3a8a;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .filters, .summary, .empty, .error {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .filters {
+    padding: 18px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    align-items: end;
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  .control {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: #fff;
+    color: var(--text);
+    padding: 10px 12px;
+    font: inherit;
+    outline: none;
+  }
+  .control:focus { border-color: var(--blue); }
+  .btn-reset {
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--text);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font: inherit;
+    cursor: pointer;
+  }
+  .btn-reset:hover { border-color: var(--blue); color: var(--blue); }
+  .summary {
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .summary-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .summary-title {
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .summary-subtitle {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 4px;
+  }
+  .chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 999px;
+    padding: 7px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid transparent;
+  }
+  .chip.blue { background: var(--blueLt); color: var(--blue); border-color: #bfdbfe; }
+  .chip.green { background: var(--greenLt); color: var(--green); border-color: #bbf7d0; }
+  .chip.amber { background: var(--amberLt); color: var(--amber); border-color: #fde68a; }
+  .chip.purple { background: var(--purpleLt); color: var(--purple); border-color: #ddd6fe; }
+  #results {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+  }
+  .card {
+    background: rgba(255,255,255,.92);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px;
+  }
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .card-title {
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+  .card-subtitle {
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+  .badge {
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: var(--blueLt);
+    color: var(--blue);
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .datum {
+    border: 1px solid var(--border);
+    background: #f8fafc;
+    border-radius: 14px;
+    padding: 10px 12px;
+  }
+  .datum-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .datum-value {
+    font-size: 13px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+  }
+  .card-block {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .card-block-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  .card-block-text {
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--text);
+    white-space: pre-wrap;
+  }
+  .muted {
+    color: var(--muted);
+  }
+  .empty, .error {
+    padding: 28px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .error {
+    border-color: #fecaca;
+    background: #fff7f7;
+    color: #991b1b;
+  }
+  @media (max-width: 720px) {
+    .shell { padding: 14px; }
+    .hero { padding: 18px; border-radius: 20px; }
+    h1 { font-size: 24px; }
+    .grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div id="loader"><div class="spinner"></div></div>
+<div id="app">
+  <div class="shell">
+    <section class="hero">
+      <div>
+        <div class="eyebrow">Memo Doctrine RIE</div>
+        <h1>Aide a la qualification</h1>
+        <p>
+          Ce memo aide a retrouver rapidement la doctrine applicable selon la categorie de site,
+          le perimetre et le type d'usage. Il s'appuie sur la table
+          <strong>RIE_Doctrine_Reference</strong> sans alourdir les vues metier.
+        </p>
+      </div>
+      <div class="hero-tip">
+        Choisis d'abord une <strong>categorie</strong> et un <strong>perimetre</strong>.
+        Le memo te donnera ensuite le zonage minimal, les niveaux de service et les
+        types de raccordement a garder en tete.
+      </div>
+    </section>
+
+    <section class="filters">
+      <div class="field">
+        <label class="label" for="f-categorie">Categorie</label>
+        <select id="f-categorie" class="control"></select>
+      </div>
+      <div class="field">
+        <label class="label" for="f-perimetre">Perimetre</label>
+        <select id="f-perimetre" class="control"></select>
+      </div>
+      <div class="field">
+        <label class="label" for="f-usage">Type d'usage</label>
+        <select id="f-usage" class="control"></select>
+      </div>
+      <div class="field">
+        <label class="label" for="f-search">Recherche</label>
+        <input id="f-search" class="control" type="text" placeholder="ex. FTTO, Orange, DROM...">
+      </div>
+      <div class="field">
+        <button id="btn-reset" class="btn-reset" type="button">Reinitialiser</button>
+      </div>
+    </section>
+
+    <section class="summary" id="summary"></section>
+    <section id="results"></section>
+  </div>
+</div>
+
+<script>
+let doctrineRows = [];
+let filters = { categorie: '', perimetre: '', usage: '', search: '' };
+
+function safe(v) {
+  return String(v || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function uniq(values) {
+  return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'));
+}
+
+function splitMulti(value) {
+  return String(value || '')
+    .split(';')
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
+function buildOptions(selectId, values, placeholder) {
+  const select = document.getElementById(selectId);
+  select.innerHTML = `<option value="">${placeholder}</option>` +
+    values.map(v => `<option value="${safe(v)}">${safe(v)}</option>`).join('');
+}
+
+function normalizeRow(table, i) {
+  const get = id => table[id] ? table[id][i] : '';
+  return {
+    id: table.id[i],
+    categorie: get('Categorie_site'),
+    perimetre: get('Perimetre'),
+    usage: get('Type_usage'),
+    offre: get('Offre_denomination'),
+    lienNominal: get('Lien_nominal'),
+    lienSecours: get('Lien_secours'),
+    debits: get('Debits'),
+    niveaux: get('Niveaux_service_possibles'),
+    zonage: get('Zonage_minimal'),
+    resume: get('Resume_doctrine'),
+    source: get('Source_annexe'),
+    notes: get('Notes'),
+  };
+}
+
+function renderSummary(rows) {
+  const summary = document.getElementById('summary');
+  if (!doctrineRows.length) {
+    summary.innerHTML = `<div class="error">La table <strong>RIE_Doctrine_Reference</strong> est introuvable ou vide.</div>`;
+    return;
+  }
+
+  const zonages = uniq(rows.flatMap(r => splitMulti(r.zonage)));
+  const niveaux = uniq(rows.flatMap(r => splitMulti(r.niveaux)));
+  const perimetres = uniq(rows.map(r => r.perimetre));
+
+  summary.innerHTML = `
+    <div class="summary-top">
+      <div>
+        <div class="summary-title">${rows.length} doctrine${rows.length > 1 ? 's' : ''} trouvee${rows.length > 1 ? 's' : ''}</div>
+        <div class="summary-subtitle">
+          ${filters.categorie || filters.perimetre || filters.usage || filters.search
+            ? 'Vue filtree pour clarifier rapidement les options pertinentes.'
+            : 'Vue d ensemble du memo. Utilise les filtres pour aller droit a la bonne doctrine.'}
+        </div>
+      </div>
+      <div class="chip-row">
+        ${perimetres.slice(0, 4).map(p => `<span class="chip blue">${safe(p)}</span>`).join('')}
+      </div>
+    </div>
+    <div class="chip-row">
+      ${zonages.map(z => `<span class="chip amber">Zonage ${safe(z)}</span>`).join('')}
+      ${niveaux.map(n => `<span class="chip green">${safe(n)}</span>`).join('')}
+    </div>
+  `;
+}
+
+function renderCards(rows) {
+  const results = document.getElementById('results');
+  if (!doctrineRows.length) {
+    results.innerHTML = '';
+    return;
+  }
+  if (!rows.length) {
+    results.innerHTML = `
+      <div class="empty">
+        Aucun resultat ne correspond aux filtres en cours.<br>
+        Elargis la categorie, le perimetre ou la recherche.
+      </div>
+    `;
+    return;
+  }
+
+  results.innerHTML = rows.map(row => `
+    <article class="card">
+      <div class="card-top">
+        <div>
+          <div class="card-title">${safe(row.offre || row.usage || 'Doctrine')}</div>
+          <div class="card-subtitle">${safe(row.categorie)} | ${safe(row.perimetre)}${row.usage ? ` | ${safe(row.usage)}` : ''}</div>
+        </div>
+        <div class="badge">${safe(row.zonage || 'Sans zonage')}</div>
+      </div>
+
+      <div class="grid">
+        <div class="datum">
+          <div class="datum-label">Lien nominal</div>
+          <div class="datum-value">${safe(row.lienNominal || '—')}</div>
+        </div>
+        <div class="datum">
+          <div class="datum-label">Lien secours</div>
+          <div class="datum-value">${safe(row.lienSecours || '—')}</div>
+        </div>
+        <div class="datum">
+          <div class="datum-label">Debits</div>
+          <div class="datum-value">${safe(row.debits || '—')}</div>
+        </div>
+        <div class="datum">
+          <div class="datum-label">Niveaux de service</div>
+          <div class="datum-value">${safe(row.niveaux || '—')}</div>
+        </div>
+      </div>
+
+      <div class="card-block">
+        <div class="card-block-title">Resume doctrine</div>
+        <div class="card-block-text">${safe(row.resume || 'Aucun resume')}</div>
+      </div>
+
+      ${(row.notes || row.source) ? `
+        <div class="card-block">
+          <div class="card-block-title">Repere</div>
+          <div class="card-block-text muted">${safe([row.notes, row.source].filter(Boolean).join(' | '))}</div>
+        </div>
+      ` : ''}
+    </article>
+  `).join('');
+}
+
+function applyFilters() {
+  const q = filters.search.trim().toLowerCase();
+  const rows = doctrineRows.filter(row => {
+    if (filters.categorie && row.categorie !== filters.categorie) return false;
+    if (filters.perimetre && row.perimetre !== filters.perimetre) return false;
+    if (filters.usage && row.usage !== filters.usage) return false;
+    if (!q) return true;
+    return [
+      row.categorie, row.perimetre, row.usage, row.offre, row.lienNominal, row.lienSecours,
+      row.debits, row.niveaux, row.zonage, row.resume, row.notes, row.source
+    ].join(' ').toLowerCase().includes(q);
+  });
+  renderSummary(rows);
+  renderCards(rows);
+}
+
+function bindEvents() {
+  document.getElementById('f-categorie').addEventListener('change', e => {
+    filters.categorie = e.target.value;
+    applyFilters();
+  });
+  document.getElementById('f-perimetre').addEventListener('change', e => {
+    filters.perimetre = e.target.value;
+    applyFilters();
+  });
+  document.getElementById('f-usage').addEventListener('change', e => {
+    filters.usage = e.target.value;
+    applyFilters();
+  });
+  document.getElementById('f-search').addEventListener('input', e => {
+    filters.search = e.target.value;
+    applyFilters();
+  });
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    filters = { categorie: '', perimetre: '', usage: '', search: '' };
+    document.getElementById('f-categorie').value = '';
+    document.getElementById('f-perimetre').value = '';
+    document.getElementById('f-usage').value = '';
+    document.getElementById('f-search').value = '';
+    applyFilters();
+  });
+}
+
+async function loadData() {
+  try {
+    const table = await grist.docApi.fetchTable('RIE_Doctrine_Reference');
+    doctrineRows = table.id.map((_, i) => normalizeRow(table, i));
+    buildOptions('f-categorie', uniq(doctrineRows.map(r => r.categorie)), 'Toutes les categories');
+    buildOptions('f-perimetre', uniq(doctrineRows.map(r => r.perimetre)), 'Tous les perimetres');
+    buildOptions('f-usage', uniq(doctrineRows.map(r => r.usage)), 'Tous les usages');
+    applyFilters();
+  } catch (err) {
+    document.getElementById('summary').innerHTML = `
+      <div class="error">Erreur de chargement : ${safe(err.message)}</div>
+    `;
+    document.getElementById('results').innerHTML = '';
+  } finally {
+    document.getElementById('loader').style.display = 'none';
+  }
+}
+
+bindEvents();
+grist.ready({ requiredAccess: 'full' });
+loadData();
+</script>
+</body>
+</html>
