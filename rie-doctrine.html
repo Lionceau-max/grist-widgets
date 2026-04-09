@@ -465,6 +465,15 @@ function splitMulti(value) {
     .filter(Boolean);
 }
 
+function getZonageTone(value) {
+  const text = String(value || '').toLowerCase();
+  if (text.includes('rouge')) return 'red';
+  if (text.includes('orange')) return 'orange';
+  if (text.includes('vert')) return 'green';
+  if (text.includes('non class')) return 'gray';
+  return 'blue';
+}
+
 function buildOptions(selectId, values, placeholder) {
   const select = document.getElementById(selectId);
   select.innerHTML = `<option value="">${placeholder}</option>` +
@@ -584,7 +593,7 @@ function renderCards(rows) {
           <div class="card-title">${safe(row.offre || row.usage || 'Doctrine')}</div>
           <div class="card-subtitle">${safe(row.categorie)} | ${safe(row.perimetre)}${row.usage ? ` | ${safe(row.usage)}` : ''}</div>
         </div>
-        <div class="badge">${safe(row.zonage || 'Sans zonage')}</div>
+        <div class="badge chip ${getZonageTone(row.zonage)}">${safe(row.zonage || 'Sans zonage')}</div>
       </div>
 
       <div class="grid">
