@@ -1905,6 +1905,12 @@ function renderExpandedCard(point) {
         <div class="card-section-title">Prochaine action</div>
         <div class="card-action-main">${safeText(point.Action_suivante || 'Aucune action definie')}</div>
       </div>
+      ${point.Description ? `
+        <div class="card-section">
+          <div class="card-section-title">Description</div>
+          <div class="card-secondary-body" style="margin-top:0">${safeText(point.Description)}</div>
+        </div>
+      ` : ''}
       <div class="card-section">
         <div class="card-section-title">Acteurs</div>
         ${actorsHtml}
@@ -1918,7 +1924,7 @@ function renderExpandedCard(point) {
           <summary>Infos secondaires</summary>
           <div class="card-secondary-body">
             ${point.Reference_site ? `<div><strong>Reference</strong> ${safeText(point.Reference_site)}</div>` : ''}
-            ${point.Description ? `<div style="margin-top:${point.Reference_site ? '8px' : '0'}">${safeText(point.Description)}</div>` : '<div>Aucune information complementaire.</div>'}
+            ${point.Reference_site ? '' : '<div>Aucune information complementaire.</div>'}
           </div>
         </details>
       </div>
