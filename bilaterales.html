@@ -90,6 +90,7 @@
   .kpi.bl { background:var(--red-lt); color:var(--red); }     .kpi.bl.active { background:var(--red); color:#fff; }
   .kpi.ar { background:var(--purple-lt); color:var(--purple); } .kpi.ar.active { background:var(--purple); color:#fff; }
   .kpi.sv { background:var(--amber-lt); color:var(--amber); } .kpi.sv.active { background:var(--amber); color:#fff; }
+  .kpi.pr { background:#ecfeff; color:#0f766e; } .kpi.pr.active { background:#0f766e; color:#fff; }
   .kpi.rs { background:var(--green-lt); color:var(--green); } .kpi.rs.active { background:var(--green); color:#fff; }
   #btn-reconduire { padding:6px 13px; border-radius:6px; background:#fff; color:var(--text-sm); border:1px solid var(--border); font-size:13px; font-weight:500; cursor:pointer; white-space:nowrap; flex-shrink:0; }
   #btn-reconduire:hover { background:var(--gray-lt); }
@@ -127,6 +128,7 @@
   .point-card[data-statut="À surveiller"]   { border-left-color:var(--amber); }
   .point-card[data-statut="Action requise"] { border-left-color:var(--purple); }
   .point-card[data-statut="En attente"]     { border-left-color:#c2410c; }
+  .point-card[data-statut="Prêt pour restitution"] { border-left-color:#0f766e; }
 
   .card-top { display:flex; align-items:flex-start; gap:8px; }
   .drag-handle {
@@ -155,6 +157,7 @@
   .badge-rs { background:var(--green-lt); color:var(--green); }
   .badge-sv { background:var(--amber-lt); color:var(--amber); }
   .badge-ar { background:var(--purple-lt); color:var(--purple); }
+  .badge-pr { background:#ecfeff; color:#0f766e; }
   .badge-att { background:#fff7ed; color:#c2410c; }
   .kpi.att { background:#fff7ed; color:#c2410c; }
   .kpi.att.active { background:#c2410c; color:#fff; }
@@ -527,7 +530,7 @@
     <div class="field-group">
       <label class="field-label">Statut</label>
       <select id="f-statut" class="field-select">
-        <option>En cours</option><option>Bloqué</option><option>Action requise</option><option>En attente</option><option>À surveiller</option><option>Résolu</option>
+        <option>En cours</option><option>Bloqué</option><option>Action requise</option><option>En attente</option><option>À surveiller</option><option>Prêt pour restitution</option><option>Résolu</option>
       </select>
     </div>
     <div class="field-group"><label class="field-label">Description</label><textarea id="f-desc" class="field-textarea"></textarea></div>
@@ -665,7 +668,7 @@ let editingPointId=null;
 let corepSourcePointId=null;
 
 // ── Helpers ──
-const badgeClass = s => ({'En cours':'ec','Bloqué':'bl','Résolu':'rs','À surveiller':'sv','Action requise':'ar','En attente':'att'}[s]||'ec');
+const badgeClass = s => ({'En cours':'ec','Bloqué':'bl','Résolu':'rs','À surveiller':'sv','Action requise':'ar','En attente':'att','Prêt pour restitution':'pr'}[s]||'ec');
 function fmtDate(ts) {
   if (!ts) return '—';
   return new Date(ts*1000).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'});
@@ -1484,6 +1487,7 @@ function renderDashboard() {
     const nBloque = pts.filter(p=>p.Statut==='Bloqué').length;
     const nAction = pts.filter(p=>p.Statut==='Action requise').length;
     const nSurv   = pts.filter(p=>p.Statut==='À surveiller').length;
+    const nReady  = pts.filter(p=>p.Statut==='Prêt pour restitution').length;
     const nCours  = pts.filter(p=>p.Statut==='En cours').length;
 
     let cardClass = 'dash-card';
@@ -1500,6 +1504,7 @@ function renderDashboard() {
       nBloque ? `<span class="badge badge-bl">${nBloque} bloqué${nBloque>1?'s':''}</span>` : '',
       nAction ? `<span class="badge badge-ar">${nAction} action${nAction>1?'s':''}</span>` : '',
       nSurv   ? `<span class="badge badge-sv">${nSurv} surveiller</span>` : '',
+      nReady  ? `<span class="badge badge-pr">${nReady} prêt${nReady>1?'s':''}</span>` : '',
       nCours  ? `<span class="badge badge-ec">${nCours} en cours</span>` : '',
     ].filter(Boolean).join('');
 
@@ -1658,11 +1663,11 @@ function selectBilat(id) {
 // ── KPIs ──
 function renderKPIs() {
   const pts=pointsAll.filter(p=>p.Bilaterale===selectedBilatId);
-  const c={all:pts.length,'En cours':0,'Bloqué':0,'Action requise':0,'En attente':0,'À surveiller':0,'Résolu':0};
+  const c={all:pts.length,'En cours':0,'Bloqué':0,'Action requise':0,'En attente':0,'À surveiller':0,'Prêt pour restitution':0,'Résolu':0};
   pts.forEach(p=>{if(c[p.Statut]!==undefined)c[p.Statut]++;});
   const bar=document.getElementById('kpi-bar'); bar.innerHTML='';
   [{key:'all',label:'Tous',cls:'all'},{key:'En cours',label:'En cours',cls:'ec'},{key:'Bloqué',label:'Bloqué',cls:'bl'},
-   {key:'Action requise',label:'Action requise',cls:'ar'},{key:'En attente',label:'En attente',cls:'att'},{key:'À surveiller',label:'À surveiller',cls:'sv'},{key:'Résolu',label:'Résolu',cls:'rs'}
+   {key:'Action requise',label:'Action requise',cls:'ar'},{key:'En attente',label:'En attente',cls:'att'},{key:'À surveiller',label:'À surveiller',cls:'sv'},{key:'Prêt pour restitution',label:'Prêt restitution',cls:'pr'},{key:'Résolu',label:'Résolu',cls:'rs'}
   ].forEach(({key,label,cls})=>{
     if(c[key]===0&&key!=='all') return;
     const btn=document.createElement('button');
@@ -1674,8 +1679,8 @@ function renderKPIs() {
 }
 
 // ── Cards ──
-const STATUT_ORDER=['Bloqué','Action requise','En attente','En cours','À surveiller','Résolu'];
-const STATUTS=['En cours','Bloqué','Action requise','En attente','À surveiller','Résolu'];
+const STATUT_ORDER=['Bloqué','Action requise','En attente','En cours','À surveiller','Prêt pour restitution','Résolu'];
+const STATUTS=['En cours','Bloqué','Action requise','En attente','À surveiller','Prêt pour restitution','Résolu'];
 
 function actorEditorRowHtml(actor = {}, index = 0) {
   return `
