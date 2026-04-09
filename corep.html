@@ -83,10 +83,15 @@
   #content { padding:16px 20px; display:flex; flex-direction:column; gap:14px; }
 
   /* ── CR ── */
-  #notes-section { background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); padding:14px 16px; }
-  #notes-section label { font-size:11px; font-weight:700; color:var(--text-xs); text-transform:uppercase; letter-spacing:.04em; display:block; margin-bottom:6px; }
+  #notes-section { background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); padding:14px 16px; display:flex; flex-direction:column; gap:10px; }
+  #notes-header { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  #notes-section label { font-size:11px; font-weight:700; color:var(--text-xs); text-transform:uppercase; letter-spacing:.04em; display:block; }
+  #notes-actions { display:flex; gap:8px; flex-wrap:wrap; }
   #notes-input { width:100%; border:1px solid var(--border); border-radius:6px; padding:8px 10px; font-size:13px; font-family:inherit; resize:vertical; min-height:50px; outline:none; color:var(--text); }
   #notes-input:focus { border-color:var(--blue); }
+  #cr-view { border:1px solid var(--border); border-radius:8px; background:#f8fafc; padding:12px 14px; font-size:13px; line-height:1.6; color:var(--text); white-space:pre-wrap; }
+  #cr-view.empty { color:var(--text-xs); font-style:italic; }
+  .is-hidden { display:none !important; }
 
   /* ── Sujets ── */
   #sujets-section { background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
@@ -204,8 +209,16 @@
 
       <div id="content">
         <div id="notes-section">
-          <label>CR de session</label>
-          <textarea id="notes-input" placeholder="Décisions, arbitrages, actions, points reportés…"></textarea>
+          <div id="notes-header">
+            <label>CR de session</label>
+            <div id="notes-actions">
+              <button class="btn-secondary" id="btn-edit-cr" type="button">Modifier</button>
+              <button class="btn-primary is-hidden" id="btn-save-cr" type="button">Soumettre le CR</button>
+              <button class="btn-secondary is-hidden" id="btn-cancel-cr" type="button">Annuler</button>
+            </div>
+          </div>
+          <div id="cr-view" class="empty">Aucun CR de session saisi pour le moment.</div>
+          <textarea id="notes-input" class="is-hidden" placeholder="Décisions, arbitrages, actions, points reportés…"></textarea>
         </div>
         <div id="sujets-section">
           <div id="sujets-header">
@@ -267,7 +280,7 @@
 
 <script>
 // ── State ──
-let sessions = [], sujets = [], selectedSessionId = null, editingSujetId = null;
+let sessions = [], sujets = [], selectedSessionId = null, editingSujetId = null, editingCrSessionId = null;
 
 // ── Helpers ──
 function fmtDate(ts) {
@@ -288,6 +301,10 @@ function escapeHtml(v) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+function formatSessionCr(v) {
+  const text = String(v || '').trim();
+  return text ? escapeHtml(text) : '';
 }
 async function ensureCorepSchema() {
   const actions = [];
@@ -455,6 +472,7 @@ function renderSidebar() {
 // ── Select session ──
 function selectSession(id) {
   selectedSessionId = id;
+  editingCrSessionId = null;
   renderSidebar();
   const s = sessions.find(s => s.id === id);
   if (!s) return;
@@ -484,8 +502,37 @@ function selectSession(id) {
 
   document.getElementById('notes-input').value = s.Notes || '';
   document.getElementById('notes-input').dataset.sessionId = id;
+  renderSessionCr(s);
 
   renderSujets(sujetsForSession);
+}
+
+function renderSessionCr(session) {
+  const view = document.getElementById('cr-view');
+  const input = document.getElementById('notes-input');
+  const btnEdit = document.getElementById('btn-edit-cr');
+  const btnSave = document.getElementById('btn-save-cr');
+  const btnCancel = document.getElementById('btn-cancel-cr');
+  const isEditing = editingCrSessionId === session.id;
+  const text = String(session.Notes || '').trim();
+
+  if (isEditing) {
+    view.classList.add('is-hidden');
+    input.classList.remove('is-hidden');
+    btnEdit.classList.add('is-hidden');
+    btnSave.classList.remove('is-hidden');
+    btnCancel.classList.remove('is-hidden');
+    input.focus();
+    return;
+  }
+
+  view.classList.remove('is-hidden');
+  input.classList.add('is-hidden');
+  btnEdit.classList.remove('is-hidden');
+  btnSave.classList.add('is-hidden');
+  btnCancel.classList.add('is-hidden');
+  view.classList.toggle('empty', !text);
+  view.innerHTML = text ? formatSessionCr(text) : 'Aucun CR de session saisi pour le moment.';
 }
 
 // ── Sujets ──
@@ -556,16 +603,33 @@ async function cancelSession(id) {
   await loadData();
 }
 
-// ── Notes autosave ──
-let notesTimer = null;
-document.getElementById('notes-input').addEventListener('input', function() {
-  clearTimeout(notesTimer);
-  notesTimer = setTimeout(async () => {
-    const id = parseInt(this.dataset.sessionId);
-    if (!id) return;
-    await grist.docApi.applyUserActions([['UpdateRecord', 'Corep_Sessions', id, { Notes: this.value }]]);
-  }, 800);
-});
+// ── CR de session ──
+function openCrEditor() {
+  if (!selectedSessionId) return;
+  editingCrSessionId = selectedSessionId;
+  const session = sessions.find(s => s.id === selectedSessionId);
+  if (!session) return;
+  document.getElementById('notes-input').value = session.Notes || '';
+  renderSessionCr(session);
+}
+
+function cancelCrEdit() {
+  if (!selectedSessionId) return;
+  editingCrSessionId = null;
+  const session = sessions.find(s => s.id === selectedSessionId);
+  if (!session) return;
+  document.getElementById('notes-input').value = session.Notes || '';
+  renderSessionCr(session);
+}
+
+async function saveSessionCr() {
+  const id = parseInt(document.getElementById('notes-input').dataset.sessionId);
+  if (!id) return;
+  const value = document.getElementById('notes-input').value;
+  await grist.docApi.applyUserActions([['UpdateRecord', 'Corep_Sessions', id, { Notes: value }]]);
+  editingCrSessionId = null;
+  await loadData();
+}
 
 // ── Add / Edit sujet ──
 function openSujetModal(sujetId = null) {
@@ -679,6 +743,9 @@ document.getElementById('ms-save').addEventListener('click', saveSujet);
 document.getElementById('btn-confirm').addEventListener('click', () => confirmSession());
 document.getElementById('btn-cancel-session').addEventListener('click', () => cancelSession());
 document.getElementById('btn-msg').addEventListener('click', openMsgModal);
+document.getElementById('btn-edit-cr').addEventListener('click', openCrEditor);
+document.getElementById('btn-save-cr').addEventListener('click', saveSessionCr);
+document.getElementById('btn-cancel-cr').addEventListener('click', cancelCrEdit);
 
 document.getElementById('msg-close').addEventListener('click', () => document.getElementById('modal-msg').classList.remove('open'));
 document.getElementById('msg-close2').addEventListener('click', () => document.getElementById('modal-msg').classList.remove('open'));
