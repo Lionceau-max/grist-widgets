@@ -46,9 +46,32 @@
   .bilat-item { padding:10px 12px; border-radius:var(--radius); cursor:pointer; border:2px solid transparent; transition:all .15s; }
   .bilat-item:hover { background:var(--gray-lt); }
   .bilat-item.active { background:var(--blue-lt); border-color:var(--blue); }
+  .bilat-item.future { background:#f0fdf4; border-color:#bbf7d0; }
+  .bilat-item.future:hover { background:#dcfce7; }
+  .bilat-item.past { background:#fff; }
+  .bilat-item.today { background:#fffbeb; border-color:#fde68a; }
+  .bilat-item.today:hover { background:#fef3c7; }
+  .bilat-item.active.future,
+  .bilat-item.active.past,
+  .bilat-item.active.today { background:var(--blue-lt); border-color:var(--blue); }
   .bilat-item .bi-name { font-weight:600; font-size:13px; color:var(--text); }
   .bilat-item .bi-date { font-size:11px; color:var(--text-xs); margin-top:2px; }
   .bilat-item .bi-next { font-size:11px; color:var(--blue); margin-top:2px; }
+  .bi-topline { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .bi-tempo {
+    display:inline-flex;
+    align-items:center;
+    padding:2px 8px;
+    border-radius:999px;
+    font-size:10px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    white-space:nowrap;
+  }
+  .bi-tempo.future { background:#dcfce7; color:#166534; }
+  .bi-tempo.today { background:#fef3c7; color:#92400e; }
+  .bi-tempo.past { background:#f3f4f6; color:var(--text-xs); }
 
   /* Main */
   #main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
@@ -652,6 +675,17 @@ function toInputDate(ts) { return ts ? new Date(ts*1000).toISOString().slice(0,1
 function refInt(v) { return typeof v==='string' ? parseInt(v)||0 : (v||0); }
 function benName(id) { const b=beneficiaires.find(b=>b.id===id); return b?(b.Entite?`${b.Beneficiaire} (${b.Entite})`:b.Beneficiaire):`#${id}`; }
 function benShort(id) { const b=beneficiaires.find(b=>b.id===id); return b?(b.Entite||b.Beneficiaire):`#${id}`; }
+function startOfTodayTs() {
+  const now = new Date();
+  now.setHours(0,0,0,0);
+  return Math.floor(now.getTime()/1000);
+}
+function getBilatTimeBucket(b) {
+  const todayTs = startOfTodayTs();
+  if ((b.Date || 0) < todayTs) return { key:'past', label:'Passee' };
+  if ((b.Date || 0) >= todayTs + 86400) return { key:'future', label:'A venir' };
+  return { key:'today', label:"Aujourd'hui" };
+}
 function safeText(v) {
   return String(v || '')
     .replace(/&/g, '&amp;')
@@ -1525,7 +1559,20 @@ function renderSidebar() {
 
   if (sidebarSort === 'date') {
     items.sort((a,b) => b.Date - a.Date);
-    items.forEach(b => list.appendChild(makeBilatItem(b)));
+    const buckets = [
+      { key:'future', label:'A venir' },
+      { key:'today', label:"Aujourd'hui" },
+      { key:'past', label:'Passees' },
+    ];
+    buckets.forEach(bucket => {
+      const bucketItems = items.filter(item => getBilatTimeBucket(item).key === bucket.key);
+      if (!bucketItems.length) return;
+      const label = document.createElement('div');
+      label.className = 'bilat-group-label';
+      label.textContent = bucket.label;
+      list.appendChild(label);
+      bucketItems.forEach(item => list.appendChild(makeBilatItem(item)));
+    });
   } else {
     // Group by beneficiaire
     const groups = {};
@@ -1547,10 +1594,14 @@ function renderSidebar() {
 function makeBilatItem(b) {
   const pts = pointsAll.filter(p => p.Bilaterale === b.id);
   const nOpen = pts.filter(p => p.Statut !== 'Résolu').length;
+  const timeBucket = getBilatTimeBucket(b);
   const div = document.createElement('div');
-  div.className = 'bilat-item' + (b.id === selectedBilatId ? ' active' : '');
+  div.className = 'bilat-item ' + timeBucket.key + (b.id === selectedBilatId ? ' active' : '');
   div.innerHTML = `
-    <div class="bi-name">${benShort(b.Beneficiaire)}</div>
+    <div class="bi-topline">
+      <div class="bi-name">${benShort(b.Beneficiaire)}</div>
+      <span class="bi-tempo ${timeBucket.key}">${timeBucket.label}</span>
+    </div>
     <div class="bi-date">📅 ${fmtDate(b.Date)} · ${nOpen} point${nOpen!==1?'s':''} ouvert${nOpen!==1?'s':''}</div>
     ${b.Prochain_point ? `<div class="bi-next">↻ ${fmtDate(b.Prochain_point)}</div>` : ''}
     ${urgencyDots(pts)}
