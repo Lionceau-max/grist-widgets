@@ -6,12 +6,11 @@
 <title>Organigramme DINUM</title>
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Marianne:wght@400;500;700;800&display=swap');
   @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap');
 
   * { margin:0; padding:0; box-sizing:border-box; }
   body {
-    font-family: 'Source Sans 3', 'Marianne', system-ui, sans-serif;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
     background: #f5f5fe;
     color: #1e1e1e;
     overflow: auto;
@@ -20,210 +19,278 @@
   .header {
     background: linear-gradient(135deg, #000091 0%, #1b1b8d 100%);
     color: #fff;
-    padding: 18px 28px;
+    padding: 14px 20px;
     display: flex;
     align-items: center;
-    gap: 16px;
+    justify-content: space-between;
     position: sticky;
     top: 0;
     z-index: 100;
   }
-  .header h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
-  .header .subtitle { font-size: 13px; opacity: 0.7; margin-top: 2px; }
+  .header-left h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+  .header-left .subtitle { font-size: 12px; opacity: 0.65; margin-top: 1px; }
 
   .controls {
-    padding: 12px 28px;
+    padding: 10px 20px;
     background: #fff;
     border-bottom: 1px solid #ddd;
     display: flex;
-    gap: 10px;
+    gap: 8px;
     align-items: center;
     flex-wrap: wrap;
   }
   .controls input {
-    padding: 6px 12px;
+    padding: 6px 10px;
     border: 1px solid #ccc;
     border-radius: 4px;
     font-size: 13px;
-    width: 240px;
+    width: 200px;
     font-family: inherit;
   }
   .controls input:focus { outline: none; border-color: #000091; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
 
-  .tree-container {
-    padding: 24px;
-    overflow: auto;
+  .mode-switcher {
+    display: flex;
+    background: #eeeeff;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid #c5c5f0;
   }
+  .mode-btn {
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: #444;
+    font-family: inherit;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .mode-btn.active { background: #000091; color: #fff; }
+  .mode-btn:hover:not(.active) { background: #ddddf8; }
 
-  /* Tree layout */
+  .zoom-controls {
+    display: flex;
+    gap: 2px;
+    margin-left: auto;
+  }
+  .zoom-btn {
+    width: 28px; height: 28px;
+    border: 1px solid #ccc;
+    background: #fff;
+    border-radius: 4px;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: #000091;
+  }
+  .zoom-btn:hover { background: #eeeeff; }
+  .zoom-label { font-size: 11px; color: #888; align-self: center; margin: 0 4px; min-width: 32px; text-align: center; }
+
+  .legend {
+    display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; color: #666;
+  }
+  .legend-item { display:flex; align-items:center; gap:4px; }
+  .legend-swatch { width:12px; height:12px; border-radius:2px; border:1px solid #ccc; }
+
+  /* TREE */
+  .tree-container { padding: 20px; overflow: auto; }
+  .tree-scroll { display: inline-block; min-width: 100%; transform-origin: top left; transition: transform 0.2s; }
+
   .org-tree { display: flex; flex-direction: column; align-items: center; }
   .org-tree ul {
-    display: flex;
-    justify-content: center;
-    gap: 0;
-    list-style: none;
-    padding-top: 24px;
-    position: relative;
-  }
-  .org-tree ul::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: calc(50% - 0.5px);
-    width: 0;
-    height: 0;
+    display: flex; justify-content: center; list-style: none;
+    padding-top: 22px; position: relative;
   }
   .org-tree li {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    position: relative;
-    padding: 24px 6px 0;
+    display: flex; flex-direction: column; align-items: center;
+    position: relative; padding: 22px 4px 0;
   }
-
-  /* Connectors */
   .org-tree li::before, .org-tree li::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    width: 50%;
-    height: 24px;
+    content: ''; position: absolute; top: 0; width: 50%; height: 22px;
     border-top: 2px solid #b3b3de;
   }
   .org-tree li::before { left: 50%; border-left: 2px solid #b3b3de; }
   .org-tree li::after { right: 50%; }
   .org-tree li:first-child::after { display: none; }
-  .org-tree li:last-child::before { border-right: none; display: none; }
-  .org-tree li:last-child::after { border-right: 2px solid #b3b3de; border-left: none; }
-  .org-tree li:only-child::before, .org-tree li:only-child::after {
-    display: none;
-  }
-  .org-tree li:only-child { padding-top: 24px; }
+  .org-tree li:last-child::before { display: none; }
+  .org-tree li:last-child::after { border-right: 2px solid #b3b3de; }
+  .org-tree li:only-child::before, .org-tree li:only-child::after { display: none; }
+  .org-tree li:only-child { padding-top: 22px; }
   .org-tree li:only-child::before {
-    display: block;
-    width: 0;
-    left: 50%;
-    border-left: 2px solid #b3b3de;
-    border-top: none;
+    display: block; width: 0; left: 50%;
+    border-left: 2px solid #b3b3de; border-top: none;
   }
-
   .org-tree > ul > li::before, .org-tree > ul > li::after { display: none; }
   .org-tree > ul > li { padding-top: 0; }
-
-  /* Parent connector down */
   .org-tree ul.has-children::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 50%;
-    width: 0;
-    height: 24px;
-    border-left: 2px solid #b3b3de;
+    content: ''; position: absolute; top: 0; left: 50%;
+    width: 0; height: 22px; border-left: 2px solid #b3b3de;
   }
 
-  /* Card */
+  /* Cards */
   .card {
-    background: #fff;
-    border: 2px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 10px 14px;
-    min-width: 160px;
-    max-width: 210px;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.15s;
-    position: relative;
+    background: #fff; border: 2px solid #e0e0e0; border-radius: 8px;
+    padding: 8px 12px; min-width: 140px; max-width: 195px;
+    text-align: center; cursor: pointer; transition: all 0.15s; position: relative;
   }
-  .card:hover { border-color: #000091; box-shadow: 0 4px 16px rgba(0,0,145,0.12); transform: translateY(-2px); }
-  .card.direction { background: #000091; color: #fff; border-color: #000091; min-width: 220px; }
-  .card.direction .card-name { color: #fff; }
-  .card.direction .card-title { color: rgba(255,255,255,0.8); }
-  .card.cabinet { border-color: #ce0500; border-width: 2px; }
+  .card:hover { border-color: #000091; box-shadow: 0 3px 12px rgba(0,0,145,0.12); transform: translateY(-1px); }
+  .card.direction { background: #000091; color: #fff; border-color: #000091; min-width: 200px; }
+  .card.direction .card-name, .card.departement .card-name { color: #fff; }
+  .card.direction .card-title, .card.departement .card-title { color: rgba(255,255,255,0.8); }
+  .card.cabinet { border-color: #ce0500; }
   .card.departement { background: #000091; color: #fff; border-color: #000091; }
-  .card.departement .card-name { color: #fff; }
-  .card.departement .card-title { color: rgba(255,255,255,0.8); }
   .card.pole { background: #f0f0ff; border-color: #6a6af4; }
   .card.interim::after {
-    content: 'intérim';
-    position: absolute;
-    top: -8px;
-    right: -6px;
-    background: #ff6f00;
-    color: #fff;
-    font-size: 9px;
-    font-weight: 700;
-    padding: 1px 6px;
-    border-radius: 8px;
-    text-transform: uppercase;
+    content: 'intérim'; position: absolute; top: -7px; right: -6px;
+    background: #ff6f00; color: #fff; font-size: 9px; font-weight: 700;
+    padding: 1px 5px; border-radius: 8px; text-transform: uppercase;
   }
-  .card.highlight { box-shadow: 0 0 0 3px #ff0; }
+  .card.highlight { box-shadow: 0 0 0 3px #ffe000; }
 
-  .card-unite { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 4px; }
-  .card-name { font-size: 13px; font-weight: 600; color: #000091; }
+  .card-unite { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 3px; line-height: 1.3; }
+  .card-name { font-size: 12px; font-weight: 600; color: #000091; line-height: 1.2; }
   .card-title { font-size: 10px; color: #666; margin-top: 2px; }
+
+  .toggle-children {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: #000091; color: #fff; font-size: 12px; font-weight: 700;
+    border: none; cursor: pointer; margin-top: 4px;
+    transition: transform 0.2s; line-height: 1;
+  }
+  .toggle-children.collapsed { background: #6a6af4; transform: rotate(-90deg); }
+  .toggle-children:hover { opacity: 0.85; }
+  .children-hidden { display: none !important; }
+
+  /* LIST */
+  .list-container { padding: 16px 20px; max-width: 700px; margin: 0 auto; }
+  .list-root {
+    background: #000091; color: #fff; border-radius: 8px;
+    padding: 14px 16px; margin-bottom: 16px; text-align: center; cursor: pointer;
+  }
+  .list-root .lr-unite { font-size: 11px; font-weight: 700; text-transform: uppercase; opacity: 0.7; }
+  .list-root .lr-name { font-size: 16px; font-weight: 700; margin-top: 2px; }
+  .list-root .lr-title { font-size: 12px; opacity: 0.8; }
+
+  .list-cabinet {
+    border: 2px solid #ce0500; border-radius: 8px;
+    padding: 10px 14px; margin-bottom: 12px; background: #fff;
+    cursor: pointer; display: flex; align-items: center; gap: 10px;
+  }
+  .list-cabinet:hover { background: #fff5f5; }
+  .list-cabinet .lc-unite { font-size: 12px; font-weight: 700; color: #ce0500; flex: 1; }
+  .list-cabinet .lc-name { font-size: 12px; color: #666; }
+
+  .list-group { margin-bottom: 16px; }
+  .list-group-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px; background: #000091; color: #fff;
+    border-radius: 8px 8px 0 0; cursor: pointer;
+  }
+  .list-group-header .lgh-unite { font-size: 13px; font-weight: 700; }
+  .list-group-header .lgh-name { font-size: 12px; opacity: 0.8; }
+  .list-group-header .lgh-toggle { margin-left: auto; font-size: 14px; transition: transform 0.2s; }
+  .list-group-header.lg-collapsed { border-radius: 8px; }
+  .list-group-header.lg-collapsed .lgh-toggle { transform: rotate(-90deg); }
+  .list-group-body {
+    border: 1px solid #ddd; border-top: none;
+    border-radius: 0 0 8px 8px; overflow: hidden;
+  }
+  .list-group-body.lg-collapsed { display: none; }
+  .list-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; background: #fff;
+    border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: background 0.1s;
+  }
+  .list-item:last-child { border-bottom: none; }
+  .list-item:hover { background: #f0f0ff; }
+  .list-item .li-unite { font-size: 12px; font-weight: 600; flex: 1; }
+  .list-item .li-name { font-size: 12px; color: #000091; white-space: nowrap; }
+  .list-item .li-interim {
+    font-size: 9px; font-weight: 700; background: #ff6f00; color: #fff;
+    padding: 1px 5px; border-radius: 8px; text-transform: uppercase;
+  }
+  .list-item.highlight { background: #fffde0; }
 
   /* Detail panel */
   .overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.3); z-index:200; }
   .overlay.open { display:block; }
   .detail-panel {
-    position: fixed;
-    right: -400px;
-    top: 0;
-    bottom: 0;
-    width: 380px;
-    background: #fff;
-    z-index: 201;
+    position: fixed; right: -420px; top: 0; bottom: 0;
+    width: min(380px, 90vw); background: #fff; z-index: 201;
     box-shadow: -4px 0 24px rgba(0,0,0,0.15);
-    transition: right 0.25s ease;
-    overflow-y: auto;
-    padding: 24px;
+    transition: right 0.25s ease; overflow-y: auto; padding: 20px;
   }
   .detail-panel.open { right: 0; }
   .detail-panel .close-btn {
-    position: absolute; top:12px; right:12px;
+    position: absolute; top:10px; right:10px;
     background: none; border:none; font-size:22px; cursor:pointer; color:#666;
   }
-  .detail-panel h2 { font-size:18px; color:#000091; margin-bottom:4px; }
-  .detail-panel .dp-unite { font-size:13px; color:#666; margin-bottom:12px; }
-  .detail-panel .dp-field { margin-bottom:10px; }
-  .detail-panel .dp-label { font-size:11px; font-weight:700; color:#999; text-transform:uppercase; letter-spacing:0.5px; }
-  .detail-panel .dp-value { font-size:14px; margin-top:2px; }
+  .detail-panel h2 { font-size: 17px; color: #000091; margin-bottom: 2px; }
+  .detail-panel .dp-unite { font-size: 13px; color: #666; margin-bottom: 10px; }
+  .breadcrumb { font-size: 11px; color: #888; margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 2px; }
+  .breadcrumb span { cursor: pointer; color: #000091; text-decoration: underline; }
+  .breadcrumb .sep { color: #ccc; cursor: default; text-decoration: none; }
+  .dp-field { margin-bottom: 8px; }
+  .dp-label { font-size: 10px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.5px; }
+  .dp-value { font-size: 13px; margin-top: 1px; }
+  .dp-child-link { margin-bottom: 3px; cursor: pointer; color: #000091; text-decoration: underline; font-size: 13px; }
 
-  /* Responsive: horizontal scroll for wide trees */
-  .tree-scroll { overflow-x: auto; min-width: 100%; display: inline-block; }
-
-  .legend {
-    display: flex; gap:16px; padding: 0 28px 16px; flex-wrap: wrap;
+  @media (max-width: 600px) {
+    .controls { gap: 6px; padding: 8px 12px; }
+    .controls input { width: 130px; font-size: 12px; }
+    .legend { display: none; }
+    .header { padding: 10px 14px; }
+    .header-left h1 { font-size: 15px; }
+    .tree-container { padding: 10px; }
+    .list-container { padding: 10px 12px; }
   }
-  .legend-item { display:flex; align-items:center; gap:6px; font-size:12px; }
-  .legend-swatch { width:14px; height:14px; border-radius:3px; border:1px solid #ccc; }
+
+  .hidden { display: none; }
 </style>
 </head>
 <body>
 
 <div class="header">
-  <div>
+  <div class="header-left">
     <h1>Organigramme DINUM</h1>
     <div class="subtitle">Direction interministérielle du numérique</div>
   </div>
 </div>
 
 <div class="controls">
-  <input type="text" id="search" placeholder="Rechercher un nom, unité…" />
+  <input type="text" id="search" placeholder="Rechercher…" />
+  <div class="mode-switcher">
+    <button class="mode-btn active" data-mode="tree">Arbre</button>
+    <button class="mode-btn" data-mode="compact">Compact</button>
+    <button class="mode-btn" data-mode="list">Liste</button>
+  </div>
+  <div class="zoom-controls" id="zoomControls">
+    <button class="zoom-btn" id="zoomOut">−</button>
+    <span class="zoom-label" id="zoomLabel">100%</span>
+    <button class="zoom-btn" id="zoomIn">+</button>
+  </div>
   <div class="legend">
-    <span class="legend-item"><span class="legend-swatch" style="background:#000091"></span> Direction / Département</span>
+    <span class="legend-item"><span class="legend-swatch" style="background:#000091"></span> Direction / Dépt.</span>
     <span class="legend-item"><span class="legend-swatch" style="background:#fff;border-color:#ce0500;border-width:2px"></span> Cabinet</span>
     <span class="legend-item"><span class="legend-swatch" style="background:#f0f0ff;border-color:#6a6af4"></span> Pôle</span>
     <span class="legend-item"><span class="legend-swatch" style="background:#ff6f00"></span> Intérim</span>
   </div>
 </div>
 
-<div class="tree-container">
-  <div class="tree-scroll">
+<div class="tree-container" id="treeView">
+  <div class="tree-scroll" id="treeScroll">
     <div id="orgTree" class="org-tree"></div>
   </div>
 </div>
+
+<div class="list-container hidden" id="listView"></div>
 
 <div id="overlay" class="overlay"></div>
 <div id="detailPanel" class="detail-panel">
@@ -233,19 +300,18 @@
 
 <script>
 let allRecords = [];
+let currentMode = 'tree';
+let collapsed = new Set();
+let listCollapsed = new Set();
+let zoom = 100;
 
 grist.ready({ requiredAccess: 'full' });
-
-grist.onRecords(function(records) {
-  // Also fetch via docApi for reliability
-  loadData();
-});
+grist.onRecords(() => loadData());
 
 async function loadData() {
   try {
     const data = await grist.docApi.fetchTable('Organigramme');
-    const ids = data.id;
-    allRecords = ids.map((id, i) => ({
+    allRecords = data.id.map((id, i) => ({
       id,
       Nom: data.Nom[i] || '',
       Titre: data.Titre[i] || '',
@@ -255,93 +321,188 @@ async function loadData() {
       Description: data.Description[i] || '',
       Interim: data.Interim[i] || false,
     }));
-    renderTree();
+    render();
   } catch(e) {
-    document.getElementById('orgTree').innerHTML = '<p style="padding:20px;color:#ce0500;">Erreur de chargement : ' + e.message + '</p>';
+    document.getElementById('orgTree').innerHTML = '<p style="padding:20px;color:#ce0500;">Erreur : ' + e.message + '</p>';
   }
 }
 
+// Mode switching
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentMode = btn.dataset.mode;
+    render();
+  });
+});
+
+function render() {
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  document.getElementById('treeView').classList.toggle('hidden', currentMode === 'list');
+  document.getElementById('listView').classList.toggle('hidden', currentMode !== 'list');
+  document.getElementById('zoomControls').style.display = currentMode === 'list' ? 'none' : 'flex';
+  if (currentMode === 'list') renderList(q);
+  else renderTree(q);
+}
+
+// TREE / COMPACT
 function buildTree(parentId) {
   const children = allRecords.filter(r => r.Parent_Id === parentId);
   if (!children.length) return '';
-
-  const lis = children.map(c => {
-    const childHtml = buildTree(c.id);
-    const niveau = (c.Niveau || '').toLowerCase().replace('é','e');
-    const classes = ['card', niveau];
-    if (c.Interim) classes.push('interim');
+  return children.map(c => {
+    const hasKids = allRecords.some(r => r.Parent_Id === c.id);
+    const niveau = niv(c.Niveau);
+    const cls = ['card', niveau];
+    if (c.Interim) cls.push('interim');
+    const isCol = collapsed.has(c.id);
+    const subTree = buildTree(c.id);
+    const showToggle = currentMode === 'compact' && hasKids;
 
     return `<li>
-      <div class="${classes.join(' ')}" data-id="${c.id}">
+      <div class="${cls.join(' ')}" data-id="${c.id}">
         <div class="card-unite">${esc(c.Unite)}</div>
         ${c.Nom ? `<div class="card-name">${esc(c.Nom)}</div>` : ''}
         ${c.Titre ? `<div class="card-title">${esc(c.Titre)}</div>` : ''}
       </div>
-      ${childHtml ? `<ul class="has-children">${childHtml}</ul>` : ''}
+      ${showToggle ? `<button class="toggle-children${isCol ? ' collapsed' : ''}" data-parent="${c.id}">▼</button>` : ''}
+      ${subTree ? `<ul class="has-children${isCol ? ' children-hidden' : ''}">${subTree}</ul>` : ''}
     </li>`;
   }).join('');
-
-  return lis;
 }
 
 function renderTree(filter) {
   const root = allRecords.find(r => r.Parent_Id === 0);
   if (!root) { document.getElementById('orgTree').innerHTML = '<p>Aucune donnée.</p>'; return; }
-
-  const niveau = (root.Niveau || '').toLowerCase().replace('é','e');
-  const classes = ['card', niveau];
-
+  const niveau = niv(root.Niveau);
+  const hasKids = allRecords.some(r => r.Parent_Id === root.id);
+  const isCol = collapsed.has(root.id);
   const childrenHtml = buildTree(root.id);
+  const showToggle = currentMode === 'compact' && hasKids;
 
-  document.getElementById('orgTree').innerHTML = `
-    <ul>
-      <li>
-        <div class="${classes.join(' ')}" data-id="${root.id}">
-          <div class="card-unite">${esc(root.Unite)}</div>
-          <div class="card-name">${esc(root.Nom)}</div>
-          <div class="card-title">${esc(root.Titre)}</div>
-        </div>
-        ${childrenHtml ? `<ul class="has-children">${childrenHtml}</ul>` : ''}
-      </li>
-    </ul>`;
+  document.getElementById('orgTree').innerHTML = `<ul><li>
+    <div class="card ${niveau}" data-id="${root.id}">
+      <div class="card-unite">${esc(root.Unite)}</div>
+      <div class="card-name">${esc(root.Nom)}</div>
+      <div class="card-title">${esc(root.Titre)}</div>
+    </div>
+    ${showToggle ? `<button class="toggle-children${isCol ? ' collapsed' : ''}" data-parent="${root.id}">▼</button>` : ''}
+    ${childrenHtml ? `<ul class="has-children${isCol ? ' children-hidden' : ''}">${childrenHtml}</ul>` : ''}
+  </li></ul>`;
 
-  // Attach click events
-  document.querySelectorAll('.card').forEach(card => {
-    card.addEventListener('click', () => openDetail(parseInt(card.dataset.id)));
+  document.querySelectorAll('.card').forEach(c => c.addEventListener('click', () => openDetail(parseInt(c.dataset.id))));
+  document.querySelectorAll('.toggle-children').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const pid = parseInt(btn.dataset.parent);
+      collapsed.has(pid) ? collapsed.delete(pid) : collapsed.add(pid);
+      render();
+    });
+  });
+  if (filter) document.querySelectorAll('.card').forEach(c => {
+    if (c.textContent.toLowerCase().includes(filter)) c.classList.add('highlight');
+  });
+  applyZoom();
+}
+
+// LIST
+function renderList(filter) {
+  const root = allRecords.find(r => r.Parent_Id === 0);
+  if (!root) return;
+  const cabs = allRecords.filter(r => r.Parent_Id === root.id && niv(r.Niveau) === 'cabinet');
+  const depts = allRecords.filter(r => r.Parent_Id === root.id && niv(r.Niveau) === 'departement');
+
+  let html = `<div class="list-root" data-id="${root.id}">
+    <div class="lr-unite">${esc(root.Unite)}</div>
+    <div class="lr-name">${esc(root.Nom)}</div>
+    <div class="lr-title">${esc(root.Titre)}</div>
+  </div>`;
+
+  cabs.forEach(c => {
+    html += `<div class="list-cabinet" data-id="${c.id}">
+      <div class="lc-unite">${esc(c.Unite)}</div>
+      <div class="lc-name">${esc(c.Nom)}</div>
+    </div>`;
   });
 
-  // Apply search highlight
-  if (filter) highlightSearch(filter);
+  depts.forEach(d => {
+    const poles = allRecords.filter(r => r.Parent_Id === d.id);
+    const isCol = listCollapsed.has(d.id);
+    html += `<div class="list-group">
+      <div class="list-group-header${isCol ? ' lg-collapsed' : ''}" data-dept="${d.id}">
+        <div><div class="lgh-unite">${esc(d.Unite)}</div>
+        <div class="lgh-name">${esc(d.Nom)}${d.Interim ? ' (intérim)' : ''}</div></div>
+        <div class="lgh-toggle">▼</div>
+      </div>
+      <div class="list-group-body${isCol ? ' lg-collapsed' : ''}">
+        ${poles.map(p => {
+          const hl = filter && (p.Unite.toLowerCase().includes(filter) || p.Nom.toLowerCase().includes(filter));
+          return `<div class="list-item${hl ? ' highlight' : ''}" data-id="${p.id}">
+            <div class="li-unite">${esc(p.Unite)}</div>
+            ${p.Interim ? '<span class="li-interim">intérim</span>' : ''}
+            <div class="li-name">${esc(p.Nom)}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  });
+
+  const lv = document.getElementById('listView');
+  lv.innerHTML = html;
+
+  lv.querySelectorAll('.list-group-header').forEach(h => {
+    h.addEventListener('click', () => {
+      const did = parseInt(h.dataset.dept);
+      listCollapsed.has(did) ? listCollapsed.delete(did) : listCollapsed.add(did);
+      render();
+    });
+  });
+  lv.querySelectorAll('[data-id]').forEach(el => {
+    if (!el.classList.contains('list-group-header')) {
+      el.addEventListener('click', () => openDetail(parseInt(el.dataset.id)));
+    }
+  });
+}
+
+// ZOOM
+document.getElementById('zoomIn').addEventListener('click', () => { zoom = Math.min(150, zoom + 10); applyZoom(); });
+document.getElementById('zoomOut').addEventListener('click', () => { zoom = Math.max(30, zoom - 10); applyZoom(); });
+function applyZoom() {
+  document.getElementById('treeScroll').style.transform = `scale(${zoom/100})`;
+  document.getElementById('zoomLabel').textContent = zoom + '%';
+}
+
+// SEARCH
+document.getElementById('search').addEventListener('input', () => render());
+
+// DETAIL PANEL
+function getBreadcrumb(id) {
+  const chain = [];
+  let cur = allRecords.find(r => r.id === id);
+  while (cur) { chain.unshift(cur); cur = cur.Parent_Id ? allRecords.find(r => r.id === cur.Parent_Id) : null; }
+  return chain;
 }
 
 function openDetail(id) {
   const r = allRecords.find(x => x.id === id);
   if (!r) return;
-
-  const parent = allRecords.find(x => x.id === r.Parent_Id);
+  const crumbs = getBreadcrumb(id);
   const children = allRecords.filter(x => x.Parent_Id === id);
 
-  let html = `<h2>${esc(r.Nom) || '—'}</h2>
-    <div class="dp-unite">${esc(r.Unite)}</div>`;
+  let html = '<div class="breadcrumb">' +
+    crumbs.map((c, i) => i < crumbs.length - 1
+      ? `<span onclick="openDetail(${c.id})">${esc(c.Unite)}</span><span class="sep"> › </span>`
+      : `<strong>${esc(c.Unite)}</strong>`
+    ).join('') + '</div>' +
+    `<h2>${esc(r.Nom) || '—'}</h2><div class="dp-unite">${esc(r.Unite)}</div>`;
 
-  const fields = [
-    ['Titre', r.Titre],
-    ['Niveau', r.Niveau],
-    ['Rattachement', parent ? parent.Unite : '—'],
-    ['Description', r.Description],
-    ['Intérim', r.Interim ? 'Oui' : 'Non'],
-  ];
-
-  fields.forEach(([label, val]) => {
-    if (val) html += `<div class="dp-field"><div class="dp-label">${label}</div><div class="dp-value">${esc(val)}</div></div>`;
+  [['Titre', r.Titre], ['Niveau', r.Niveau], ['Description', r.Description], ['Intérim', r.Interim ? 'Oui' : '']].forEach(([l, v]) => {
+    if (v) html += `<div class="dp-field"><div class="dp-label">${l}</div><div class="dp-value">${esc(v)}</div></div>`;
   });
 
   if (children.length) {
-    html += `<div class="dp-field"><div class="dp-label">Unités rattachées (${children.length})</div>`;
-    children.forEach(c => {
-      html += `<div class="dp-value" style="margin-bottom:4px;cursor:pointer;color:#000091;text-decoration:underline;" onclick="openDetail(${c.id})">
-        ${esc(c.Unite)}${c.Nom ? ' — ' + esc(c.Nom) : ''}</div>`;
-    });
+    html += `<div class="dp-field"><div class="dp-label">Rattachements (${children.length})</div>`;
+    children.forEach(c => html += `<div class="dp-child-link" onclick="openDetail(${c.id})">${esc(c.Unite)}${c.Nom ? ' — '+esc(c.Nom) : ''}</div>`);
     html += '</div>';
   }
 
@@ -356,22 +517,8 @@ document.getElementById('overlay').onclick = () => {
   document.getElementById('overlay').classList.remove('open');
 };
 
-document.getElementById('search').addEventListener('input', function() {
-  const q = this.value.trim().toLowerCase();
-  renderTree(q);
-});
-
-function highlightSearch(q) {
-  if (!q) return;
-  document.querySelectorAll('.card').forEach(card => {
-    const text = card.textContent.toLowerCase();
-    if (text.includes(q)) {
-      card.classList.add('highlight');
-    }
-  });
-}
-
-function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+function niv(s) { return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+function esc(s) { const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
 
 loadData();
 </script>
