@@ -37,6 +37,18 @@
   #sidebar-sort:hover { background:var(--gray-lt); }
   #bilat-list { flex:1; overflow-y:auto; padding:8px; display:flex; flex-direction:column; gap:4px; }
   .bilat-group-label { font-size:11px; font-weight:700; color:var(--text-xs); text-transform:uppercase; letter-spacing:.05em; padding:8px 4px 4px; }
+  .bilat-group-label.followup {
+    margin-top:4px;
+    padding:9px 10px;
+    border-radius:10px;
+    background:#eef2ff;
+    color:#4338ca;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+  .bilat-group-label.followup .group-title { font-size:11px; }
+  .bilat-group-label.followup .group-subtitle { font-size:10px; font-weight:500; text-transform:none; letter-spacing:0; color:#6366f1; }
   .bi-urgency { display:flex; gap:3px; margin-top:3px; }
   .bi-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
   .bi-dot-bl { background:var(--red); }
@@ -51,9 +63,16 @@
   .bilat-item.past { background:#fff; }
   .bilat-item.today { background:#fffbeb; border-color:#fde68a; }
   .bilat-item.today:hover { background:#fef3c7; }
+  .bilat-item.followup {
+    background:#fff;
+    border-color:#c7d2fe;
+    border-left:4px solid #6366f1;
+  }
+  .bilat-item.followup:hover { background:#eef2ff; }
   .bilat-item.active.future,
   .bilat-item.active.past,
-  .bilat-item.active.today { background:var(--blue-lt); border-color:var(--blue); }
+  .bilat-item.active.today,
+  .bilat-item.active.followup { background:var(--blue-lt); border-color:var(--blue); }
   .bilat-item .bi-name { font-weight:600; font-size:13px; color:var(--text); }
   .bilat-item .bi-date { font-size:11px; color:var(--text-xs); margin-top:2px; }
   .bilat-item .bi-next { font-size:11px; color:var(--blue); margin-top:2px; }
@@ -77,6 +96,7 @@
   .bi-tempo.today { background:#fef3c7; color:#92400e; }
   .bi-tempo.past { background:#f3f4f6; color:var(--text-xs); }
   .bi-tempo.followup { background:#eef2ff; color:#4338ca; }
+  .bi-date.followup { color:#4338ca; font-weight:600; }
 
   /* Main */
   #main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
@@ -1611,8 +1631,10 @@ function renderSidebar() {
       const bucketItems = items.filter(item => getBilatTimeBucket(item).key === bucket.key);
       if (!bucketItems.length) return;
       const label = document.createElement('div');
-      label.className = 'bilat-group-label';
-      label.textContent = bucket.label;
+      label.className = 'bilat-group-label' + (bucket.key === 'followup' ? ' followup' : '');
+      label.innerHTML = bucket.key === 'followup'
+        ? '<span class="group-title">Suivis ponctuels</span><span class="group-subtitle">Dossiers actifs sans échéance de bilatérale</span>'
+        : bucket.label;
       list.appendChild(label);
       bucketItems.forEach(item => list.appendChild(makeBilatItem(item)));
     });
@@ -1646,7 +1668,7 @@ function makeBilatItem(b) {
       <span class="bi-type ${bilatTypeClass(b)}">${bilatTypeShort(b)}</span>
       <span class="bi-tempo ${timeBucket.key}">${timeBucket.label}</span>
     </div>
-    <div class="bi-date">📅 ${fmtDate(b.Date)} · ${nOpen} point${nOpen!==1?'s':''} ouvert${nOpen!==1?'s':''}</div>
+    <div class="bi-date ${timeBucket.key}">${isSuiviPonctuel(b) ? '∞ Dossier intemporel' : '📅 ' + fmtDate(b.Date)} · ${nOpen} point${nOpen!==1?'s':''} ouvert${nOpen!==1?'s':''}</div>
     ${b.Prochain_point ? `<div class="bi-next">↻ ${fmtDate(b.Prochain_point)}</div>` : ''}
     ${urgencyDots(pts)}
   `;
