@@ -76,6 +76,7 @@
   .bi-tempo.future { background:#dcfce7; color:#166534; }
   .bi-tempo.today { background:#fef3c7; color:#92400e; }
   .bi-tempo.past { background:#f3f4f6; color:var(--text-xs); }
+  .bi-tempo.followup { background:#eef2ff; color:#4338ca; }
 
   /* Main */
   #main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
@@ -709,6 +710,7 @@ function startOfTodayTs() {
   return Math.floor(now.getTime()/1000);
 }
 function getBilatTimeBucket(b) {
+  if (isSuiviPonctuel(b)) return { key:'followup', label:'Suivi' };
   const todayTs = startOfTodayTs();
   if ((b.Date || 0) < todayTs) return { key:'past', label:'Passee' };
   if ((b.Date || 0) >= todayTs + 86400) return { key:'future', label:'A venir' };
@@ -1600,6 +1602,7 @@ function renderSidebar() {
   if (sidebarSort === 'date') {
     items.sort((a,b) => b.Date - a.Date);
     const buckets = [
+      { key:'followup', label:'Suivis ponctuels' },
       { key:'future', label:'A venir' },
       { key:'today', label:"Aujourd'hui" },
       { key:'past', label:'Passees' },
@@ -1667,16 +1670,21 @@ function selectBilat(id) {
   document.getElementById('content').style.display='grid';
   const typeBadge = `<span class="topbar-type ${bilatTypeClass(b)}">${safeText(bilatType(b))}</span>`;
   document.getElementById('topbar-title').innerHTML = `${safeText(benName(b.Beneficiaire))} ${typeBadge}`;
-  document.getElementById('btn-reconduire').textContent = isSuiviPonctuel(b) ? '↻ Nouveau suivi' : '↻ Reconduire';
-  const staticParts = [fmtDate(b.Date)];
+  document.getElementById('btn-reconduire').style.display = isSuiviPonctuel(b) ? 'none' : '';
+  document.getElementById('btn-reconduire').textContent = '↻ Reconduire';
+  const staticParts = [isSuiviPonctuel(b) ? `Créé le ${fmtDate(b.Date)}` : fmtDate(b.Date)];
   if (b.Participants_DINUM) staticParts.push(`DINUM : ${b.Participants_DINUM}`);
   if (b.Participants_beneficiaire) staticParts.push(`${benShort(b.Beneficiaire)} : ${b.Participants_beneficiaire}`);
   const sub = document.getElementById('topbar-subtitle');
-  sub.innerHTML = staticParts.join(' · ') +
+  sub.innerHTML = staticParts.join(' · ') + (isSuiviPonctuel(b) ? '' :
     ' &middot; Prochain : <span id="prochain-wrap">' +
       `<span id="prochain-label">${b.Prochain_point ? fmtDate(b.Prochain_point) : '<em style="opacity:.5">non défini</em>'}</span>` +
       ' <span class="edit-icon" id="btn-edit-prochain" title="Modifier">&#9998;</span>' +
-    '</span>';
+    '</span>');
+  if (isSuiviPonctuel(b)) {
+    renderKPIs(); renderCards();
+    return;
+  }
   document.getElementById('btn-edit-prochain').addEventListener('click', () => {
     const wrap = document.getElementById('prochain-wrap');
     wrap.innerHTML =
