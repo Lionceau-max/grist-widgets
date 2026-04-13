@@ -57,6 +57,10 @@
   .bilat-item .bi-name { font-weight:600; font-size:13px; color:var(--text); }
   .bilat-item .bi-date { font-size:11px; color:var(--text-xs); margin-top:2px; }
   .bilat-item .bi-next { font-size:11px; color:var(--blue); margin-top:2px; }
+  .bi-type { display:inline-flex; align-items:center; padding:2px 7px; border-radius:999px; background:#eef2ff; color:#4338ca; font-size:10px; font-weight:700; white-space:nowrap; }
+  .bi-type.regular { background:#f3f4f6; color:var(--text-xs); }
+  .topbar-type { display:inline-flex; align-items:center; padding:3px 9px; border-radius:999px; background:#eef2ff; color:#4338ca; font-size:11px; font-weight:700; margin-left:8px; vertical-align:middle; }
+  .topbar-type.regular { background:#f3f4f6; color:var(--text-xs); }
   .bi-topline { display:flex; align-items:center; justify-content:space-between; gap:8px; }
   .bi-tempo {
     display:inline-flex;
@@ -554,6 +558,13 @@
   <div class="modal-box">
     <div class="modal-header"><h3>Nouvelle bilatérale</h3><button class="modal-close" id="nb-close">✕</button></div>
     <div class="modal-body">
+      <div class="field-group">
+        <label class="field-label">Type de suivi</label>
+        <select id="nb-type" class="field-select">
+          <option>Bilatérale régulière</option>
+          <option>Suivi ponctuel</option>
+        </select>
+      </div>
       <div class="field-group"><label class="field-label">Bénéficiaire</label><select id="nb-ben" class="field-select"><option value="">— Choisir —</option></select></div>
       <div class="field-group"><label class="field-label">Date</label><input id="nb-date" class="field-input" type="date"></div>
       <div class="field-group"><label class="field-label">Prochain point</label><input id="nb-next" class="field-input" type="date"></div>
@@ -585,6 +596,13 @@
   <div class="modal-box">
     <div class="modal-header"><h3 id="eb-title">Modifier la bilatérale</h3><button class="modal-close" id="eb-close">✕</button></div>
     <div class="modal-body">
+      <div class="field-group">
+        <label class="field-label">Type de suivi</label>
+        <select id="eb-type" class="field-select">
+          <option>Bilatérale régulière</option>
+          <option>Suivi ponctuel</option>
+        </select>
+      </div>
       <div class="field-group"><label class="field-label">Date</label><input id="eb-date" class="field-input" type="date"></div>
       <div class="field-group"><label class="field-label">Prochain point</label><input id="eb-next" class="field-input" type="date"></div>
       <div class="field-group"><label class="field-label">Participants bénéficiaire</label><input id="eb-part-ben" class="field-input" type="text"></div>
@@ -666,6 +684,8 @@ let expandedPointId=null;
 let selectedExchangeIndexByPoint={};
 let editingPointId=null;
 let corepSourcePointId=null;
+const BILAT_TYPE_REGULAR = 'Bilatérale régulière';
+const BILAT_TYPE_PONCTUEL = 'Suivi ponctuel';
 
 // ── Helpers ──
 const badgeClass = s => ({'En cours':'ec','Bloqué':'bl','Résolu':'rs','À surveiller':'sv','Action requise':'ar','En attente':'att','Prêt pour restitution':'pr'}[s]||'ec');
@@ -678,6 +698,11 @@ function toInputDate(ts) { return ts ? new Date(ts*1000).toISOString().slice(0,1
 function refInt(v) { return typeof v==='string' ? parseInt(v)||0 : (v||0); }
 function benName(id) { const b=beneficiaires.find(b=>b.id===id); return b?(b.Entite?`${b.Beneficiaire} (${b.Entite})`:b.Beneficiaire):`#${id}`; }
 function benShort(id) { const b=beneficiaires.find(b=>b.id===id); return b?(b.Entite||b.Beneficiaire):`#${id}`; }
+function bilatType(b) { return b?.Type_suivi || BILAT_TYPE_REGULAR; }
+function isSuiviPonctuel(b) { return bilatType(b) === BILAT_TYPE_PONCTUEL; }
+function bilatTypeShort(b) { return isSuiviPonctuel(b) ? 'Suivi' : 'Bilat'; }
+function bilatTypeClass(b) { return isSuiviPonctuel(b) ? 'ponctuel' : 'regular'; }
+function bilatDocumentTitle(b) { return isSuiviPonctuel(b) ? 'SUIVI PONCTUEL RIE' : 'BILATÉRALE RIE'; }
 function startOfTodayTs() {
   const now = new Date();
   now.setHours(0,0,0,0);
@@ -1210,6 +1235,14 @@ async function ensurePointSchema() {
   }
   if (actions.length) await grist.docApi.applyUserActions(actions);
 }
+async function ensureBilatSchema() {
+  const table = await grist.docApi.fetchTable('Bilaterales');
+  const actions = [];
+  if (table.Type_suivi === undefined) {
+    actions.push(['AddColumn', 'Bilaterales', 'Type_suivi', {type: 'Text', label: 'Type de suivi'}]);
+  }
+  if (actions.length) await grist.docApi.applyUserActions(actions);
+}
 async function ensureCorepSchema() {
   try {
     const table = await grist.docApi.fetchTable('Corep_Sujets');
@@ -1248,6 +1281,7 @@ async function normalizePointOrder() {
 
 // ── Load ──
 async function loadData() {
+  await ensureBilatSchema();
   await ensurePointSchema();
   await ensureCorepSchema();
   const [bT,pT,benT,sT,corepSessT,corepSujT] = await Promise.all([
@@ -1263,6 +1297,7 @@ async function loadData() {
     Prochain_point:bT.Prochain_point[i],
     Participants_beneficiaire:bT.Participants_beneficiaire[i],
     Participants_DINUM:bT.Participants_DINUM[i],
+    Type_suivi:(bT.Type_suivi ? bT.Type_suivi[i] : '') || BILAT_TYPE_REGULAR,
   })).sort((a,b)=>b.Date-a.Date);
 
   pointsAll = pT.id.map((id,i)=>({
@@ -1605,6 +1640,7 @@ function makeBilatItem(b) {
   div.innerHTML = `
     <div class="bi-topline">
       <div class="bi-name">${benShort(b.Beneficiaire)}</div>
+      <span class="bi-type ${bilatTypeClass(b)}">${bilatTypeShort(b)}</span>
       <span class="bi-tempo ${timeBucket.key}">${timeBucket.label}</span>
     </div>
     <div class="bi-date">📅 ${fmtDate(b.Date)} · ${nOpen} point${nOpen!==1?'s':''} ouvert${nOpen!==1?'s':''}</div>
@@ -1629,7 +1665,9 @@ function selectBilat(id) {
   document.getElementById('toolbar').style.display='flex';
   document.getElementById('no-bilat').style.display='none';
   document.getElementById('content').style.display='grid';
-  document.getElementById('topbar-title').textContent=benName(b.Beneficiaire);
+  const typeBadge = `<span class="topbar-type ${bilatTypeClass(b)}">${safeText(bilatType(b))}</span>`;
+  document.getElementById('topbar-title').innerHTML = `${safeText(benName(b.Beneficiaire))} ${typeBadge}`;
+  document.getElementById('btn-reconduire').textContent = isSuiviPonctuel(b) ? '↻ Nouveau suivi' : '↻ Reconduire';
   const staticParts = [fmtDate(b.Date)];
   if (b.Participants_DINUM) staticParts.push(`DINUM : ${b.Participants_DINUM}`);
   if (b.Participants_beneficiaire) staticParts.push(`${benShort(b.Beneficiaire)} : ${b.Participants_beneficiaire}`);
@@ -2363,6 +2401,7 @@ function openEditBilatModal() {
   if (!selectedBilatId) return;
   const b = bilaterales.find(b => b.id === selectedBilatId);
   document.getElementById('eb-title').textContent = 'Modifier — ' + benShort(b.Beneficiaire);
+  document.getElementById('eb-type').value = bilatType(b);
   document.getElementById('eb-date').value = toInputDate(b.Date);
   document.getElementById('eb-next').value = toInputDate(b.Prochain_point);
   document.getElementById('eb-part-ben').value = b.Participants_beneficiaire || '';
@@ -2374,6 +2413,7 @@ async function saveEditBilat() {
   const dateStr = document.getElementById('eb-date').value;
   if (!dateStr) { alert('Date requise.'); return; }
   const fields = {
+    Type_suivi: document.getElementById('eb-type').value || BILAT_TYPE_REGULAR,
     Date: toTs(dateStr),
     Prochain_point: toTs(document.getElementById('eb-next').value) || 0,
     Participants_beneficiaire: document.getElementById('eb-part-ben').value.trim(),
@@ -2411,6 +2451,7 @@ function openNewBilatModal() {
   document.getElementById('nb-part-ben').value='';
   document.getElementById('nb-part-dinum').value='';
   document.getElementById('nb-ben').value='';
+  document.getElementById('nb-type').value=BILAT_TYPE_REGULAR;
   document.getElementById('modal-new-bilat').classList.add('open');
 }
 
@@ -2418,7 +2459,7 @@ async function createBilat() {
   const benId=parseInt(document.getElementById('nb-ben').value);
   const dateStr=document.getElementById('nb-date').value;
   if(!benId||!dateStr){alert('Bénéficiaire et date requis.');return;}
-  const fields={Beneficiaire:benId,Date:toTs(dateStr),Prochain_point:toTs(document.getElementById('nb-next').value)||0,
+  const fields={Beneficiaire:benId,Type_suivi:document.getElementById('nb-type').value||BILAT_TYPE_REGULAR,Date:toTs(dateStr),Prochain_point:toTs(document.getElementById('nb-next').value)||0,
     Participants_beneficiaire:document.getElementById('nb-part-ben').value.trim(),
     Participants_DINUM:document.getElementById('nb-part-dinum').value.trim()};
   const btn=document.getElementById('nb-confirm');
@@ -2436,7 +2477,8 @@ async function createBilat() {
 function openReconModal() {
   if(!selectedBilatId) return;
   const b=bilaterales.find(b=>b.id===selectedBilatId);
-  document.getElementById('recon-title').textContent=`Reconduire — ${benShort(b.Beneficiaire)}`;
+  document.getElementById('recon-title').textContent=`${isSuiviPonctuel(b) ? 'Nouveau suivi' : 'Reconduire'} — ${benShort(b.Beneficiaire)}`;
+  document.getElementById('recon-confirm').textContent=isSuiviPonctuel(b) ? 'Créer le suivi' : 'Créer la bilatérale';
   const baseTs=b.Prochain_point||(b.Date+30*24*3600);
   document.getElementById('recon-date').value=toInputDate(baseTs);
   document.getElementById('recon-next').value='';
@@ -2463,7 +2505,7 @@ async function confirmReconduction() {
   btn.disabled=true;btn.textContent='Création…';
   try{
     const res=await grist.docApi.applyUserActions([['AddRecord','Bilaterales',null,{
-      Beneficiaire:b.Beneficiaire, Date:toTs(dateStr),
+      Beneficiaire:b.Beneficiaire, Type_suivi:bilatType(b), Date:toTs(dateStr),
       Prochain_point:toTs(document.getElementById('recon-next').value)||0,
       Participants_beneficiaire:b.Participants_beneficiaire,
       Participants_DINUM:b.Participants_DINUM,
@@ -2480,7 +2522,7 @@ async function confirmReconduction() {
     document.getElementById('modal-recon').classList.remove('open');
     await loadData(); selectBilat(newId);
   }catch(e){alert('Erreur : '+e.message);}
-  finally{btn.disabled=false;btn.textContent='Créer la bilatérale';}
+  finally{btn.disabled=false;btn.textContent=isSuiviPonctuel(b) ? 'Créer le suivi' : 'Créer la bilatérale';}
 }
 
 // ── Export résumé ──
@@ -2488,7 +2530,7 @@ function generateResume() {
   const b=bilaterales.find(b=>b.id===selectedBilatId); if(!b) return;
   const pts=sortPointsForDisplay(pointsAll.filter(p=>p.Bilaterale===selectedBilatId));
   const lines=[
-    `BILATÉRALE RIE – ${benName(b.Beneficiaire).toUpperCase()}`,
+    `${bilatDocumentTitle(b)} – ${benName(b.Beneficiaire).toUpperCase()}`,
     `Date : ${fmtDate(b.Date)}`,
     ...(b.Prochain_point?[`Prochain point : ${fmtDate(b.Prochain_point)}`]:[]),
     ...(b.Participants_beneficiaire?[`Participants ${benShort(b.Beneficiaire)} : ${b.Participants_beneficiaire}`]:[]),
@@ -2643,7 +2685,7 @@ async function generateCR() {
           borders: { top:noBorder, bottom:noBorder, left:noBorder, right:noBorder },
           verticalAlign: VerticalAlign.CENTER,
           children: [
-            new Paragraph({ alignment: AlignmentType.CENTER, spacing:{after:0}, children: [new TextRun({ text: 'Bilatérale', bold: true, color: '1F497D', font: 'Calibri', size: 28 })] }),
+            new Paragraph({ alignment: AlignmentType.CENTER, spacing:{after:0}, children: [new TextRun({ text: isSuiviPonctuel(b) ? 'Suivi ponctuel' : 'Bilatérale', bold: true, color: '1F497D', font: 'Calibri', size: 28 })] }),
             new Paragraph({ alignment: AlignmentType.CENTER, spacing:{after:0}, children: [new TextRun({ text: 'DINUM - ISO / ' + benFull, bold: true, color: '1F497D', font: 'Calibri', size: 26 })] }),
             new Paragraph({ alignment: AlignmentType.CENTER, spacing:{after:0}, children: [new TextRun({ text: fmtDate(b.Date), bold: true, color: '1F497D', font: 'Calibri', size: 24 })] }),
           ],
@@ -2710,7 +2752,7 @@ async function generateCR() {
     // Enjeux et contexte
     children.push(blueBanner('Enjeux et contexte'));
     children.push(new Paragraph({ spacing: { after: 0 } }));
-    children.push(ap([tr('Bilatérale mensuelle ' + benCourt + ' sur le périmètre RIE')], { spacing: { after: 200 } }));
+    children.push(ap([tr((isSuiviPonctuel(b) ? 'Suivi ponctuel ' : 'Bilatérale mensuelle ') + benCourt + ' sur le périmètre RIE')], { spacing: { after: 200 } }));
 
     // Points abordés
     children.push(new Paragraph({
