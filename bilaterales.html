@@ -1633,7 +1633,7 @@ function renderSidebar() {
       const label = document.createElement('div');
       label.className = 'bilat-group-label' + (bucket.key === 'followup' ? ' followup' : '');
       label.innerHTML = bucket.key === 'followup'
-        ? '<span class="group-title">Suivis ponctuels</span><span class="group-subtitle">Dossiers actifs sans échéance de bilatérale</span>'
+        ? '<span class="group-title">Suivis</span><span class="group-subtitle">Dossiers actifs sans échéance de bilatérale</span>'
         : bucket.label;
       list.appendChild(label);
       bucketItems.forEach(item => list.appendChild(makeBilatItem(item)));
@@ -1668,7 +1668,7 @@ function makeBilatItem(b) {
       <span class="bi-type ${bilatTypeClass(b)}">${bilatTypeShort(b)}</span>
       <span class="bi-tempo ${timeBucket.key}">${timeBucket.label}</span>
     </div>
-    <div class="bi-date ${timeBucket.key}">${isSuiviPonctuel(b) ? '∞ Dossier intemporel' : '📅 ' + fmtDate(b.Date)} · ${nOpen} point${nOpen!==1?'s':''} ouvert${nOpen!==1?'s':''}</div>
+    <div class="bi-date ${timeBucket.key}">${isSuiviPonctuel(b) ? '∞' : '📅 ' + fmtDate(b.Date)} · ${nOpen} point${nOpen!==1?'s':''} ouvert${nOpen!==1?'s':''}</div>
     ${b.Prochain_point ? `<div class="bi-next">↻ ${fmtDate(b.Prochain_point)}</div>` : ''}
     ${urgencyDots(pts)}
   `;
