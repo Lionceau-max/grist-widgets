@@ -2044,6 +2044,7 @@ function renderActorView() {
         ${point.Action_suivante ? `<div class="card-action">${safeText(point.Action_suivante)}</div>` : ''}
       `;
       card.addEventListener('click', () => {
+        if (window.getSelection().toString().length > 0) return;
         expandedPointId = point.id;
         contentViewMode = 'points';
         document.getElementById('btn-view-mode').textContent = 'Vue acteur';
@@ -2304,6 +2305,7 @@ renderCards = function() {
       ${expanded ? renderExpandedCard(p) : ''}
     `;
     card.addEventListener('click', e => {
+      if (window.getSelection().toString().length > 0) return;
       if (e.target.closest('.quick-status') || e.target.closest('.exchange-chip') || e.target.closest('[data-collapse-point]') || e.target.closest('[data-edit-point]') || e.target.closest('[data-open-corep]') || e.target.closest('.inline-editor')) return;
       expandedPointId = expanded ? null : p.id;
       if (!(p.id in selectedExchangeIndexByPoint)) selectedExchangeIndexByPoint[p.id] = 0;
