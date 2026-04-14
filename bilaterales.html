@@ -500,16 +500,17 @@
   .dash-status-label.att { background:var(--gray-lt); color:var(--gray); }
   .dash-status-label.pr { background:var(--green-lt); color:#16a34a; }
   .dash-status-count { font-size:11px; font-weight:400; opacity:.8; }
-  .dash-open-list { display:flex; flex-direction:column; gap:4px; padding-left:4px; }
-  .dash-open-item { display:flex; align-items:baseline; gap:8px; padding:6px 10px; background:#fff; border-radius:6px; border:1px solid var(--border); cursor:pointer; transition:all .15s; font-size:12px; }
+  .dash-open-list { display:flex; flex-direction:column; gap:3px; padding-left:4px; }
+  .dash-open-item { display:flex; align-items:baseline; gap:6px; padding:5px 10px; background:#fff; border-radius:6px; border:1px solid var(--border); cursor:pointer; transition:all .15s; font-size:12px; }
   .dash-open-item:hover { background:var(--gray-lt); box-shadow:var(--shadow); }
-  .dash-open-ben { font-size:11px; font-weight:600; color:var(--text-xs); min-width:60px; flex-shrink:0; }
-  .dash-open-titre { flex:1; color:var(--text-sm); }
+  .dash-open-ben { font-size:11px; font-weight:600; color:var(--text-xs); min-width:55px; flex-shrink:0; }
+  .dash-open-titre { color:var(--text-sm); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .dash-open-ref { font-size:10px; color:var(--text-xs); font-family:monospace; }
-  .dash-open-type { font-size:10px; padding:1px 6px; border-radius:999px; font-weight:600; flex-shrink:0; }
+  .dash-open-action { font-size:11px; color:var(--text-xs); font-style:italic; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex-shrink:1; min-width:0; }
+  .dash-open-right { display:flex; align-items:baseline; gap:6px; margin-left:auto; flex-shrink:0; }
+  .dash-open-type { font-size:10px; padding:1px 6px; border-radius:999px; font-weight:600; flex-shrink:0; white-space:nowrap; }
   .dash-open-type.future { background:#dcfce7; color:#166534; }
   .dash-open-type.followup { background:#eef2ff; color:#4338ca; }
-  .dash-open-action { font-size:11px; color:var(--text-xs); font-style:italic; max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex-shrink:0; }
 
   /* Loader */
   #loader { position:fixed; inset:0; background:#fff; display:flex; align-items:center; justify-content:center; z-index:999; flex-direction:column; gap:12px; }
@@ -1608,8 +1609,10 @@ function renderDashboard() {
         sectionHTML += `<div class="dash-open-item" data-bilat-id="${p.Bilaterale}">
           <span class="dash-open-ben">${safeText(benLabel)}</span>
           <span class="dash-open-titre">${safeText(p.Titre || '(Sans titre)')}${p.Reference_site ? ' <span class="dash-open-ref">' + safeText(p.Reference_site) + '</span>' : ''}</span>
-          ${p.Action_suivante ? '<span class="dash-open-action" title="' + safeText(p.Action_suivante) + '">→ ' + safeText(p.Action_suivante) + '</span>' : ''}
-          <span class="dash-open-type ${bucket.key}">${bucketLabel}</span>
+          <span class="dash-open-right">
+            ${p.Action_suivante ? '<span class="dash-open-action" title="' + safeText(p.Action_suivante) + '">→ ' + safeText(p.Action_suivante) + '</span>' : ''}
+            <span class="dash-open-type ${bucket.key}">${bucketLabel}</span>
+          </span>
         </div>`;
       });
 
