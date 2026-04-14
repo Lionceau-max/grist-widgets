@@ -485,6 +485,32 @@
   .dash-next { font-size:11px; color:var(--blue); margin-top:6px; }
   .dash-no-bilat { font-size:12px; color:var(--text-xs); font-style:italic; }
 
+  /* Dashboard: Open points by status */
+  .dash-open-section { margin-bottom:24px; }
+  .dash-open-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+  .dash-open-header h3 { font-size:15px; font-weight:700; color:var(--text); }
+  .dash-open-toggle { padding:4px 10px; border-radius:6px; border:1px solid var(--border); background:#fff; font-size:11px; cursor:pointer; color:var(--text-sm); }
+  .dash-open-toggle:hover { background:var(--gray-lt); }
+  .dash-status-group { margin-bottom:14px; }
+  .dash-status-label { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:6px; font-size:12px; font-weight:700; margin-bottom:6px; }
+  .dash-status-label.ar { background:var(--purple-lt); color:#7c3aed; }
+  .dash-status-label.sv { background:var(--amber-lt); color:#b45309; }
+  .dash-status-label.ec { background:var(--blue-lt); color:#1d4ed8; }
+  .dash-status-label.bl { background:var(--red-lt); color:#dc2626; }
+  .dash-status-label.att { background:var(--gray-lt); color:var(--gray); }
+  .dash-status-label.pr { background:var(--green-lt); color:#16a34a; }
+  .dash-status-count { font-size:11px; font-weight:400; opacity:.8; }
+  .dash-open-list { display:flex; flex-direction:column; gap:4px; padding-left:4px; }
+  .dash-open-item { display:flex; align-items:baseline; gap:8px; padding:6px 10px; background:#fff; border-radius:6px; border:1px solid var(--border); cursor:pointer; transition:all .15s; font-size:12px; }
+  .dash-open-item:hover { background:var(--gray-lt); box-shadow:var(--shadow); }
+  .dash-open-ben { font-size:11px; font-weight:600; color:var(--text-xs); min-width:60px; flex-shrink:0; }
+  .dash-open-titre { flex:1; color:var(--text-sm); }
+  .dash-open-ref { font-size:10px; color:var(--text-xs); font-family:monospace; }
+  .dash-open-type { font-size:10px; padding:1px 6px; border-radius:999px; font-weight:600; flex-shrink:0; }
+  .dash-open-type.future { background:#dcfce7; color:#166534; }
+  .dash-open-type.followup { background:#eef2ff; color:#4338ca; }
+  .dash-open-action { font-size:11px; color:var(--text-xs); font-style:italic; max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex-shrink:0; }
+
   /* Loader */
   #loader { position:fixed; inset:0; background:#fff; display:flex; align-items:center; justify-content:center; z-index:999; flex-direction:column; gap:12px; }
   .spinner { width:32px; height:32px; border:3px solid var(--border); border-top-color:var(--blue); border-radius:50%; animation:spin .7s linear infinite; }
@@ -1513,6 +1539,25 @@ function renderDashboard() {
     if (!byBen[b.Beneficiaire] || b.Date > byBen[b.Beneficiaire].Date) byBen[b.Beneficiaire] = b;
   });
 
+  // ── Active open points: only from future bilats + suivis ponctuels ──
+  const todayTs = startOfTodayTs();
+  const activeBilats = bilaterales.filter(b => {
+    const bucket = getBilatTimeBucket(b);
+    return bucket.key === 'future' || bucket.key === 'today' || bucket.key === 'followup';
+  });
+  const activeBilatIds = new Set(activeBilats.map(b => b.id));
+  const activeOpenPoints = pointsAll.filter(p =>
+    activeBilatIds.has(p.Bilaterale) && p.Statut !== 'Résolu'
+  );
+
+  // Group by statut in priority order
+  const activeStatutOrder = ['Bloqué','Action requise','À surveiller','En cours','En attente','Prêt pour restitution'];
+  const byStatut = {};
+  activeOpenPoints.forEach(p => {
+    if (!byStatut[p.Statut]) byStatut[p.Statut] = [];
+    byStatut[p.Statut].push(p);
+  });
+
   // Total open points across all
   const totalOpen = pointsAll.filter(p => p.Statut !== 'Résolu').length;
   const totalBloque = pointsAll.filter(p => p.Statut === 'Bloqué').length;
@@ -1521,8 +1566,88 @@ function renderDashboard() {
   dash.innerHTML = `
     <div id="dashboard-title">Vue d'ensemble des bilatérales</div>
     <div id="dashboard-sub">${Object.keys(byBen).length} bénéficiaires · ${totalOpen} points ouverts${totalBloque ? ` · <span style="color:var(--red);font-weight:600">${totalBloque} bloqués</span>` : ''}${totalAction ? ` · <span style="color:var(--purple);font-weight:600">${totalAction} actions requises</span>` : ''}</div>
+    <div class="dash-open-section" id="dash-open-section"></div>
     <div class="dash-grid" id="dash-grid"></div>
   `;
+
+  // ── Render open points by status section ──
+  const openSection = document.getElementById('dash-open-section');
+  if (activeOpenPoints.length > 0) {
+    const statusLabels = {
+      'Bloqué': 'Bloqués', 'Action requise': 'Actions requises', 'À surveiller': 'À surveiller',
+      'En cours': 'En cours', 'En attente': 'En attente', 'Prêt pour restitution': 'Prêts pour restitution'
+    };
+
+    let sectionHTML = `<div class="dash-open-header">
+      <h3>📋 Points ouverts actifs <span style="font-size:12px;font-weight:400;color:var(--text-xs)">(${activeOpenPoints.length} points · bilatérales à venir et suivis)</span></h3>
+      <button class="dash-open-toggle" id="dash-open-toggle">Replier</button>
+    </div>
+    <div id="dash-open-body">`;
+
+    activeStatutOrder.forEach(statut => {
+      const pts = byStatut[statut];
+      if (!pts || !pts.length) return;
+      // Sort by beneficiary name then titre
+      pts.sort((a, b) => {
+        const bA = bilaterales.find(bl => bl.id === a.Bilaterale);
+        const bB = bilaterales.find(bl => bl.id === b.Bilaterale);
+        const nameA = bA ? benShort(bA.Beneficiaire) : '';
+        const nameB = bB ? benShort(bB.Beneficiaire) : '';
+        return nameA.localeCompare(nameB) || (a.Titre || '').localeCompare(b.Titre || '');
+      });
+
+      sectionHTML += `<div class="dash-status-group">
+        <div class="dash-status-label ${badgeClass(statut)}">${statusLabels[statut] || statut} <span class="dash-status-count">(${pts.length})</span></div>
+        <div class="dash-open-list">`;
+
+      pts.forEach(p => {
+        const bilat = bilaterales.find(bl => bl.id === p.Bilaterale);
+        const benLabel = bilat ? benShort(bilat.Beneficiaire) : '?';
+        const bucket = bilat ? getBilatTimeBucket(bilat) : { key: 'future' };
+        const bucketLabel = bucket.key === 'followup' ? 'Suivi' : (bucket.key === 'today' ? "Auj." : fmtDate(bilat?.Date));
+        sectionHTML += `<div class="dash-open-item" data-bilat-id="${p.Bilaterale}">
+          <span class="dash-open-ben">${safeText(benLabel)}</span>
+          <span class="dash-open-titre">${safeText(p.Titre || '(Sans titre)')}${p.Reference_site ? ' <span class="dash-open-ref">' + safeText(p.Reference_site) + '</span>' : ''}</span>
+          ${p.Action_suivante ? '<span class="dash-open-action" title="' + safeText(p.Action_suivante) + '">→ ' + safeText(p.Action_suivante) + '</span>' : ''}
+          <span class="dash-open-type ${bucket.key}">${bucketLabel}</span>
+        </div>`;
+      });
+
+      sectionHTML += '</div></div>';
+    });
+
+    sectionHTML += '</div>';
+    openSection.innerHTML = sectionHTML;
+
+    // Click handlers for items
+    openSection.querySelectorAll('.dash-open-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const bilatId = parseInt(el.dataset.bilatId);
+        if (bilatId) selectBilat(bilatId);
+      });
+    });
+
+    // Toggle collapse
+    const toggleBtn = document.getElementById('dash-open-toggle');
+    const body = document.getElementById('dash-open-body');
+    toggleBtn.addEventListener('click', () => {
+      if (body.style.display === 'none') {
+        body.style.display = '';
+        toggleBtn.textContent = 'Replier';
+      } else {
+        body.style.display = 'none';
+        toggleBtn.textContent = 'Déplier';
+      }
+    });
+  }
+
+  // ── Separator ──
+  if (activeOpenPoints.length > 0) {
+    const sep = document.createElement('div');
+    sep.style.cssText = 'border-top:1px solid var(--border);margin:4px 0 16px;padding-top:12px;font-size:13px;font-weight:700;color:var(--text-xs);';
+    sep.textContent = 'Par bénéficiaire';
+    document.getElementById('dash-grid').before(sep);
+  }
 
   const grid = document.getElementById('dash-grid');
 
