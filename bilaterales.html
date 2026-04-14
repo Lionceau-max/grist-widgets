@@ -732,6 +732,14 @@ let expandedPointId=null;
 let selectedExchangeIndexByPoint={};
 let editingPointId=null;
 let corepSourcePointId=null;
+let _mouseDownPos = null;
+document.addEventListener('mousedown', e => { _mouseDownPos = { x: e.clientX, y: e.clientY }; });
+function wasTextDrag(e) {
+  if (!_mouseDownPos) return false;
+  const dx = Math.abs(e.clientX - _mouseDownPos.x);
+  const dy = Math.abs(e.clientY - _mouseDownPos.y);
+  return dx > 5 || dy > 5;
+}
 const BILAT_TYPE_REGULAR = 'Bilatérale régulière';
 const BILAT_TYPE_PONCTUEL = 'Suivi ponctuel';
 
@@ -2043,8 +2051,8 @@ function renderActorView() {
         ${renderActorSummary(actor)}
         ${point.Action_suivante ? `<div class="card-action">${safeText(point.Action_suivante)}</div>` : ''}
       `;
-      card.addEventListener('click', () => {
-        if (window.getSelection().toString().length > 0) return;
+      card.addEventListener('click', (e) => {
+        if (wasTextDrag(e)) return;
         expandedPointId = point.id;
         contentViewMode = 'points';
         document.getElementById('btn-view-mode').textContent = 'Vue acteur';
@@ -2305,7 +2313,7 @@ renderCards = function() {
       ${expanded ? renderExpandedCard(p) : ''}
     `;
     card.addEventListener('click', e => {
-      if (window.getSelection().toString().length > 0) return;
+      if (wasTextDrag(e)) return;
       if (e.target.closest('.quick-status') || e.target.closest('.exchange-chip') || e.target.closest('[data-collapse-point]') || e.target.closest('[data-edit-point]') || e.target.closest('[data-open-corep]') || e.target.closest('.inline-editor')) return;
       expandedPointId = expanded ? null : p.id;
       if (!(p.id in selectedExchangeIndexByPoint)) selectedExchangeIndexByPoint[p.id] = 0;
