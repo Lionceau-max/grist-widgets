@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bloc-notes PQP</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  height: 100vh;
+  overflow: hidden;
+  font-family: Arial, sans-serif;
+  color: #161616;
+  background: #f6f7f9;
+}
+#app { display: flex; flex-direction: column; height: 100vh; }
+#top {
+  background: #000091;
+  color: #fff;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+#top .rf {
+  border-left: 3px solid #e1000f;
+  border-right: 3px solid #e1000f;
+  padding: 2px 6px;
+  font-weight: 700;
+  font-size: 11px;
+}
+#top h1 { margin: 0; font-size: 17px; line-height: 1.2; }
+#count { margin-left: auto; font-size: 12px; opacity: .9; }
+#toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #fff;
+  border-bottom: 1px solid #ddd;
+  flex-wrap: wrap;
+}
+#search {
+  width: min(360px, 100%);
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font: inherit;
+  outline: none;
+}
+#search:focus { border-color: #000091; box-shadow: 0 0 0 2px rgba(0,0,145,.12); }
+.pill, .btn {
+  border: 1px solid #ddd;
+  background: #fff;
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.pill.active { background: #000091; color: #fff; border-color: #000091; }
+.btn.primary { background: #000091; color: #fff; border-color: #000091; margin-left: auto; }
+.btn.warn { color: #e1000f; }
+#main { display: grid; grid-template-columns: minmax(360px, 1fr) 390px; min-height: 0; flex: 1; }
+#cards {
+  padding: 12px;
+  overflow: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+  align-content: start;
+}
+.card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-left: 4px solid #000091;
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  min-height: 148px;
+}
+.card.selected { border-color: #000091; box-shadow: 0 0 0 2px rgba(0,0,145,.14); }
+.card h2 { margin: 0 0 8px; font-size: 15px; line-height: 1.25; }
+.meta { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.tag {
+  display: inline-block;
+  padding: 3px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #eee;
+}
+.tag.type { background: #e7e7ff; color: #000091; }
+.tag.sensible { background: #ffe9e9; color: #b00020; }
+.tag.status { background: #eaf7ee; color: #18753c; }
+.tag.todo { background: #fff3d8; color: #7a4b00; }
+.card p { margin: 0; color: #3a3a3a; font-size: 12px; line-height: 1.35; }
+.linkline { margin-top: 10px; font-size: 12px; color: #000091; word-break: break-word; }
+#detail {
+  border-left: 1px solid #ddd;
+  background: #fff;
+  padding: 16px;
+  overflow: auto;
+}
+#detail.empty { color: #666; display: flex; align-items: center; justify-content: center; text-align: center; }
+#detail h2 { margin: 0 0 8px; font-size: 20px; line-height: 1.25; }
+.section { margin-top: 16px; }
+.label { font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: .02em; margin-bottom: 5px; }
+.value { font-size: 13px; line-height: 1.4; white-space: pre-wrap; word-break: break-word; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+a.action-link { color: #fff; background: #000091; text-decoration: none; border-radius: 6px; padding: 8px 10px; font-size: 12px; font-weight: 700; }
+#empty {
+  grid-column: 1 / -1;
+  color: #666;
+  text-align: center;
+  padding: 48px 10px;
+}
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,.28);
+  padding: 16px;
+}
+.overlay.open { display: flex; }
+.modal {
+  width: min(760px, 100%);
+  max-height: 92vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+}
+.modal-head, .modal-foot {
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #eee;
+}
+.modal-foot { border-top: 1px solid #eee; border-bottom: 0; justify-content: flex-end; }
+.modal-head h3 { margin: 0; font-size: 16px; }
+.modal-body { padding: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.field.full { grid-column: 1 / -1; }
+.field label { display: block; font-size: 11px; font-weight: 700; margin-bottom: 4px; color: #555; }
+.field input, .field select, .field textarea {
+  width: 100%;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 8px;
+  font: inherit;
+}
+#toast {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  background: #18753c;
+  color: #fff;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-weight: 700;
+  font-size: 12px;
+  display: none;
+}
+#toast.error { background: #e1000f; }
+@media (max-width: 860px) {
+  #main { grid-template-columns: 1fr; }
+  #detail { display: none; }
+  .btn.primary { margin-left: 0; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="top">
+    <div class="rf">RF</div>
+    <h1>Bloc-notes PQP</h1>
+    <div id="count">0 ressource</div>
+  </div>
+  <div id="toolbar">
+    <input id="search" type="text" placeholder="Rechercher un lien, une note, un bénéficiaire…" autocomplete="off">
+    <button class="pill active" data-filter="all">Tous</button>
+    <button class="pill" data-filter="Identifiants">Identifiants</button>
+    <button class="pill" data-filter="Lien">Liens</button>
+    <button class="pill" data-filter="À vérifier">À vérifier</button>
+    <button class="pill" data-filter="Sensible">Sensible</button>
+    <button id="add" class="btn primary">+ Ressource</button>
+  </div>
+  <div id="main">
+    <div id="cards"></div>
+    <div id="detail" class="empty">Sélectionne une ressource pour voir le détail.</div>
+  </div>
+</div>
+
+<div id="modal" class="overlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="modal-title">Ressource</h3>
+      <button id="close" class="btn" style="margin-left:auto">Fermer</button>
+    </div>
+    <div class="modal-body">
+      <div class="field full"><label>Titre</label><input id="f-title"></div>
+      <div class="field"><label>Type</label><select id="f-type"></select></div>
+      <div class="field"><label>Statut</label><select id="f-status"></select></div>
+      <div class="field"><label>Bénéficiaire</label><input id="f-benef"></div>
+      <div class="field"><label>Entité</label><input id="f-entite"></div>
+      <div class="field full"><label>Lien / chemin</label><input id="f-link"></div>
+      <div class="field full"><label>Description</label><textarea id="f-desc" rows="3"></textarea></div>
+      <div class="field"><label>Sensibilité</label><select id="f-sens"></select></div>
+      <div class="field"><label>Dernière vérification</label><input id="f-date" type="date"></div>
+      <div class="field"><label>PQP</label><input id="f-pqp"></div>
+      <div class="field"><label>ROC</label><input id="f-roc"></div>
+      <div class="field full"><label>Notes</label><textarea id="f-notes" rows="4"></textarea></div>
+    </div>
+    <div class="modal-foot">
+      <button id="delete" class="btn warn">Supprimer</button>
+      <button id="cancel" class="btn">Annuler</button>
+      <button id="save" class="btn primary">Enregistrer</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+<script>
+grist.ready({requiredAccess: 'full'});
+
+var records = [];
+var selectedId = null;
+var editingId = null;
+var searchTerm = '';
+var activeFilter = 'all';
+
+var TYPES = ['', 'Lien', 'Identifiants', 'Procédure', 'Document', 'Contact', 'Note', 'À vérifier'];
+var STATUSES = ['', 'Actif', 'À vérifier', 'Obsolète', 'Archivé'];
+var SENS = ['', 'Interne', 'Restreint', 'Sensible', 'Ne pas stocker ici'];
+
+function V(r, key) { return r && r[key] != null ? String(r[key]).trim() : ''; }
+function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function isUrl(s) { return /^https?:\/\//i.test(String(s || '').trim()); }
+function toast(msg, isError) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = isError ? 'error' : '';
+  t.style.display = 'block';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function() { t.style.display = 'none'; }, 2300);
+}
+function optionHtml(values, value) {
+  return values.map(function(v) {
+    return '<option value="' + esc(v) + '"' + (v === value ? ' selected' : '') + '>' + (v || '—') + '</option>';
+  }).join('');
+}
+function matchRecord(r) {
+  if (activeFilter !== 'all') {
+    var isMatch = V(r, 'Type_') === activeFilter || V(r, 'Statut') === activeFilter || V(r, 'Sensibilite') === activeFilter;
+    if (!isMatch) return false;
+  }
+  if (!searchTerm) return true;
+  var hay = [V(r, 'Titre'), V(r, 'Type_'), V(r, 'Beneficiaire'), V(r, 'Entite'), V(r, 'Lien'), V(r, 'Description'), V(r, 'Sensibilite'), V(r, 'Statut'), V(r, 'PQP'), V(r, 'ROC'), V(r, 'Notes')].join(' ').toLowerCase();
+  return hay.indexOf(searchTerm) >= 0;
+}
+function sortedRows() {
+  return records.filter(matchRecord).sort(function(a, b) {
+    var sa = V(a, 'Statut') === 'À vérifier' ? 0 : 1;
+    var sb = V(b, 'Statut') === 'À vérifier' ? 0 : 1;
+    if (sa !== sb) return sa - sb;
+    return V(a, 'Titre').localeCompare(V(b, 'Titre'), 'fr');
+  });
+}
+function tagClass(value, kind) {
+  if (kind === 'sens' && (value === 'Sensible' || value === 'Ne pas stocker ici')) return 'tag sensible';
+  if (kind === 'status' && value === 'À vérifier') return 'tag todo';
+  if (kind === 'status') return 'tag status';
+  return 'tag type';
+}
+function render() {
+  var rows = sortedRows();
+  document.getElementById('count').textContent = records.length + (records.length > 1 ? ' ressources' : ' ressource');
+  var box = document.getElementById('cards');
+  if (!rows.length) {
+    box.innerHTML = '<div id="empty">Aucune ressource trouvée.</div>';
+    renderDetail(null);
+    return;
+  }
+  box.innerHTML = rows.map(function(r) {
+    var title = V(r, 'Titre') || '(sans titre)';
+    var desc = V(r, 'Description') || V(r, 'Notes');
+    var link = V(r, 'Lien');
+    var selected = r.id === selectedId ? ' selected' : '';
+    return '<article class="card' + selected + '" data-id="' + r.id + '">' +
+      '<h2>' + esc(title) + '</h2>' +
+      '<div class="meta">' +
+        (V(r, 'Type_') ? '<span class="' + tagClass(V(r, 'Type_'), 'type') + '">' + esc(V(r, 'Type_')) + '</span>' : '') +
+        (V(r, 'Statut') ? '<span class="' + tagClass(V(r, 'Statut'), 'status') + '">' + esc(V(r, 'Statut')) + '</span>' : '') +
+        (V(r, 'Sensibilite') ? '<span class="' + tagClass(V(r, 'Sensibilite'), 'sens') + '">' + esc(V(r, 'Sensibilite')) + '</span>' : '') +
+      '</div>' +
+      '<p>' + esc(desc || 'Aucune description.') + '</p>' +
+      (V(r, 'Beneficiaire') || V(r, 'Entite') ? '<div class="linkline">' + esc([V(r, 'Beneficiaire'), V(r, 'Entite')].filter(Boolean).join(' · ')) + '</div>' : '') +
+      (link ? '<div class="linkline">' + esc(link) + '</div>' : '') +
+    '</article>';
+  }).join('');
+  Array.prototype.forEach.call(document.querySelectorAll('.card'), function(card) {
+    card.addEventListener('click', function() {
+      selectedId = Number(card.getAttribute('data-id'));
+      render();
+      renderDetail(records.find(function(r) { return r.id === selectedId; }));
+    });
+  });
+  if (!records.some(function(r) { return r.id === selectedId; })) selectedId = rows[0].id;
+  renderDetail(records.find(function(r) { return r.id === selectedId; }));
+}
+function detailBlock(label, value) {
+  if (!value) return '';
+  return '<div class="section"><div class="label">' + esc(label) + '</div><div class="value">' + esc(value) + '</div></div>';
+}
+function renderDetail(r) {
+  var d = document.getElementById('detail');
+  if (!r) {
+    d.className = 'empty';
+    d.innerHTML = 'Sélectionne une ressource pour voir le détail.';
+    return;
+  }
+  d.className = '';
+  var link = V(r, 'Lien');
+  d.innerHTML =
+    '<h2>' + esc(V(r, 'Titre') || '(sans titre)') + '</h2>' +
+    '<div class="meta">' +
+      (V(r, 'Type_') ? '<span class="' + tagClass(V(r, 'Type_'), 'type') + '">' + esc(V(r, 'Type_')) + '</span>' : '') +
+      (V(r, 'Statut') ? '<span class="' + tagClass(V(r, 'Statut'), 'status') + '">' + esc(V(r, 'Statut')) + '</span>' : '') +
+      (V(r, 'Sensibilite') ? '<span class="' + tagClass(V(r, 'Sensibilite'), 'sens') + '">' + esc(V(r, 'Sensibilite')) + '</span>' : '') +
+    '</div>' +
+    detailBlock('Bénéficiaire', [V(r, 'Beneficiaire'), V(r, 'Entite')].filter(Boolean).join(' · ')) +
+    detailBlock('Lien / chemin', link || 'Aucun lien renseigné') +
+    detailBlock('Description', V(r, 'Description')) +
+    detailBlock('Suivi', [V(r, 'PQP') && 'PQP : ' + V(r, 'PQP'), V(r, 'ROC') && 'ROC : ' + V(r, 'ROC'), V(r, 'Derniere_verification') && 'Vérifié le : ' + V(r, 'Derniere_verification')].filter(Boolean).join('\n')) +
+    detailBlock('Notes', V(r, 'Notes')) +
+    '<div class="actions">' +
+      (isUrl(link) ? '<a class="action-link" href="' + esc(link) + '" target="_blank" rel="noopener">Ouvrir</a>' : '') +
+      '<button class="btn" id="copy-link">Copier le lien</button>' +
+      '<button class="btn" id="edit">Modifier</button>' +
+    '</div>';
+  document.getElementById('copy-link').addEventListener('click', function() { copyText(link); });
+  document.getElementById('edit').addEventListener('click', function() { openModal(r); });
+}
+function copyText(value) {
+  if (!value) { toast('Aucun lien à copier', true); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(value).then(function() { toast('Lien copié'); }).catch(function() { fallbackCopy(value); });
+  } else {
+    fallbackCopy(value);
+  }
+}
+function fallbackCopy(value) {
+  var ta = document.createElement('textarea');
+  ta.value = value;
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); toast('Lien copié'); }
+  catch (e) { toast('Copie impossible', true); }
+  document.body.removeChild(ta);
+}
+function openModal(r) {
+  editingId = r ? r.id : null;
+  document.getElementById('modal-title').textContent = r ? 'Modifier la ressource' : 'Ajouter une ressource';
+  document.getElementById('f-title').value = V(r, 'Titre');
+  document.getElementById('f-type').innerHTML = optionHtml(TYPES, V(r, 'Type_'));
+  document.getElementById('f-status').innerHTML = optionHtml(STATUSES, V(r, 'Statut') || 'Actif');
+  document.getElementById('f-benef').value = V(r, 'Beneficiaire');
+  document.getElementById('f-entite').value = V(r, 'Entite');
+  document.getElementById('f-link').value = V(r, 'Lien');
+  document.getElementById('f-desc').value = V(r, 'Description');
+  document.getElementById('f-sens').innerHTML = optionHtml(SENS, V(r, 'Sensibilite'));
+  document.getElementById('f-date').value = V(r, 'Derniere_verification');
+  document.getElementById('f-pqp').value = V(r, 'PQP');
+  document.getElementById('f-roc').value = V(r, 'ROC');
+  document.getElementById('f-notes').value = V(r, 'Notes');
+  document.getElementById('delete').style.display = r ? 'inline-block' : 'none';
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+  editingId = null;
+}
+function formFields() {
+  return {
+    Titre: document.getElementById('f-title').value.trim(),
+    Type_: document.getElementById('f-type').value,
+    Beneficiaire: document.getElementById('f-benef').value.trim(),
+    Entite: document.getElementById('f-entite').value.trim(),
+    Lien: document.getElementById('f-link').value.trim(),
+    Description: document.getElementById('f-desc').value.trim(),
+    Sensibilite: document.getElementById('f-sens').value,
+    Statut: document.getElementById('f-status').value,
+    Derniere_verification: document.getElementById('f-date').value || null,
+    PQP: document.getElementById('f-pqp').value.trim(),
+    ROC: document.getElementById('f-roc').value.trim(),
+    Notes: document.getElementById('f-notes').value.trim()
+  };
+}
+function save() {
+  var fields = formFields();
+  if (!fields.Titre) { toast('Titre requis', true); return; }
+  if (fields.Sensibilite === 'Ne pas stocker ici' && (fields.Notes || fields.Description)) {
+    toast('Garde seulement un pointeur vers l’emplacement sécurisé', true);
+    return;
+  }
+  var p = editingId ? grist.selectedTable.update({id: editingId, fields: fields}) : grist.selectedTable.create({fields: fields});
+  p.then(function() { toast(editingId ? 'Ressource mise à jour' : 'Ressource ajoutée'); closeModal(); })
+   .catch(function(err) { toast('Erreur : ' + (err.message || err), true); });
+}
+function removeCurrent() {
+  if (!editingId) return;
+  if (!confirm('Supprimer cette ressource ?')) return;
+  grist.selectedTable.destroy(editingId)
+    .then(function() { toast('Ressource supprimée'); closeModal(); selectedId = null; })
+    .catch(function(err) { toast('Erreur : ' + (err.message || err), true); });
+}
+function bind() {
+  document.getElementById('search').addEventListener('input', function(e) {
+    searchTerm = e.target.value.trim().toLowerCase();
+    render();
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.pill'), function(btn) {
+    btn.addEventListener('click', function() {
+      activeFilter = btn.getAttribute('data-filter');
+      Array.prototype.forEach.call(document.querySelectorAll('.pill'), function(b) { b.classList.toggle('active', b === btn); });
+      render();
+    });
+  });
+  document.getElementById('add').addEventListener('click', function() { openModal(null); });
+  document.getElementById('close').addEventListener('click', closeModal);
+  document.getElementById('cancel').addEventListener('click', closeModal);
+  document.getElementById('save').addEventListener('click', save);
+  document.getElementById('delete').addEventListener('click', removeCurrent);
+  document.getElementById('modal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
+}
+
+bind();
+grist.onRecords(function(nextRecords) {
+  records = nextRecords || [];
+  if (!selectedId && records.length) selectedId = records[0].id;
+  render();
+});
+</script>
+</body>
+</html>
