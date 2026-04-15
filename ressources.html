@@ -81,6 +81,8 @@ body {
   cursor: pointer;
   min-height: 148px;
 }
+.card.todo { border-left-color: #f9ae41; }
+.card.sensitive { border-left-color: #e1000f; }
 .card.selected { border-color: #000091; box-shadow: 0 0 0 2px rgba(0,0,145,.14); }
 .card h2 { margin: 0 0 8px; font-size: 15px; line-height: 1.25; }
 .meta { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
@@ -192,7 +194,7 @@ a.action-link { color: #fff; background: #000091; text-decoration: none; border-
   </div>
   <div id="main">
     <div id="cards"></div>
-    <div id="detail" class="empty">Sélectionne une ressource pour voir le détail.</div>
+    <div id="detail" class="empty">Sélectionne une ressource pour voir le détail, copier un chemin ou ouvrir un lien.</div>
   </div>
 </div>
 
@@ -240,6 +242,14 @@ var SENS = ['', 'Interne', 'Restreint', 'Sensible', 'Ne pas stocker ici'];
 function V(r, key) { return r && r[key] != null ? String(r[key]).trim() : ''; }
 function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 function isUrl(s) { return /^https?:\/\//i.test(String(s || '').trim()); }
+function normalizeRecord(r) {
+  if (!r) return {};
+  var out = {};
+  var fields = r.fields || r;
+  Object.keys(fields).forEach(function(key) { out[key] = fields[key]; });
+  out.id = r.id != null ? r.id : fields.id;
+  return out;
+}
 function toast(msg, isError) {
   var t = document.getElementById('toast');
   t.textContent = msg;
@@ -278,7 +288,7 @@ function tagClass(value, kind) {
 }
 function render() {
   var rows = sortedRows();
-  document.getElementById('count').textContent = records.length + (records.length > 1 ? ' ressources' : ' ressource');
+  document.getElementById('count').textContent = rows.length + '/' + records.length + (records.length > 1 ? ' ressources' : ' ressource');
   var box = document.getElementById('cards');
   if (!rows.length) {
     box.innerHTML = '<div id="empty">Aucune ressource trouvée.</div>';
@@ -290,7 +300,9 @@ function render() {
     var desc = V(r, 'Description') || V(r, 'Notes');
     var link = V(r, 'Lien');
     var selected = r.id === selectedId ? ' selected' : '';
-    return '<article class="card' + selected + '" data-id="' + r.id + '">' +
+    var accent = V(r, 'Sensibilite') === 'Sensible' || V(r, 'Sensibilite') === 'Ne pas stocker ici' ? ' sensitive' : '';
+    if (V(r, 'Statut') === 'À vérifier') accent += ' todo';
+    return '<article class="card' + accent + selected + '" data-id="' + r.id + '">' +
       '<h2>' + esc(title) + '</h2>' +
       '<div class="meta">' +
         (V(r, 'Type_') ? '<span class="' + tagClass(V(r, 'Type_'), 'type') + '">' + esc(V(r, 'Type_')) + '</span>' : '') +
@@ -320,7 +332,7 @@ function renderDetail(r) {
   var d = document.getElementById('detail');
   if (!r) {
     d.className = 'empty';
-    d.innerHTML = 'Sélectionne une ressource pour voir le détail.';
+    d.innerHTML = 'Sélectionne une ressource pour voir le détail, copier un chemin ou ouvrir un lien.';
     return;
   }
   d.className = '';
@@ -441,7 +453,7 @@ function bind() {
 
 bind();
 grist.onRecords(function(nextRecords) {
-  records = nextRecords || [];
+  records = (nextRecords || []).map(normalizeRecord);
   if (!selectedId && records.length) selectedId = records[0].id;
   render();
 });
