@@ -281,7 +281,7 @@
   .exchange-detail { border: 1px solid var(--border); border-radius: 10px; background: #fff; padding: 12px 14px; display:flex; flex-direction:column; gap:8px; }
   .exchange-detail-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:8px 12px; font-size:12px; color:var(--text-sm); }
   .exchange-detail-line strong { color:var(--text-xs); text-transform:uppercase; letter-spacing:.04em; font-size:10px; display:block; margin-bottom:2px; }
-  .exchange-detail-body { white-space: pre-wrap; font-size: 12px; color: var(--text-sm); line-height: 1.55; }
+  .exchange-detail-body { font-size: 12px; color: var(--text-sm); line-height: 1.55; }
   .card-secondary details { border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 10px 12px; }
   .card-secondary summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text-sm); }
   .card-secondary-body { margin-top: 10px; font-size: 12px; color: var(--text-sm); line-height: 1.55; }
@@ -312,6 +312,27 @@
   .editable-textarea { width:100%; font:inherit; color:inherit; padding:6px 8px; border:2px solid var(--blue); border-radius:6px; background:#fff; outline:none; min-height:60px; resize:vertical; line-height:1.5; }
   .editable-hint { font-size:10px; color:var(--text-xs); margin-top:3px; font-style:italic; }
   .editable-saving { opacity:.5; pointer-events:none; }
+
+  /* Inline images */
+  .inline-img-wrap { display:block; margin:6px 0; }
+  .inline-img {
+    max-width:100%; max-height:320px; border-radius:6px; border:1px solid var(--border);
+    cursor:zoom-in; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.06); display:block;
+  }
+  .inline-img:hover { border-color:var(--blue); }
+  .editable-textarea.drop-target { border-color:var(--green) !important; background:#f0fdf4; }
+  #img-lightbox {
+    display:none; position:fixed; inset:0; background:rgba(15,23,42,.92); z-index:9999;
+    align-items:center; justify-content:center; padding:24px; cursor:zoom-out;
+  }
+  #img-lightbox.open { display:flex; }
+  #img-lightbox img { max-width:100%; max-height:100%; border-radius:8px; box-shadow:0 10px 40px rgba(0,0,0,.5); }
+  .img-lightbox-close {
+    position:absolute; top:16px; right:20px; width:36px; height:36px; border-radius:50%;
+    background:rgba(255,255,255,.15); color:#fff; display:flex; align-items:center;
+    justify-content:center; font-size:18px; cursor:pointer;
+  }
+  .img-lightbox-close:hover { background:rgba(255,255,255,.25); }
 
   .inline-editor { display:flex; flex-direction:column; gap:14px; }
   .inline-editor-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; }
@@ -806,11 +827,16 @@ function makeEditableField(element, pointId, fieldName, opts = {}) {
 
     const hint = document.createElement('div');
     hint.className = 'editable-hint';
-    hint.textContent = isTextarea ? 'Ctrl+Entrée pour enregistrer · Échap pour annuler' : 'Entrée pour enregistrer · Échap pour annuler';
+    let hintText = isTextarea ? 'Ctrl+Entrée pour enregistrer · Échap pour annuler' : 'Entrée pour enregistrer · Échap pour annuler';
+    if (opts.allowImages && isTextarea) hintText += ' · Collez (Ctrl+V) ou déposez une image';
+    hint.textContent = hintText;
 
     element.innerHTML = '';
     element.appendChild(editor);
     element.appendChild(hint);
+    if (opts.allowImages && isTextarea) {
+      wireImageInput(editor);
+    }
     editor.focus();
     editor.select();
 
@@ -908,6 +934,28 @@ async function addEchange(pointId) {
   await updatePointField(pointId, 'Echanges_json', stringifyEchangesKeepAll(items));
   selectedExchangeIndexByPoint[pointId] = 0;
 }
+async function createEchangeFromPaste(pointId, rawText) {
+  const parsed = parseOutlookMailText(rawText);
+  if (!parsed) {
+    alert('Impossible d\'analyser le texte collé. Format Outlook attendu (De:/A:/Objet:/…).');
+    return false;
+  }
+  const items = _pointEchanges(pointId);
+  items.unshift({
+    type: 'mail',
+    date: parsed.date || new Date().toLocaleDateString('fr-FR'),
+    from: parsed.from || '',
+    to: parsed.to || '',
+    cc: parsed.cc || '',
+    subject: parsed.subject || '',
+    summary: '',
+    body: parsed.body || '',
+    raw: parsed.raw || rawText,
+  });
+  await updatePointField(pointId, 'Echanges_json', stringifyEchangesKeepAll(items));
+  selectedExchangeIndexByPoint[pointId] = 0;
+  return true;
+}
 async function addEchangeFromMail(pointId, rawText) {
   const parsed = parseOutlookMailText(rawText);
   if (!parsed) {
@@ -982,6 +1030,139 @@ function safeText(v) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+// Escapes HTML but preserves only <img src="data:image/...;base64,..."> tags
+// These are the only tags we ever inject ourselves (via compressAndEmbedImage).
+// Result: the inline image feature works in read mode, but any other HTML
+// coming from Grist remains escaped -> no XSS surface.
+function safeTextWithImages(v) {
+  const text = String(v || '');
+  const placeholders = [];
+  const IMG_RE = /<img\s+[^>]*src="data:image\/(?:png|jpeg|jpg|gif|webp);base64,[A-Za-z0-9+/=]+"[^>]*>/gi;
+  const withPlaceholders = text.replace(IMG_RE, (match) => {
+    const idx = placeholders.length;
+    placeholders.push(match);
+    return `@@IMG_${idx}@@`;
+  });
+  let escaped = safeText(withPlaceholders).replace(/\n/g, '<br>');
+  placeholders.forEach((tag, idx) => {
+    escaped = escaped.replace(`@@IMG_${idx}@@`, `<span class="inline-img-wrap">${tag}</span>`);
+  });
+  return escaped;
+}
+
+// ── Image paste / drop / compression ──
+async function compressImageFile(file, maxWidth = 1600, quality = 0.8) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Lecture du fichier échouée'));
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Image invalide'));
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        // For PNG with transparency, keep PNG; otherwise JPEG for better compression
+        const isPng = file.type === 'image/png';
+        const dataUrl = isPng && file.size < 300000
+          ? canvas.toDataURL('image/png')
+          : canvas.toDataURL('image/jpeg', quality);
+        resolve(dataUrl);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function imgTagFromDataUrl(dataUrl, alt = '') {
+  const safeAlt = String(alt).replace(/"/g, '&quot;');
+  return `<img src="${dataUrl}" alt="${safeAlt}" class="inline-img">`;
+}
+// Wire paste + drop handlers on a textarea. onInsert(imgTagString) is called
+// when an image has been compressed and is ready to be injected.
+function wireImageInput(textarea, onInsert) {
+  if (!textarea || textarea.dataset.imgBound === '1') return;
+  textarea.dataset.imgBound = '1';
+
+  const handleFile = async (file) => {
+    if (!file || !file.type.startsWith('image/')) return false;
+    textarea.classList.add('editable-saving');
+    try {
+      const dataUrl = await compressImageFile(file);
+      const tag = imgTagFromDataUrl(dataUrl, file.name || '');
+      // Insert as a new line if textarea already has content
+      const sep = textarea.value && !textarea.value.endsWith('\n') ? '\n' : '';
+      const start = textarea.selectionStart ?? textarea.value.length;
+      const end = textarea.selectionEnd ?? textarea.value.length;
+      const before = textarea.value.slice(0, start);
+      const after = textarea.value.slice(end);
+      textarea.value = before + sep + tag + '\n' + after;
+      textarea.classList.remove('editable-saving');
+      onInsert && onInsert(tag);
+      return true;
+    } catch (err) {
+      textarea.classList.remove('editable-saving');
+      alert('Erreur image : ' + err.message);
+      return false;
+    }
+  };
+
+  textarea.addEventListener('paste', async (e) => {
+    const items = e.clipboardData?.items || [];
+    for (const it of items) {
+      if (it.kind === 'file' && it.type.startsWith('image/')) {
+        e.preventDefault();
+        await handleFile(it.getAsFile());
+        return;
+      }
+    }
+  });
+  textarea.addEventListener('dragover', (e) => {
+    if ([...(e.dataTransfer?.types || [])].includes('Files')) {
+      e.preventDefault();
+      textarea.classList.add('drop-target');
+    }
+  });
+  textarea.addEventListener('dragleave', () => textarea.classList.remove('drop-target'));
+  textarea.addEventListener('drop', async (e) => {
+    textarea.classList.remove('drop-target');
+    const file = e.dataTransfer?.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      e.preventDefault();
+      await handleFile(file);
+    }
+  });
+}
+
+// Fullscreen image viewer on click
+function openImageLightbox(src) {
+  let overlay = document.getElementById('img-lightbox');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'img-lightbox';
+    overlay.innerHTML = '<img><div class="img-lightbox-close" title="Fermer (Échap)">✕</div>';
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', () => overlay.classList.remove('open'));
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') overlay.classList.remove('open');
+    });
+  }
+  overlay.querySelector('img').src = src;
+  overlay.classList.add('open');
+}
+document.addEventListener('click', (e) => {
+  const img = e.target.closest('img.inline-img');
+  if (img) {
+    e.preventDefault();
+    e.stopPropagation();
+    openImageLightbox(img.src);
+  }
+});
 function parseActors(raw) {
   if (!raw) return [];
   try {
@@ -1469,7 +1650,7 @@ function renderEditableActorCard(actor, index, pointId) {
         </div>
         <button type="button" class="btn-item-delete" data-delete-actor="${index}" data-point-id="${pointId}" title="Supprimer cet acteur">🗑</button>
       </div>
-      <div class="card-actor-line${actor.description ? '' : ' empty'}" data-editable-actor="description" data-actor-index="${index}" data-point-id="${pointId}">${actor.description ? safeText(actor.description).replace(/\n/g, '<br>') : '(Aucune description — cliquer pour ajouter)'}</div>
+      <div class="card-actor-line${actor.description ? '' : ' empty'}" data-editable-actor="description" data-actor-index="${index}" data-point-id="${pointId}">${actor.description ? safeTextWithImages(actor.description) : '(Aucune description — cliquer pour ajouter)'}</div>
     </div>
   `;
 }
@@ -2334,7 +2515,7 @@ function renderEditableExchangeDetail(pointId, echanges) {
         <div class="exchange-detail-line"><strong>Cc</strong><span class="${selected.cc ? '' : 'empty'}" ${ed('cc')}>${safeText(selected.cc || '(cliquer pour ajouter)')}</span></div>
         <div class="exchange-detail-line"><strong>Objet</strong><span class="${selected.subject ? '' : 'empty'}" ${ed('subject')}>${safeText(selected.subject || '(cliquer pour ajouter)')}</span></div>
       </div>
-      <div class="exchange-detail-body ${(selected.body || selected.raw) ? '' : 'empty'}" ${ed('body', ' data-editable-textarea="1"')}>${safeText(selected.body || selected.raw || '(cliquer pour ajouter le contenu du message)')}</div>
+      <div class="exchange-detail-body ${(selected.body || selected.raw) ? '' : 'empty'}" ${ed('body', ' data-editable-textarea="1"')}>${(selected.body || selected.raw) ? safeTextWithImages(selected.body || selected.raw) : '(cliquer pour ajouter le contenu du message)'}</div>
     </div>
   `;
 }
@@ -2590,6 +2771,7 @@ renderCards = function() {
       const isTextarea = field === 'description';
       makeEditableField(el, pid, `actor_${idx}_${field}`, {
         textarea: isTextarea,
+        allowImages: field === 'description',
         getCurrent: () => {
           const pt = pointsAll.find(pp => pp.id === pid);
           return (pt?.Acteurs?.[idx]?.[field]) || '';
@@ -2605,6 +2787,7 @@ renderCards = function() {
       const isTextarea = el.dataset.editableTextarea === '1';
       makeEditableField(el, pid, `echange_${idx}_${field}`, {
         textarea: isTextarea,
+        allowImages: field === 'body',
         getCurrent: () => {
           const pt = pointsAll.find(pp => pp.id === pid);
           if (!pt) return '';
