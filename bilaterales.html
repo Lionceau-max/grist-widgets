@@ -813,6 +813,7 @@ function makeEditableField(element, pointId, fieldName, opts = {}) {
 
   element.addEventListener('click', async (e) => {
     if (wasTextDrag(e)) return;
+    if (e.target.closest && e.target.closest('img.inline-img')) return;
     e.stopPropagation();
     if (element.dataset.editing === '1') return;
     element.dataset.editing = '1';
@@ -1160,9 +1161,10 @@ document.addEventListener('click', (e) => {
   if (img) {
     e.preventDefault();
     e.stopPropagation();
+    e.stopImmediatePropagation();
     openImageLightbox(img.src);
   }
-});
+}, true); // capture phase — fires before editable-field click handlers
 function parseActors(raw) {
   if (!raw) return [];
   try {
