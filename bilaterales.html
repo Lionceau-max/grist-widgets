@@ -330,7 +330,8 @@
     color: var(--text-sm);
     line-height: 1.45;
   }
-  .card-actor-head { display:flex; align-items:center; gap:6px; margin-bottom:3px; }
+  .card-actor-head { display:flex; align-items:center; gap:6px; margin-bottom:3px; justify-content:space-between; }
+  .card-actor-head-left { display:flex; align-items:center; gap:6px; flex:1; min-width:0; }
   .actor-badge {
     display:inline-flex;
     align-items:center;
@@ -343,6 +344,20 @@
     text-transform: uppercase;
     letter-spacing: .04em;
   }
+  .btn-item-delete {
+    border:none; background:transparent; cursor:pointer; padding:2px 6px;
+    border-radius:4px; color:var(--text-xs); font-size:12px; transition:all .15s;
+    flex-shrink:0;
+  }
+  .btn-item-delete:hover { background:var(--red-lt); color:var(--red); }
+  .btn-add-item {
+    margin-top:8px; padding:6px 12px; border:1px dashed var(--border);
+    border-radius:6px; background:#fff; font-size:12px; color:var(--text-sm);
+    cursor:pointer; transition:all .15s; display:inline-flex; align-items:center; gap:4px;
+  }
+  .btn-add-item:hover { border-color:var(--blue); color:var(--blue); background:var(--blue-lt); }
+  .exchange-edit-bar { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px; }
+  .exchange-edit-bar-info { font-size:11px; color:var(--text-xs); font-weight:600; }
   .card-actor-line { color: var(--text-xs); }
   .card-actor-meta { display:flex; flex-wrap:wrap; gap:6px; margin:4px 0; }
   .mail-proof {
@@ -761,7 +776,13 @@ function makeEditableField(element, pointId, fieldName, opts = {}) {
   element.classList.add('editable-field');
   element.title = opts.title || 'Cliquer pour modifier';
   const isTextarea = !!opts.textarea;
-  const placeholder = opts.placeholder || '(vide — cliquer pour ajouter)';
+  const getCurrent = opts.getCurrent || (() => {
+    const point = pointsAll.find(p => p.id === pointId);
+    return (point && point[fieldName]) || '';
+  });
+  const saveFn = opts.save || ((newValue) =>
+    grist.docApi.applyUserActions([['UpdateRecord', 'Points_bilaterales', pointId, {[fieldName]: newValue}]])
+  );
 
   element.addEventListener('click', async (e) => {
     if (wasTextDrag(e)) return;
@@ -769,8 +790,7 @@ function makeEditableField(element, pointId, fieldName, opts = {}) {
     if (element.dataset.editing === '1') return;
     element.dataset.editing = '1';
 
-    const point = pointsAll.find(p => p.id === pointId);
-    const currentValue = (point && point[fieldName]) || '';
+    const currentValue = getCurrent();
     const savedHTML = element.innerHTML;
 
     const editor = document.createElement(isTextarea ? 'textarea' : 'input');
@@ -800,7 +820,7 @@ function makeEditableField(element, pointId, fieldName, opts = {}) {
       if (newValue === (currentValue || '').trim()) { restore(); return; }
       element.classList.add('editable-saving');
       try {
-        await grist.docApi.applyUserActions([['UpdateRecord', 'Points_bilaterales', pointId, {[fieldName]: newValue}]]);
+        await saveFn(newValue);
         await loadData();
         if (selectedBilatId) renderCards();
       } catch (err) {
@@ -827,6 +847,74 @@ function makeEditableField(element, pointId, fieldName, opts = {}) {
     editor.addEventListener('click', ev => ev.stopPropagation());
     editor.addEventListener('mousedown', ev => ev.stopPropagation());
   });
+}
+
+// ── Inline edits for actors & exchanges (stored as JSON arrays) ──
+async function updatePointField(pointId, fieldName, value) {
+  await grist.docApi.applyUserActions([['UpdateRecord', 'Points_bilaterales', pointId, {[fieldName]: value}]]);
+  await loadData();
+  if (selectedBilatId) renderCards();
+}
+function _pointActors(pointId) {
+  const p = pointsAll.find(p => p.id === pointId);
+  return [...(p?.Acteurs || [])].map(a => ({ nom: a.nom || '', description: a.description || '' }));
+}
+function _pointEchanges(pointId) {
+  const p = pointsAll.find(p => p.id === pointId);
+  return p ? getPointEchanges(p).map(e => ({...e})) : [];
+}
+// Preserves all entries including empty ones (for add flow)
+function stringifyActorsKeepAll(actors) {
+  return actors.length ? JSON.stringify(actors.map(a => ({ nom: String(a.nom || ''), description: String(a.description || '') }))) : '';
+}
+function stringifyEchangesKeepAll(items) {
+  return items.length ? JSON.stringify(items.map(i => ({
+    type: String(i.type || 'mail'), date: String(i.date || ''),
+    from: String(i.from || ''), to: String(i.to || ''), cc: String(i.cc || ''),
+    subject: String(i.subject || ''), summary: String(i.summary || ''),
+    body: String(i.body || ''), raw: String(i.raw || '')
+  }))) : '';
+}
+async function addActor(pointId) {
+  const actors = _pointActors(pointId);
+  actors.push({ nom: 'Nouvel acteur', description: '' });
+  await updatePointField(pointId, 'Acteurs_json', stringifyActorsKeepAll(actors));
+}
+async function deleteActor(pointId, index) {
+  const actors = _pointActors(pointId);
+  if (index < 0 || index >= actors.length) return;
+  if (!confirm(`Supprimer l'acteur "${actors[index].nom || '(sans nom)'}" ?`)) return;
+  actors.splice(index, 1);
+  await updatePointField(pointId, 'Acteurs_json', stringifyActorsKeepAll(actors));
+}
+async function saveActorField(pointId, index, field, newValue) {
+  const actors = _pointActors(pointId);
+  if (!actors[index]) return;
+  actors[index][field] = newValue;
+  await grist.docApi.applyUserActions([['UpdateRecord', 'Points_bilaterales', pointId, {Acteurs_json: stringifyActorsKeepAll(actors)}]]);
+}
+async function addEchange(pointId) {
+  const items = _pointEchanges(pointId);
+  items.unshift({
+    type: 'mail', date: new Date().toLocaleDateString('fr-FR'),
+    from: '', to: '', cc: '', subject: '', summary: '', body: '', raw: ''
+  });
+  await updatePointField(pointId, 'Echanges_json', stringifyEchangesKeepAll(items));
+  selectedExchangeIndexByPoint[pointId] = 0;
+}
+async function deleteEchange(pointId, index) {
+  const items = _pointEchanges(pointId);
+  if (index < 0 || index >= items.length) return;
+  if (!confirm(`Supprimer cet échange ?`)) return;
+  items.splice(index, 1);
+  selectedExchangeIndexByPoint[pointId] = 0;
+  await updatePointField(pointId, 'Echanges_json', stringifyEchangesKeepAll(items));
+}
+async function saveEchangeField(pointId, index, field, newValue) {
+  const items = _pointEchanges(pointId);
+  if (!items[index]) return;
+  items[index][field] = newValue;
+  await grist.docApi.applyUserActions([['UpdateRecord', 'Points_bilaterales', pointId, {Echanges_json: stringifyEchangesKeepAll(items)}]]);
 }
 const BILAT_TYPE_REGULAR = 'Bilatérale régulière';
 const BILAT_TYPE_PONCTUEL = 'Suivi ponctuel';
@@ -1341,6 +1429,19 @@ function renderActorSummary(actor) {
     <div class="card-actor">
       <div class="card-actor-head"><span class="actor-badge">${safeText(actor.nom || 'Acteur')}</span></div>
       ${actor.description ? `<div class="card-actor-line">${safeText(actor.description).replace(/\n/g, '<br>')}</div>` : '<div class="card-actor-line">Aucune description.</div>'}
+    </div>
+  `;
+}
+function renderEditableActorCard(actor, index, pointId) {
+  return `
+    <div class="card-actor" data-actor-index="${index}">
+      <div class="card-actor-head">
+        <div class="card-actor-head-left">
+          <span class="actor-badge" data-editable-actor="nom" data-actor-index="${index}" data-point-id="${pointId}">${safeText(actor.nom || 'Acteur')}</span>
+        </div>
+        <button type="button" class="btn-item-delete" data-delete-actor="${index}" data-point-id="${pointId}" title="Supprimer cet acteur">🗑</button>
+      </div>
+      <div class="card-actor-line${actor.description ? '' : ' empty'}" data-editable-actor="description" data-actor-index="${index}" data-point-id="${pointId}">${actor.description ? safeText(actor.description).replace(/\n/g, '<br>') : '(Aucune description — cliquer pour ajouter)'}</div>
     </div>
   `;
 }
@@ -2179,18 +2280,48 @@ function renderExchangeDetail(pointId, echanges) {
   `;
 }
 
+function renderEditableExchangeDetail(pointId, echanges) {
+  if (!echanges.length) return '<div class="exchange-empty">Aucun echange consigne pour ce point.</div>';
+  const selectedIndex = Math.min(selectedExchangeIndexByPoint[pointId] || 0, echanges.length - 1);
+  const selected = echanges[selectedIndex];
+  const ed = (field, extra = '') => `data-editable-echange="${field}" data-exchange-index="${selectedIndex}" data-point-id="${pointId}"${extra}`;
+  return `
+    <div class="exchange-timeline">
+      ${echanges.map((item, index) => `
+        <button type="button" class="exchange-chip${index === selectedIndex ? ' active' : ''}" data-point-id="${pointId}" data-exchange-index="${index}">
+          ${exchangeLabel(item)} ${safeText(exchangeDateLabel(item))}
+        </button>
+      `).join('')}
+    </div>
+    <div class="exchange-edit-bar">
+      <span class="exchange-edit-bar-info">Échange ${selectedIndex + 1} / ${echanges.length}</span>
+      <button type="button" class="btn-item-delete" data-delete-echange="${selectedIndex}" data-point-id="${pointId}" title="Supprimer cet échange">🗑 Supprimer</button>
+    </div>
+    <div class="exchange-detail">
+      <div class="exchange-detail-grid">
+        <div class="exchange-detail-line"><strong>Date</strong><span class="${selected.date ? '' : 'empty'}" ${ed('date')}>${safeText(selected.date || '(cliquer pour ajouter)')}</span></div>
+        <div class="exchange-detail-line"><strong>Type</strong>${safeText(exchangeLabel(selected))}</div>
+        <div class="exchange-detail-line"><strong>De</strong><span class="${selected.from ? '' : 'empty'}" ${ed('from')}>${safeText(selected.from || '(cliquer pour ajouter)')}</span></div>
+        <div class="exchange-detail-line"><strong>A</strong><span class="${selected.to ? '' : 'empty'}" ${ed('to')}>${safeText(selected.to || '(cliquer pour ajouter)')}</span></div>
+        <div class="exchange-detail-line"><strong>Cc</strong><span class="${selected.cc ? '' : 'empty'}" ${ed('cc')}>${safeText(selected.cc || '(cliquer pour ajouter)')}</span></div>
+        <div class="exchange-detail-line"><strong>Objet</strong><span class="${selected.subject ? '' : 'empty'}" ${ed('subject')}>${safeText(selected.subject || '(cliquer pour ajouter)')}</span></div>
+      </div>
+      <div class="exchange-detail-line"><strong>Résumé</strong><span class="${selected.summary ? '' : 'empty'}" ${ed('summary', ' data-editable-textarea="1"')}>${safeText(selected.summary || '(cliquer pour ajouter)')}</span></div>
+      <div class="exchange-detail-body ${(selected.body || selected.raw) ? '' : 'empty'}" ${ed('body', ' data-editable-textarea="1"')}>${safeText(selected.body || selected.raw || '(cliquer pour ajouter le contenu du message)')}</div>
+    </div>
+  `;
+}
+
 function renderExpandedCard(point) {
-  if (editingPointId === point.id) return renderExpandedCardEditor(point);
   const echanges = getPointEchanges(point);
   const actorsHtml = point.Acteurs.length
-    ? `<div class="card-actors-grid">${point.Acteurs.map(renderActorSummary).join('')}</div>`
+    ? `<div class="card-actors-grid">${point.Acteurs.map((a, i) => renderEditableActorCard(a, i, point.id)).join('')}</div>`
     : '<div class="exchange-empty">Aucun acteur consigne pour ce point.</div>';
   return `
     <div class="card-expanded">
       <div class="card-sticky-bar">
         <div class="card-sticky-info">Actions rapides</div>
         <div class="card-sticky-actions">
-          <button type="button" class="btn-inline" data-edit-point="${point.id}">Modifier</button>
           <button type="button" class="btn-inline" data-open-corep="${point.id}">${getCorepSujetForPoint(point) ? 'Mettre a jour COREP' : 'Passer en COREP'}</button>
           <button type="button" class="btn-inline" data-collapse-point="${point.id}">Refermer</button>
           <select class="quick-status" data-id="${point.id}">
@@ -2210,10 +2341,12 @@ function renderExpandedCard(point) {
       <div class="card-section">
         <div class="card-section-title">Acteurs</div>
         ${actorsHtml}
+        <button type="button" class="btn-add-item" data-add-actor="${point.id}">+ Ajouter un acteur</button>
       </div>
       <div class="card-section">
         <div class="card-section-title">Echanges</div>
-        ${renderExchangeDetail(point.id, echanges)}
+        ${renderEditableExchangeDetail(point.id, echanges)}
+        <button type="button" class="btn-add-item" data-add-echange="${point.id}">+ Ajouter un échange</button>
       </div>
       <div class="card-secondary">
         <details>
@@ -2399,17 +2532,83 @@ renderCards = function() {
     `;
     card.addEventListener('click', e => {
       if (wasTextDrag(e)) return;
-      if (e.target.closest('.editable-field') || e.target.closest('.quick-status') || e.target.closest('.exchange-chip') || e.target.closest('[data-collapse-point]') || e.target.closest('[data-edit-point]') || e.target.closest('[data-open-corep]') || e.target.closest('.inline-editor')) return;
+      if (e.target.closest('.editable-field') || e.target.closest('.quick-status') || e.target.closest('.exchange-chip') || e.target.closest('[data-collapse-point]') || e.target.closest('[data-open-corep]') || e.target.closest('[data-delete-actor]') || e.target.closest('[data-add-actor]') || e.target.closest('[data-delete-echange]') || e.target.closest('[data-add-echange]') || e.target.closest('.inline-editor')) return;
       expandedPointId = expanded ? null : p.id;
       if (!(p.id in selectedExchangeIndexByPoint)) selectedExchangeIndexByPoint[p.id] = 0;
       renderCards();
     });
-    // Bind click-to-edit fields
+    // Bind click-to-edit fields (direct columns)
     card.querySelectorAll('[data-editable]').forEach(el => {
       const field = el.dataset.editable;
       const pid = parseInt(el.dataset.pointId);
       const isTextarea = el.dataset.editableTextarea === '1';
       makeEditableField(el, pid, field, { textarea: isTextarea });
+    });
+    // Bind click-to-edit fields (actors stored in JSON)
+    card.querySelectorAll('[data-editable-actor]').forEach(el => {
+      const field = el.dataset.editableActor;
+      const idx = parseInt(el.dataset.actorIndex);
+      const pid = parseInt(el.dataset.pointId);
+      const isTextarea = field === 'description';
+      makeEditableField(el, pid, `actor_${idx}_${field}`, {
+        textarea: isTextarea,
+        getCurrent: () => {
+          const pt = pointsAll.find(pp => pp.id === pid);
+          return (pt?.Acteurs?.[idx]?.[field]) || '';
+        },
+        save: (newValue) => saveActorField(pid, idx, field, newValue),
+      });
+    });
+    // Bind click-to-edit fields (echanges stored in JSON)
+    card.querySelectorAll('[data-editable-echange]').forEach(el => {
+      const field = el.dataset.editableEchange;
+      const idx = parseInt(el.dataset.exchangeIndex);
+      const pid = parseInt(el.dataset.pointId);
+      const isTextarea = el.dataset.editableTextarea === '1';
+      makeEditableField(el, pid, `echange_${idx}_${field}`, {
+        textarea: isTextarea,
+        getCurrent: () => {
+          const pt = pointsAll.find(pp => pp.id === pid);
+          if (!pt) return '';
+          const items = getPointEchanges(pt);
+          return (items[idx]?.[field]) || '';
+        },
+        save: (newValue) => saveEchangeField(pid, idx, field, newValue),
+      });
+    });
+    // Bind add/delete actor buttons
+    card.querySelectorAll('[data-add-actor]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const pid = parseInt(btn.dataset.addActor);
+        btn.disabled = true;
+        try { await addActor(pid); } catch (err) { alert('Erreur : ' + err.message); btn.disabled = false; }
+      });
+    });
+    card.querySelectorAll('[data-delete-actor]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const idx = parseInt(btn.dataset.deleteActor);
+        const pid = parseInt(btn.dataset.pointId);
+        try { await deleteActor(pid, idx); } catch (err) { alert('Erreur : ' + err.message); }
+      });
+    });
+    // Bind add/delete echange buttons
+    card.querySelectorAll('[data-add-echange]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const pid = parseInt(btn.dataset.addEchange);
+        btn.disabled = true;
+        try { await addEchange(pid); } catch (err) { alert('Erreur : ' + err.message); btn.disabled = false; }
+      });
+    });
+    card.querySelectorAll('[data-delete-echange]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const idx = parseInt(btn.dataset.deleteEchange);
+        const pid = parseInt(btn.dataset.pointId);
+        try { await deleteEchange(pid, idx); } catch (err) { alert('Erreur : ' + err.message); }
+      });
     });
     card.querySelectorAll('.quick-status').forEach(select => {
       select.addEventListener('change', async function(e) {
