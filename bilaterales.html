@@ -300,6 +300,19 @@
     color:#fff;
   }
   .exchange-empty { font-size: 12px; color: var(--text-xs); padding: 10px 12px; border: 1px dashed var(--border); border-radius: 8px; background: #fff; }
+
+  /* Click-to-edit inline fields */
+  .editable-field { position:relative; cursor:text; border-radius:4px; transition:background .12s; padding:2px 6px; margin:-2px -6px; }
+  .editable-field:hover { background:rgba(37,99,235,.06); outline:1px dashed rgba(37,99,235,.35); }
+  .editable-field:hover::after { content:'✎'; position:absolute; top:2px; right:6px; font-size:11px; color:var(--blue); opacity:.7; }
+  .editable-field.empty { color:var(--text-xs); font-style:italic; }
+  .editable-field[data-editing="1"] { background:transparent; outline:none; padding:0; margin:0; cursor:default; }
+  .editable-field[data-editing="1"]:hover::after { content:''; }
+  .editable-input { width:100%; font:inherit; color:inherit; padding:6px 8px; border:2px solid var(--blue); border-radius:6px; background:#fff; outline:none; }
+  .editable-textarea { width:100%; font:inherit; color:inherit; padding:6px 8px; border:2px solid var(--blue); border-radius:6px; background:#fff; outline:none; min-height:60px; resize:vertical; line-height:1.5; }
+  .editable-hint { font-size:10px; color:var(--text-xs); margin-top:3px; font-style:italic; }
+  .editable-saving { opacity:.5; pointer-events:none; }
+
   .inline-editor { display:flex; flex-direction:column; gap:14px; }
   .inline-editor-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; }
   .inline-editor-actions { display:flex; gap:8px; flex-wrap:wrap; }
@@ -739,6 +752,81 @@ function wasTextDrag(e) {
   const dx = Math.abs(e.clientX - _mouseDownPos.x);
   const dy = Math.abs(e.clientY - _mouseDownPos.y);
   return dx > 5 || dy > 5;
+}
+
+// ── Click-to-edit inline field helper ──
+function makeEditableField(element, pointId, fieldName, opts = {}) {
+  if (!element || element.dataset.editableBound === '1') return;
+  element.dataset.editableBound = '1';
+  element.classList.add('editable-field');
+  element.title = opts.title || 'Cliquer pour modifier';
+  const isTextarea = !!opts.textarea;
+  const placeholder = opts.placeholder || '(vide — cliquer pour ajouter)';
+
+  element.addEventListener('click', async (e) => {
+    if (wasTextDrag(e)) return;
+    e.stopPropagation();
+    if (element.dataset.editing === '1') return;
+    element.dataset.editing = '1';
+
+    const point = pointsAll.find(p => p.id === pointId);
+    const currentValue = (point && point[fieldName]) || '';
+    const savedHTML = element.innerHTML;
+
+    const editor = document.createElement(isTextarea ? 'textarea' : 'input');
+    if (!isTextarea) editor.type = 'text';
+    editor.className = isTextarea ? 'editable-textarea' : 'editable-input';
+    editor.value = currentValue;
+
+    const hint = document.createElement('div');
+    hint.className = 'editable-hint';
+    hint.textContent = isTextarea ? 'Ctrl+Entrée pour enregistrer · Échap pour annuler' : 'Entrée pour enregistrer · Échap pour annuler';
+
+    element.innerHTML = '';
+    element.appendChild(editor);
+    element.appendChild(hint);
+    editor.focus();
+    editor.select();
+
+    let committed = false;
+    const restore = () => {
+      element.innerHTML = savedHTML;
+      element.dataset.editing = '0';
+    };
+    const commit = async () => {
+      if (committed) return;
+      committed = true;
+      const newValue = editor.value.trim();
+      if (newValue === (currentValue || '').trim()) { restore(); return; }
+      element.classList.add('editable-saving');
+      try {
+        await grist.docApi.applyUserActions([['UpdateRecord', 'Points_bilaterales', pointId, {[fieldName]: newValue}]]);
+        await loadData();
+        if (selectedBilatId) renderCards();
+      } catch (err) {
+        alert('Erreur : ' + err.message);
+        element.classList.remove('editable-saving');
+        restore();
+      }
+    };
+
+    editor.addEventListener('blur', commit);
+    editor.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape') {
+        ev.preventDefault();
+        committed = true;
+        restore();
+      } else if (!isTextarea && ev.key === 'Enter') {
+        ev.preventDefault();
+        editor.blur();
+      } else if (isTextarea && (ev.ctrlKey || ev.metaKey) && ev.key === 'Enter') {
+        ev.preventDefault();
+        editor.blur();
+      }
+    });
+    editor.addEventListener('click', ev => ev.stopPropagation());
+    editor.addEventListener('mousedown', ev => ev.stopPropagation());
+  });
 }
 const BILAT_TYPE_REGULAR = 'Bilatérale régulière';
 const BILAT_TYPE_PONCTUEL = 'Suivi ponctuel';
@@ -2113,14 +2201,12 @@ function renderExpandedCard(point) {
       ${renderCorepBanner(point)}
       <div class="card-section">
         <div class="card-section-title">Prochaine action</div>
-        <div class="card-action-main">${safeText(point.Action_suivante || 'Aucune action definie')}</div>
+        <div class="card-action-main ${point.Action_suivante ? '' : 'empty'}" data-editable="Action_suivante" data-point-id="${point.id}" data-editable-textarea="1">${safeText(point.Action_suivante || 'Aucune action definie — cliquer pour ajouter')}</div>
       </div>
-      ${point.Description ? `
-        <div class="card-section">
-          <div class="card-section-title">Description</div>
-          <div class="card-secondary-body" style="margin-top:0">${safeText(point.Description)}</div>
-        </div>
-      ` : ''}
+      <div class="card-section">
+        <div class="card-section-title">Description</div>
+        <div class="card-secondary-body ${point.Description ? '' : 'empty'}" style="margin-top:0" data-editable="Description" data-point-id="${point.id}" data-editable-textarea="1">${safeText(point.Description || 'Aucune description — cliquer pour ajouter')}</div>
+      </div>
       <div class="card-section">
         <div class="card-section-title">Acteurs</div>
         ${actorsHtml}
@@ -2133,8 +2219,7 @@ function renderExpandedCard(point) {
         <details>
           <summary>Infos secondaires</summary>
           <div class="card-secondary-body">
-            ${point.Reference_site ? `<div><strong>Reference</strong> ${safeText(point.Reference_site)}</div>` : ''}
-            ${point.Reference_site ? '' : '<div>Aucune information complementaire.</div>'}
+            <div><strong>Reference</strong> <span class="${point.Reference_site ? '' : 'empty'}" data-editable="Reference_site" data-point-id="${point.id}">${safeText(point.Reference_site || '(cliquer pour ajouter)')}</span></div>
           </div>
         </details>
       </div>
@@ -2293,7 +2378,7 @@ renderCards = function() {
     card.innerHTML = `
       <div class="card-top">
         <div class="drag-handle${manualSortEnabled ? '' : ' disabled'}" title="${manualSortEnabled ? 'Glisser pour reordonner' : 'Desactive avec filtre/recherche'}">⋮⋮</div>
-        <div class="card-titre">${safeText(p.Titre || '(Sans titre)')}</div>
+        <div class="card-titre"${expanded ? ` data-editable="Titre" data-point-id="${p.id}"` : ''}>${safeText(p.Titre || '(Sans titre)')}</div>
         <div class="card-badges">${ageBadge}${exchangeCount}<span class="badge badge-${badgeClass(p.Statut)}">${safeText(p.Statut || '—')}</span></div>
       </div>
       <div class="card-meta">
@@ -2314,10 +2399,17 @@ renderCards = function() {
     `;
     card.addEventListener('click', e => {
       if (wasTextDrag(e)) return;
-      if (e.target.closest('.quick-status') || e.target.closest('.exchange-chip') || e.target.closest('[data-collapse-point]') || e.target.closest('[data-edit-point]') || e.target.closest('[data-open-corep]') || e.target.closest('.inline-editor')) return;
+      if (e.target.closest('.editable-field') || e.target.closest('.quick-status') || e.target.closest('.exchange-chip') || e.target.closest('[data-collapse-point]') || e.target.closest('[data-edit-point]') || e.target.closest('[data-open-corep]') || e.target.closest('.inline-editor')) return;
       expandedPointId = expanded ? null : p.id;
       if (!(p.id in selectedExchangeIndexByPoint)) selectedExchangeIndexByPoint[p.id] = 0;
       renderCards();
+    });
+    // Bind click-to-edit fields
+    card.querySelectorAll('[data-editable]').forEach(el => {
+      const field = el.dataset.editable;
+      const pid = parseInt(el.dataset.pointId);
+      const isTextarea = el.dataset.editableTextarea === '1';
+      makeEditableField(el, pid, field, { textarea: isTextarea });
     });
     card.querySelectorAll('.quick-status').forEach(select => {
       select.addEventListener('change', async function(e) {
