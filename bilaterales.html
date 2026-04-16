@@ -356,6 +356,12 @@
     cursor:pointer; transition:all .15s; display:inline-flex; align-items:center; gap:4px;
   }
   .btn-add-item:hover { border-color:var(--blue); color:var(--blue); background:var(--blue-lt); }
+  .exchange-add-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+  .mail-paste-box { margin-top:8px; padding:10px; border:1px solid var(--border); border-radius:6px; background:var(--gray-lt); display:flex; flex-direction:column; gap:8px; }
+  .mail-paste-textarea { width:100%; min-height:140px; padding:8px; border:1px solid var(--border); border-radius:4px; font:inherit; font-size:12px; resize:vertical; background:#fff; outline:none; }
+  .mail-paste-textarea:focus { border-color:var(--blue); }
+  .mail-paste-actions { display:flex; gap:8px; flex-wrap:wrap; }
+  .mail-paste-hint { font-size:11px; color:var(--text-xs); font-style:italic; }
   .exchange-edit-bar { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px; }
   .exchange-edit-bar-info { font-size:11px; color:var(--text-xs); font-weight:600; }
   .card-actor-line { color: var(--text-xs); }
@@ -901,6 +907,28 @@ async function addEchange(pointId) {
   });
   await updatePointField(pointId, 'Echanges_json', stringifyEchangesKeepAll(items));
   selectedExchangeIndexByPoint[pointId] = 0;
+}
+async function addEchangeFromMail(pointId, rawText) {
+  const parsed = parseOutlookMailText(rawText);
+  if (!parsed) {
+    alert('Impossible d\'analyser ce texte. Vérifiez qu\'il contient des en-têtes (De:, A:, Objet:, etc.) ou un corps de message.');
+    return false;
+  }
+  const items = _pointEchanges(pointId);
+  items.unshift({
+    type: parsed.type || 'mail',
+    date: parsed.date || '',
+    from: parsed.from || '',
+    to: parsed.to || '',
+    cc: parsed.cc || '',
+    subject: parsed.subject || '',
+    summary: '',
+    body: parsed.body || '',
+    raw: parsed.raw || rawText
+  });
+  await updatePointField(pointId, 'Echanges_json', stringifyEchangesKeepAll(items));
+  selectedExchangeIndexByPoint[pointId] = 0;
+  return true;
 }
 async function deleteEchange(pointId, index) {
   const items = _pointEchanges(pointId);
@@ -2306,7 +2334,6 @@ function renderEditableExchangeDetail(pointId, echanges) {
         <div class="exchange-detail-line"><strong>Cc</strong><span class="${selected.cc ? '' : 'empty'}" ${ed('cc')}>${safeText(selected.cc || '(cliquer pour ajouter)')}</span></div>
         <div class="exchange-detail-line"><strong>Objet</strong><span class="${selected.subject ? '' : 'empty'}" ${ed('subject')}>${safeText(selected.subject || '(cliquer pour ajouter)')}</span></div>
       </div>
-      <div class="exchange-detail-line"><strong>Résumé</strong><span class="${selected.summary ? '' : 'empty'}" ${ed('summary', ' data-editable-textarea="1"')}>${safeText(selected.summary || '(cliquer pour ajouter)')}</span></div>
       <div class="exchange-detail-body ${(selected.body || selected.raw) ? '' : 'empty'}" ${ed('body', ' data-editable-textarea="1"')}>${safeText(selected.body || selected.raw || '(cliquer pour ajouter le contenu du message)')}</div>
     </div>
   `;
@@ -2346,7 +2373,18 @@ function renderExpandedCard(point) {
       <div class="card-section">
         <div class="card-section-title">Echanges</div>
         ${renderEditableExchangeDetail(point.id, echanges)}
-        <button type="button" class="btn-add-item" data-add-echange="${point.id}">+ Ajouter un échange</button>
+        <div class="exchange-add-row">
+          <button type="button" class="btn-add-item" data-add-echange="${point.id}">+ Ajouter un échange</button>
+          <button type="button" class="btn-add-item" data-paste-echange="${point.id}">📋 Coller depuis un mail</button>
+        </div>
+        <div class="mail-paste-box" data-paste-box="${point.id}" style="display:none">
+          <div class="mail-paste-hint">Collez ici le texte d'un mail (format Outlook : De:, A:, Cc:, Envoyé le:, Objet:, puis le corps). Les champs seront remplis automatiquement.</div>
+          <textarea class="mail-paste-textarea" data-paste-textarea="${point.id}" placeholder="Collez le mail ici..."></textarea>
+          <div class="mail-paste-actions">
+            <button type="button" class="btn-inline primary" data-paste-analyze="${point.id}">Analyser et créer l'échange</button>
+            <button type="button" class="btn-inline" data-paste-cancel="${point.id}">Annuler</button>
+          </div>
+        </div>
       </div>
       <div class="card-secondary">
         <details>
@@ -2532,7 +2570,7 @@ renderCards = function() {
     `;
     card.addEventListener('click', e => {
       if (wasTextDrag(e)) return;
-      if (e.target.closest('.editable-field') || e.target.closest('.quick-status') || e.target.closest('.exchange-chip') || e.target.closest('[data-collapse-point]') || e.target.closest('[data-open-corep]') || e.target.closest('[data-delete-actor]') || e.target.closest('[data-add-actor]') || e.target.closest('[data-delete-echange]') || e.target.closest('[data-add-echange]') || e.target.closest('.inline-editor')) return;
+      if (e.target.closest('.editable-field') || e.target.closest('.quick-status') || e.target.closest('.exchange-chip') || e.target.closest('[data-collapse-point]') || e.target.closest('[data-open-corep]') || e.target.closest('[data-delete-actor]') || e.target.closest('[data-add-actor]') || e.target.closest('[data-delete-echange]') || e.target.closest('[data-add-echange]') || e.target.closest('[data-paste-echange]') || e.target.closest('[data-paste-analyze]') || e.target.closest('[data-paste-cancel]') || e.target.closest('.mail-paste-box') || e.target.closest('.inline-editor')) return;
       expandedPointId = expanded ? null : p.id;
       if (!(p.id in selectedExchangeIndexByPoint)) selectedExchangeIndexByPoint[p.id] = 0;
       renderCards();
@@ -2608,6 +2646,47 @@ renderCards = function() {
         const idx = parseInt(btn.dataset.deleteEchange);
         const pid = parseInt(btn.dataset.pointId);
         try { await deleteEchange(pid, idx); } catch (err) { alert('Erreur : ' + err.message); }
+      });
+    });
+    // Bind paste-from-mail flow
+    card.querySelectorAll('[data-paste-echange]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const pid = btn.dataset.pasteEchange;
+        const box = card.querySelector(`[data-paste-box="${pid}"]`);
+        if (!box) return;
+        const visible = box.style.display !== 'none';
+        box.style.display = visible ? 'none' : 'flex';
+        if (!visible) {
+          const ta = box.querySelector('textarea');
+          if (ta) { ta.value = ''; setTimeout(() => ta.focus(), 50); }
+        }
+      });
+    });
+    card.querySelectorAll('[data-paste-cancel]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const pid = btn.dataset.pasteCancel;
+        const box = card.querySelector(`[data-paste-box="${pid}"]`);
+        if (box) box.style.display = 'none';
+      });
+    });
+    card.querySelectorAll('[data-paste-analyze]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const pid = parseInt(btn.dataset.pasteAnalyze);
+        const ta = card.querySelector(`[data-paste-textarea="${pid}"]`);
+        if (!ta || !ta.value.trim()) { alert('Aucun contenu à analyser.'); return; }
+        btn.disabled = true;
+        btn.textContent = 'Analyse en cours…';
+        try {
+          const ok = await addEchangeFromMail(pid, ta.value);
+          if (!ok) { btn.disabled = false; btn.textContent = 'Analyser et créer l\'échange'; }
+        } catch (err) {
+          alert('Erreur : ' + err.message);
+          btn.disabled = false;
+          btn.textContent = 'Analyser et créer l\'échange';
+        }
       });
     });
     card.querySelectorAll('.quick-status').forEach(select => {
