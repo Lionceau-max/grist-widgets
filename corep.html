@@ -89,7 +89,7 @@
   #notes-actions { display:flex; gap:8px; flex-wrap:wrap; }
   #notes-input { width:100%; border:1px solid var(--border); border-radius:6px; padding:8px 10px; font-size:13px; font-family:inherit; resize:vertical; min-height:50px; outline:none; color:var(--text); }
   #notes-input:focus { border-color:var(--blue); }
-  #cr-view { border:1px solid var(--border); border-radius:8px; background:#f8fafc; padding:12px 14px; font-size:13px; line-height:1.6; color:var(--text); white-space:pre-wrap; }
+  #cr-view { border:1px solid var(--border); border-radius:8px; background:#f8fafc; padding:12px 14px; font-size:13px; line-height:1.6; color:var(--text); }
   #cr-view.empty { color:var(--text-xs); font-style:italic; }
   .is-hidden { display:none !important; }
 
@@ -109,7 +109,7 @@
   .dot-refuse   { background:var(--red); }
   .dot-reporte  { background:var(--amber); }
   .sujet-body { flex:1; min-width:0; }
-  .sujet-desc { font-size:13px; color:var(--text); line-height:1.45; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .sujet-desc { font-size:13px; color:var(--text); line-height:1.45; overflow-wrap:anywhere; }
   .sujet-desc.collapsed {
     display:-webkit-box;
     -webkit-line-clamp:8;
@@ -164,6 +164,28 @@
 
   /* ── Message modal ── */
   #msg-text { width:100%; min-height:200px; font-family:monospace; font-size:12px; line-height:1.6; border:1px solid var(--border); border-radius:6px; padding:10px; resize:vertical; }
+
+  /* ── Inline images ── */
+  .inline-img-wrap { display:block; margin:6px 0; }
+  .inline-img {
+    max-width:100%; max-height:320px; border-radius:6px; border:1px solid var(--border);
+    cursor:zoom-in; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.06); display:block;
+  }
+  .inline-img:hover { border-color:var(--blue); }
+  textarea.drop-target { border-color:var(--green) !important; background:#f0fdf4; }
+  textarea.is-loading { opacity:.5; pointer-events:none; }
+  #img-lightbox {
+    display:none; position:fixed; inset:0; background:rgba(15,23,42,.92); z-index:9999;
+    align-items:center; justify-content:center; padding:24px; cursor:zoom-out;
+  }
+  #img-lightbox.open { display:flex; }
+  #img-lightbox img { max-width:100%; max-height:100%; border-radius:8px; box-shadow:0 10px 40px rgba(0,0,0,.5); }
+  .img-lightbox-close {
+    position:absolute; top:16px; right:20px; width:36px; height:36px; border-radius:50%;
+    background:rgba(255,255,255,.15); color:#fff; display:flex; align-items:center;
+    justify-content:center; font-size:18px; cursor:pointer;
+  }
+  .img-lightbox-close:hover { background:rgba(255,255,255,.25); }
 
   /* ── Loader ── */
   #loader { position:fixed; inset:0; background:#fff; display:flex; align-items:center; justify-content:center; z-index:999; flex-direction:column; gap:10px; }
@@ -302,10 +324,135 @@ function escapeHtml(v) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+// Escapes HTML but preserves only <img src="data:image/...;base64,..."> tags
+function escapeHtmlWithImages(v) {
+  const text = String(v || '');
+  const placeholders = [];
+  const IMG_RE = /<img\s+[^>]*src="data:image\/(?:png|jpeg|jpg|gif|webp);base64,[A-Za-z0-9+/=]+"[^>]*>/gi;
+  const withPlaceholders = text.replace(IMG_RE, (match) => {
+    const idx = placeholders.length;
+    placeholders.push(match);
+    return `@@IMG_${idx}@@`;
+  });
+  let escaped = escapeHtml(withPlaceholders).replace(/\n/g, '<br>');
+  placeholders.forEach((tag, idx) => {
+    escaped = escaped.replace(`@@IMG_${idx}@@`, `<span class="inline-img-wrap">${tag}</span>`);
+  });
+  return escaped;
+}
 function formatSessionCr(v) {
   const text = String(v || '').trim();
-  return text ? escapeHtml(text) : '';
+  return text ? escapeHtmlWithImages(text) : '';
 }
+
+// ── Image paste / drop / compression (ported from bilaterales widget) ──
+async function compressImageFile(file, maxWidth = 1600, quality = 0.8) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Lecture du fichier échouée'));
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Image invalide'));
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        const isPng = file.type === 'image/png';
+        const dataUrl = isPng && file.size < 300000
+          ? canvas.toDataURL('image/png')
+          : canvas.toDataURL('image/jpeg', quality);
+        resolve(dataUrl);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function imgTagFromDataUrl(dataUrl, alt = '') {
+  const safeAlt = String(alt).replace(/"/g, '&quot;');
+  return `<img src="${dataUrl}" alt="${safeAlt}" class="inline-img">`;
+}
+function wireImageInput(textarea) {
+  if (!textarea || textarea.dataset.imgBound === '1') return;
+  textarea.dataset.imgBound = '1';
+
+  const handleFile = async (file) => {
+    if (!file || !file.type.startsWith('image/')) return false;
+    textarea.classList.add('is-loading');
+    try {
+      const dataUrl = await compressImageFile(file);
+      const tag = imgTagFromDataUrl(dataUrl, file.name || '');
+      const sep = textarea.value && !textarea.value.endsWith('\n') ? '\n' : '';
+      const start = textarea.selectionStart ?? textarea.value.length;
+      const end = textarea.selectionEnd ?? textarea.value.length;
+      const before = textarea.value.slice(0, start);
+      const after = textarea.value.slice(end);
+      textarea.value = before + sep + tag + '\n' + after;
+      textarea.classList.remove('is-loading');
+      return true;
+    } catch (err) {
+      textarea.classList.remove('is-loading');
+      alert('Erreur image : ' + err.message);
+      return false;
+    }
+  };
+
+  textarea.addEventListener('paste', async (e) => {
+    const items = e.clipboardData?.items || [];
+    for (const it of items) {
+      if (it.kind === 'file' && it.type.startsWith('image/')) {
+        e.preventDefault();
+        await handleFile(it.getAsFile());
+        return;
+      }
+    }
+  });
+  textarea.addEventListener('dragover', (e) => {
+    if ([...(e.dataTransfer?.types || [])].includes('Files')) {
+      e.preventDefault();
+      textarea.classList.add('drop-target');
+    }
+  });
+  textarea.addEventListener('dragleave', () => textarea.classList.remove('drop-target'));
+  textarea.addEventListener('drop', async (e) => {
+    textarea.classList.remove('drop-target');
+    const file = e.dataTransfer?.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      e.preventDefault();
+      await handleFile(file);
+    }
+  });
+}
+
+function openImageLightbox(src) {
+  let overlay = document.getElementById('img-lightbox');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'img-lightbox';
+    overlay.innerHTML = '<img><div class="img-lightbox-close" title="Fermer (Échap)">✕</div>';
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', () => overlay.classList.remove('open'));
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') overlay.classList.remove('open');
+    });
+  }
+  overlay.querySelector('img').src = src;
+  overlay.classList.add('open');
+}
+document.addEventListener('click', (e) => {
+  const img = e.target.closest('img.inline-img');
+  if (img) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    openImageLightbox(img.src);
+  }
+}, true);
 async function ensureCorepSchema() {
   const actions = [];
   const sessionsTable = await grist.docApi.fetchTable('Corep_Sessions');
@@ -560,7 +707,7 @@ function renderSujets(items) {
     row.innerHTML = `
       <div class="sujet-statut-dot ${DOT_CLASS[su.Statut] || 'dot-soumis'}"></div>
       <div class="sujet-body">
-        <div class="sujet-desc${isLong ? ' collapsed' : ''}">${escapeHtml(description)}</div>
+        <div class="sujet-desc${isLong ? ' collapsed' : ''}">${escapeHtmlWithImages(description)}</div>
         ${isLong ? '<button type="button" class="sujet-toggle">Voir plus</button>' : ''}
         <div class="sujet-meta">
           ${su.Soumetteur ? `<span>👤 ${su.Soumetteur}</span>` : ''}
@@ -763,6 +910,11 @@ document.addEventListener('keydown', e => {
 
 // ── Boot ──
 grist.ready({ requiredAccess: 'full' });
+// Wire image paste/drop on all image-friendly textareas
+['notes-input', 'ms-desc', 'ns-notes'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) wireImageInput(el);
+});
 loadData();
 </script>
 </body>
