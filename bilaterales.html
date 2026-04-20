@@ -249,6 +249,16 @@
   .card-section { display:flex; flex-direction:column; gap:8px; }
   .card-section-title { font-size:11px; font-weight:700; color:var(--text-xs); text-transform:uppercase; letter-spacing:.05em; }
   .card-action-main { padding: 12px 14px; border-radius: 10px; background: var(--blue-lt); color: var(--blue); font-size: 14px; font-weight: 600; line-height: 1.5; }
+
+  /* Actions checklist */
+  .actions-list { display:flex; flex-direction:column; gap:6px; }
+  .action-item { display:flex; align-items:flex-start; gap:8px; padding:8px 12px; border-radius:8px; background:var(--blue-lt); transition:all .15s; }
+  .action-item.done { background:var(--green-lt); }
+  .action-item .action-check { flex-shrink:0; width:18px; height:18px; border-radius:4px; border:2px solid var(--blue); background:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:12px; margin-top:1px; transition:all .15s; }
+  .action-item.done .action-check { background:var(--green); border-color:var(--green); color:#fff; }
+  .action-item .action-text { flex:1; font-size:13px; font-weight:500; color:var(--blue); line-height:1.45; min-width:0; }
+  .action-item.done .action-text { color:var(--green); text-decoration:line-through; opacity:.7; }
+  .action-item .btn-item-delete { margin-top:-2px; }
   .card-corep-banner {
     display:flex;
     flex-wrap:wrap;
@@ -913,6 +923,64 @@ async function addActor(pointId) {
   actors.push({ nom: 'Nouvel acteur', description: '' });
   await updatePointField(pointId, 'Acteurs_json', stringifyActorsKeepAll(actors));
 }
+
+// ── Actions CRUD ──
+async function toggleAction(pointId, index) {
+  const p = pointsAll.find(pp => pp.id === pointId);
+  if (!p) return;
+  const actions = parseActions(p.Action_suivante);
+  if (!actions[index]) return;
+  actions[index].done = !actions[index].done;
+  await grist.docApi.applyUserActions([['UpdateRecord', 'Points_bilaterales', pointId, { Action_suivante: stringifyActions(actions) }]]);
+  await loadData();
+  if (selectedBilatId) renderCards();
+}
+async function addAction(pointId) {
+  const p = pointsAll.find(pp => pp.id === pointId);
+  if (!p) return;
+  const actions = parseActions(p.Action_suivante);
+  actions.push({ text: 'Nouvelle action', done: false });
+  await updatePointField(pointId, 'Action_suivante', stringifyActions(actions));
+}
+async function deleteAction(pointId, index) {
+  const p = pointsAll.find(pp => pp.id === pointId);
+  if (!p) return;
+  const actions = parseActions(p.Action_suivante);
+  if (index < 0 || index >= actions.length) return;
+  if (!confirm(`Supprimer l'action "${actions[index].text}" ?`)) return;
+  actions.splice(index, 1);
+  await updatePointField(pointId, 'Action_suivante', stringifyActions(actions));
+}
+async function saveActionText(pointId, index, newText) {
+  const p = pointsAll.find(pp => pp.id === pointId);
+  if (!p) return;
+  const actions = parseActions(p.Action_suivante);
+  if (!actions[index]) return;
+  actions[index].text = newText;
+  await grist.docApi.applyUserActions([['UpdateRecord', 'Points_bilaterales', pointId, { Action_suivante: stringifyActions(actions) }]]);
+}
+
+function renderActionsChecklist(point) {
+  const actions = parseActions(point.Action_suivante);
+  if (!actions.length) return '<div class="card-action-main empty">Aucune action — cliquer "+" pour ajouter</div>';
+  return `<div class="actions-list">${actions.map((a, i) => `
+    <div class="action-item${a.done ? ' done' : ''}">
+      <div class="action-check" data-toggle-action="${i}" data-point-id="${point.id}" title="${a.done ? 'Marquer à faire' : 'Marquer fait'}">${a.done ? '✓' : ''}</div>
+      <div class="action-text" data-editable-action="${i}" data-point-id="${point.id}">${safeText(a.text)}</div>
+      <button type="button" class="btn-item-delete" data-delete-action="${i}" data-point-id="${point.id}" title="Supprimer">🗑</button>
+    </div>
+  `).join('')}</div>`;
+}
+
+function renderClosedActions(point) {
+  const actions = parseActions(point.Action_suivante);
+  const pending = actions.filter(a => !a.done);
+  const doneCount = actions.filter(a => a.done).length;
+  if (!actions.length) return '';
+  const first = pending.length ? pending[0].text : actions[0].text;
+  const countBadge = actions.length > 1 ? ` <span style="font-size:10px;opacity:.7">(${doneCount}/${actions.length})</span>` : '';
+  return `<div class="card-action">${safeText(first)}${countBadge}</div>`;
+}
 async function deleteActor(pointId, index) {
   const actors = _pointActors(pointId);
   if (index < 0 || index >= actors.length) return;
@@ -1165,6 +1233,41 @@ document.addEventListener('click', (e) => {
     openImageLightbox(img.src);
   }
 }, true); // capture phase — fires before editable-field click handlers
+
+// ── Actions (multi-item, stored as JSON in Action_suivante) ──
+function parseActions(raw) {
+  if (!raw) return [];
+  const text = String(raw).trim();
+  if (!text) return [];
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) {
+      return parsed.map(a => ({
+        text: String(a.text || a || '').trim(),
+        done: !!a.done,
+      })).filter(a => a.text);
+    }
+  } catch(e) { /* not JSON, treat as plain text */ }
+  // Legacy: plain text → single action
+  return [{ text, done: false }];
+}
+function stringifyActions(actions) {
+  const cleaned = actions.filter(a => String(a.text || '').trim());
+  if (!cleaned.length) return '';
+  // If single action with no done flag, could store as plain text for readability,
+  // but let's always use JSON for consistency
+  return JSON.stringify(cleaned.map(a => ({ text: String(a.text || '').trim(), done: !!a.done })));
+}
+// Returns flat text for search, export, dashboard display
+function actionsText(point) {
+  const actions = parseActions(point.Action_suivante);
+  return actions.filter(a => !a.done).map(a => a.text).join(' · ');
+}
+function actionsFirstPending(point) {
+  const actions = parseActions(point.Action_suivante);
+  return actions.find(a => !a.done)?.text || '';
+}
+
 function parseActors(raw) {
   if (!raw) return [];
   try {
@@ -1205,7 +1308,10 @@ function buildCorepDescription(point) {
   if (point.Titre) lines.push(point.Titre);
   if (point.Reference_site) lines.push(`Reference site : ${point.Reference_site}`);
   if (point.Description) lines.push('', point.Description.trim());
-  if (point.Action_suivante) lines.push('', `Prochaine action : ${point.Action_suivante.trim()}`);
+  if (point.Action_suivante) {
+    const acts = parseActions(point.Action_suivante).filter(a => !a.done);
+    if (acts.length) lines.push('', 'Actions en cours :', ...acts.map(a => `  - ${a.text}`));
+  }
   const actorNames = (point.Acteurs || []).map(actor => actor.nom).filter(Boolean);
   if (actorNames.length) lines.push('', `Acteurs : ${actorNames.join(', ')}`);
   return lines.join('\n').trim();
@@ -1929,7 +2035,7 @@ function getHistory(point) {
   const titreNorm=(point.Titre||'').toLowerCase().trim();
   return bilaterales.filter(b=>b.Beneficiaire===benId).sort((a,b)=>a.Date-b.Date).reduce((acc,b)=>{
     const p=pointsAll.find(p=>p.Bilaterale===b.id&&(p.Titre||'').toLowerCase().trim()===titreNorm);
-    if(p) acc.push({date:b.Date,statut:p.Statut,action:p.Action_suivante,bilatId:b.id});
+    if(p) acc.push({date:b.Date,statut:p.Statut,action:actionsText(p),bilatId:b.id});
     return acc;
   },[]);
 }
@@ -2018,7 +2124,7 @@ function renderDashboard() {
           <span class="dash-open-ben">${safeText(benLabel)}</span>
           <span class="dash-open-titre">${safeText(p.Titre || '(Sans titre)')}${p.Reference_site ? ' <span class="dash-open-ref">' + safeText(p.Reference_site) + '</span>' : ''}</span>
           <span class="dash-open-right">
-            ${p.Action_suivante ? '<span class="dash-open-action" title="' + safeText(p.Action_suivante) + '">→ ' + safeText(p.Action_suivante) + '</span>' : ''}
+            ${actionsText(p) ? '<span class="dash-open-action" title="' + safeText(actionsText(p)) + '">→ ' + safeText(actionsText(p)) + '</span>' : ''}
             <span class="dash-open-type ${bucket.key}">${bucketLabel}</span>
           </span>
         </div>`;
@@ -2150,7 +2256,7 @@ function renderSidebar() {
       // also search in points of this bilat
       return pointsAll.some(p => p.Bilaterale === b.id &&
         ((p.Titre||'').toLowerCase().includes(q) || (p.Description||'').toLowerCase().includes(q) ||
-         (p.Reference_site||'').toLowerCase().includes(q) || (p.Action_suivante||'').toLowerCase().includes(q) ||
+         (p.Reference_site||'').toLowerCase().includes(q) || actionsText(p).toLowerCase().includes(q) ||
          p.Acteurs.some(actor => [actor.nom, actor.description].join(' ').toLowerCase().includes(q))));
     });
   }
@@ -2414,7 +2520,7 @@ function renderActorView() {
   points.forEach(point => {
     if (filterStatut !== 'all' && point.Statut !== filterStatut) return;
     point.Acteurs.forEach(actor => {
-      const haystack = [point.Titre, point.Description, point.Reference_site, point.Action_suivante, actor.nom, actor.description].join(' ').toLowerCase();
+      const haystack = [point.Titre, point.Description, point.Reference_site, actionsText(point), actor.nom, actor.description].join(' ').toLowerCase();
       if (query && !haystack.includes(query)) return;
       const key = actor.nom || 'Sans acteur';
       if (!actorGroups.has(key)) actorGroups.set(key, []);
@@ -2449,7 +2555,7 @@ function renderActorView() {
         ${point.Reference_site ? `<div><span class="card-ref">${safeText(point.Reference_site)}</span></div>` : ''}
         ${point.Description ? `<div class="card-desc expanded">${safeText(point.Description)}</div>` : ''}
         ${renderActorSummary(actor)}
-        ${point.Action_suivante ? `<div class="card-action">${safeText(point.Action_suivante)}</div>` : ''}
+        ${renderClosedActions(point)}
       `;
       card.addEventListener('click', (e) => {
         if (wasTextDrag(e)) return;
@@ -2541,8 +2647,9 @@ function renderExpandedCard(point) {
       </div>
       ${renderCorepBanner(point)}
       <div class="card-section">
-        <div class="card-section-title">Prochaine action</div>
-        <div class="card-action-main ${point.Action_suivante ? '' : 'empty'}" data-editable="Action_suivante" data-point-id="${point.id}" data-editable-textarea="1">${safeText(point.Action_suivante || 'Aucune action definie — cliquer pour ajouter')}</div>
+        <div class="card-section-title">Actions</div>
+        ${renderActionsChecklist(point)}
+        <button type="button" class="btn-add-item" data-add-action="${point.id}">+ Ajouter une action</button>
       </div>
       <div class="card-section">
         <div class="card-section-title">Description</div>
@@ -2592,7 +2699,7 @@ function renderCards() {
   if(filterStatut!=='all') pts=pts.filter(p=>p.Statut===filterStatut);
   if(searchQ){
     const q=searchQ.toLowerCase();
-    pts=pts.filter(p=>(p.Titre||'').toLowerCase().includes(q)||(p.Description||'').toLowerCase().includes(q)||(p.Reference_site||'').toLowerCase().includes(q)||(p.Action_suivante||'').toLowerCase().includes(q)||p.Acteurs.some(actor=>[actor.nom, actor.description].join(' ').toLowerCase().includes(q)));
+    pts=pts.filter(p=>(p.Titre||'').toLowerCase().includes(q)||(p.Description||'').toLowerCase().includes(q)||(p.Reference_site||'').toLowerCase().includes(q)||actionsText(p).toLowerCase().includes(q)||p.Acteurs.some(actor=>[actor.nom, actor.description].join(' ').toLowerCase().includes(q)));
   }
   if(!pts.length){content.innerHTML='<div id="empty-state"><div class="icon">📭</div><div>Aucun point trouvé</div></div>';return;}
   pts=sortPointsForDisplay(pts);
@@ -2621,7 +2728,7 @@ function renderCards() {
       </div>
       ${p.Reference_site?`<div><span class="card-ref">${p.Reference_site}</span></div>`:''}
       ${p.Description?`<div class="card-desc" id="desc-${p.id}">${p.Description}</div><button class="card-expand" data-target="desc-${p.id}">Voir plus</button>`:''}
-      ${p.Action_suivante?`<div class="card-action">${p.Action_suivante}</div>`:''}
+      ${renderClosedActions(p)}
       ${actorsHtml}
       <div class="card-footer">
         <select class="quick-status" data-id="${p.id}">
@@ -2697,7 +2804,7 @@ renderCards = function() {
       (p.Titre || '').toLowerCase().includes(q) ||
       (p.Description || '').toLowerCase().includes(q) ||
       (p.Reference_site || '').toLowerCase().includes(q) ||
-      (p.Action_suivante || '').toLowerCase().includes(q) ||
+      actionsText(p).toLowerCase().includes(q) ||
       p.Acteurs.some(actor => [actor.nom, actor.description].join(' ').toLowerCase().includes(q)) ||
       getPointEchanges(p).some(item => [item.from, item.to, item.cc, item.subject, item.body, item.raw].join(' ').toLowerCase().includes(q))
     );
@@ -2740,7 +2847,7 @@ renderCards = function() {
         <span class="card-actors-inline">${safeText(actorListLabel(p.Acteurs))}</span>
         ${corepChip}
       </div>
-      ${p.Action_suivante ? `<div class="card-action">${safeText(p.Action_suivante)}</div>` : ''}
+      ${renderClosedActions(p)}
       <div class="card-meta">
         <span class="card-inline-label">Acteurs</span>
         <div class="card-inline-list">${closedActorsHtml}</div>
@@ -2753,7 +2860,7 @@ renderCards = function() {
     `;
     card.addEventListener('click', e => {
       if (wasTextDrag(e)) return;
-      if (e.target.closest('.editable-field') || e.target.closest('.quick-status') || e.target.closest('.exchange-chip') || e.target.closest('[data-collapse-point]') || e.target.closest('[data-open-corep]') || e.target.closest('[data-delete-actor]') || e.target.closest('[data-add-actor]') || e.target.closest('[data-delete-echange]') || e.target.closest('[data-add-echange]') || e.target.closest('[data-paste-echange]') || e.target.closest('[data-paste-analyze]') || e.target.closest('[data-paste-cancel]') || e.target.closest('.mail-paste-box') || e.target.closest('.inline-editor')) return;
+      if (e.target.closest('.editable-field') || e.target.closest('.quick-status') || e.target.closest('.exchange-chip') || e.target.closest('[data-collapse-point]') || e.target.closest('[data-open-corep]') || e.target.closest('[data-delete-actor]') || e.target.closest('[data-add-actor]') || e.target.closest('[data-delete-echange]') || e.target.closest('[data-add-echange]') || e.target.closest('[data-paste-echange]') || e.target.closest('[data-paste-analyze]') || e.target.closest('[data-paste-cancel]') || e.target.closest('.mail-paste-box') || e.target.closest('.inline-editor') || e.target.closest('[data-toggle-action]') || e.target.closest('[data-editable-action]') || e.target.closest('[data-delete-action]') || e.target.closest('[data-add-action]')) return;
       expandedPointId = expanded ? null : p.id;
       if (!(p.id in selectedExchangeIndexByPoint)) selectedExchangeIndexByPoint[p.id] = 0;
       renderCards();
@@ -2872,6 +2979,42 @@ renderCards = function() {
           btn.disabled = false;
           btn.textContent = 'Analyser et créer l\'échange';
         }
+      });
+    });
+    // Bind action checklist interactions
+    card.querySelectorAll('[data-toggle-action]').forEach(el => {
+      el.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const idx = parseInt(el.dataset.toggleAction);
+        const pid = parseInt(el.dataset.pointId);
+        try { await toggleAction(pid, idx); } catch (err) { alert('Erreur : ' + err.message); }
+      });
+    });
+    card.querySelectorAll('[data-editable-action]').forEach(el => {
+      const idx = parseInt(el.dataset.editableAction);
+      const pid = parseInt(el.dataset.pointId);
+      makeEditableField(el, pid, `action_${idx}`, {
+        getCurrent: () => {
+          const pt = pointsAll.find(pp => pp.id === pid);
+          return pt ? (parseActions(pt.Action_suivante)[idx]?.text || '') : '';
+        },
+        save: (newValue) => saveActionText(pid, idx, newValue),
+      });
+    });
+    card.querySelectorAll('[data-delete-action]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const idx = parseInt(btn.dataset.deleteAction);
+        const pid = parseInt(btn.dataset.pointId);
+        try { await deleteAction(pid, idx); } catch (err) { alert('Erreur : ' + err.message); }
+      });
+    });
+    card.querySelectorAll('[data-add-action]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const pid = parseInt(btn.dataset.addAction);
+        btn.disabled = true;
+        try { await addAction(pid); } catch (err) { alert('Erreur : ' + err.message); btn.disabled = false; }
       });
     });
     card.querySelectorAll('.quick-status').forEach(select => {
@@ -3265,7 +3408,7 @@ function generateResume() {
     lines.push('',`${i+1}. ${p.Titre||'(Sans titre)'}${p.Reference_site?` [${p.Reference_site}]`:''}${age>=2?` (depuis ${age} réunions)`:''}`);
     lines.push(`   Statut : ${p.Statut||'—'}`);
     if(p.Description) lines.push(`   ${p.Description.replace(/\n/g,'\n   ')}`);
-    if(p.Action_suivante) lines.push(`   → Action : ${p.Action_suivante}`);
+    if(actionsText(p)) lines.push(`   → Action : ${actionsText(p)}`);
     if(p.Acteurs.length){
       lines.push('   Acteurs associés :');
       p.Acteurs.forEach(actor => {
@@ -3274,12 +3417,12 @@ function generateResume() {
       });
     }
   });
-  const actions=pts.filter(p=>p.Statut!=='Résolu'&&p.Action_suivante);
+  const actions=pts.filter(p=>p.Statut!=='Résolu'&&actionsText(p));
   if(actions.length){
     lines.push('','─'.repeat(60),'ACTIONS À SUIVRE','─'.repeat(60));
     actions.forEach(p=>{
       lines.push(`• [${p.Statut}] ${p.Titre}${p.Reference_site?` [${p.Reference_site}]`:''}`);
-      if (p.Action_suivante) lines.push(`  → ${p.Action_suivante}`);
+      if (actionsText(p)) lines.push(`  → ${actionsText(p)}`);
     });
   }
   document.getElementById('export-title').textContent=`Résumé – ${benShort(b.Beneficiaire)} – ${fmtDate(b.Date)}`;
@@ -3508,9 +3651,9 @@ async function generateCR() {
           }
         });
       }
-      if (p.Action_suivante) {
+      if (actionsText(p)) {
         children.push(new Paragraph({
-          children: [tr('\u2192 Action : ' + p.Action_suivante, { bold: true, color: '002060' })],
+          children: [tr('\u2192 Action : ' + actionsText(p), { bold: true, color: '002060' })],
           indent: { left: 720 }, spacing: { after: 80 },
         }));
       }
