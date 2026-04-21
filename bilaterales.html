@@ -155,6 +155,14 @@
   .point-card[data-statut="En attente"]     { border-left-color:#c2410c; }
   .point-card[data-statut="Prêt pour restitution"] { border-left-color:#0f766e; }
 
+  /* Management visibility flag — override left border, add subtle tint */
+  .point-card.has-mgt { border-left-width:6px; box-shadow:0 1px 3px rgba(0,0,0,.08), inset 4px 0 0 rgba(255,255,255,.5); }
+  .point-card.mgt-demande   { border-left-color:#f59e0b !important; background:linear-gradient(90deg, #fffbeb 0%, #fff 120px); }
+  .point-card.mgt-escalade  { border-left-color:#ef4444 !important; background:linear-gradient(90deg, #fef2f2 0%, #fff 120px); }
+  .point-card.mgt-reporting { border-left-color:#8b5cf6 !important; background:linear-gradient(90deg, #f5f3ff 0%, #fff 120px); }
+  .point-card.mgt-sensible  { border-left-color:#374151 !important; background:linear-gradient(90deg, #f3f4f6 0%, #fff 120px); }
+  .badge-mgt { font-weight:700; padding:3px 8px; border-radius:999px; font-size:10px; text-transform:none; letter-spacing:0; }
+
   .card-top { display:flex; align-items:flex-start; gap:8px; }
   .drag-handle {
     width: 24px;
@@ -614,6 +622,7 @@
     <div id="toolbar" style="display:none">
       <button id="btn-new-point">+ Point</button>
       <button id="btn-view-mode" title="Basculer l'affichage">Vue acteur</button>
+      <button id="btn-filter-mgt" title="Afficher uniquement les points en visibilité management">👁️ Management</button>
       <select id="actor-status-filter" title="Filtrer par statut acteur" style="display:none">
         <option value="">Tous les statuts acteur</option>
         <option value="À faire">À faire</option>
@@ -789,6 +798,7 @@
 let bilaterales=[], pointsAll=[], beneficiaires=[], sujets_v2=[], corepSessions=[], corepSujets=[];
 let selectedBilatId=null, selectedPointId=null;
 let filterStatut='all', searchQ='', isDirty=false, isNewPoint=false;
+let filterMgtOnly=false;
 let sidebarSearchQ='', sidebarSort='date'; // 'date' or 'ben'
 let dragPointId=null;
 let contentViewMode='points';
@@ -918,6 +928,32 @@ function stringifyEchangesKeepAll(items) {
     body: String(i.body || ''), raw: String(i.raw || '')
   }))) : '';
 }
+// ── Management flag ──
+const MGT_FLAGS = {
+  'Demande directe':     { short: '⚡ Demande directe', color: '#f59e0b', light: '#fffbeb', cssClass: 'mgt-demande' },
+  'Escalade':            { short: '🔴 Escalade',        color: '#ef4444', light: '#fef2f2', cssClass: 'mgt-escalade' },
+  'Reporting récurrent': { short: '📊 Reporting',       color: '#8b5cf6', light: '#f5f3ff', cssClass: 'mgt-reporting' },
+  'Sensible':            { short: '🔒 Sensible',        color: '#374151', light: '#f3f4f6', cssClass: 'mgt-sensible' },
+};
+function mgtFlag(point) {
+  const f = (point?.Management_flag || '').trim();
+  return MGT_FLAGS[f] ? { key: f, ...MGT_FLAGS[f] } : null;
+}
+function mgtCardClass(point) {
+  const f = mgtFlag(point);
+  return f ? ' has-mgt ' + f.cssClass : '';
+}
+function mgtBadge(point) {
+  const f = mgtFlag(point);
+  if (!f) return '';
+  return `<span class="badge badge-mgt" style="background:${f.color};color:#fff">${safeText(f.short)}</span>`;
+}
+async function updateMgtFlag(pointId, newValue) {
+  await grist.docApi.applyUserActions([['UpdateRecord', 'Points_bilaterales', pointId, { Management_flag: newValue || '' }]]);
+  await loadData();
+  if (selectedBilatId) renderCards();
+}
+
 async function addActor(pointId) {
   const actors = _pointActors(pointId);
   actors.push({ nom: 'Nouvel acteur', description: '' });
@@ -1796,7 +1832,26 @@ async function ensurePointSchema() {
   if (table.Corep_Sujet === undefined) {
     actions.push(['AddColumn', 'Points_bilaterales', 'Corep_Sujet', {type: 'Numeric', label: 'Sujet COREP'}]);
   }
+  const needsMgtFlag = table.Management_flag === undefined;
+  if (needsMgtFlag) {
+    actions.push(['AddColumn', 'Points_bilaterales', 'Management_flag', {type: 'Text', label: 'Visibilité management'}]);
+  }
   if (actions.length) await grist.docApi.applyUserActions(actions);
+  // Second pass to set Choice type + widgetOptions on Management_flag (following Grist best practice)
+  if (needsMgtFlag) {
+    const widgetOptions = JSON.stringify({
+      choices: ['Demande directe', 'Escalade', 'Reporting récurrent', 'Sensible'],
+      choiceOptions: {
+        'Demande directe':   { fillColor: '#f59e0b', textColor: '#ffffff' },
+        'Escalade':          { fillColor: '#ef4444', textColor: '#ffffff' },
+        'Reporting récurrent': { fillColor: '#8b5cf6', textColor: '#ffffff' },
+        'Sensible':          { fillColor: '#374151', textColor: '#ffffff' },
+      }
+    });
+    await grist.docApi.applyUserActions([
+      ['ModifyColumn', 'Points_bilaterales', 'Management_flag', { type: 'Choice', widgetOptions }]
+    ]).catch(err => console.warn('Management_flag Choice type non applique', err));
+  }
 }
 async function ensureBilatSchema() {
   const table = await grist.docApi.fetchTable('Bilaterales');
@@ -1870,6 +1925,7 @@ async function loadData() {
     Acteurs_json:pT.Acteurs_json ? pT.Acteurs_json[i] : '',
     Echanges_json:pT.Echanges_json ? pT.Echanges_json[i] : '',
     Corep_Sujet:pT.Corep_Sujet ? refInt(pT.Corep_Sujet[i]) : 0,
+    Management_flag: pT.Management_flag ? (pT.Management_flag[i] || '') : '',
     Acteurs:parseActors(pT.Acteurs_json ? pT.Acteurs_json[i] : ''),
     Ordre:pT.Ordre && pT.Ordre[i] !== null && pT.Ordre[i] !== '' ? Number(pT.Ordre[i]) : NaN,
   }));
@@ -1902,6 +1958,7 @@ async function loadData() {
       Acteurs_json:refreshed.Acteurs_json ? refreshed.Acteurs_json[i] : '',
       Echanges_json:refreshed.Echanges_json ? refreshed.Echanges_json[i] : '',
       Corep_Sujet:refreshed.Corep_Sujet ? refInt(refreshed.Corep_Sujet[i]) : 0,
+      Management_flag: refreshed.Management_flag ? (refreshed.Management_flag[i] || '') : '',
       Acteurs:parseActors(refreshed.Acteurs_json ? refreshed.Acteurs_json[i] : ''),
       Ordre:refreshed.Ordre && refreshed.Ordre[i] !== null && refreshed.Ordre[i] !== '' ? Number(refreshed.Ordre[i]) : NaN,
     }));
@@ -2102,8 +2159,11 @@ function renderDashboard() {
     activeStatutOrder.forEach(statut => {
       const pts = byStatut[statut];
       if (!pts || !pts.length) return;
-      // Sort by beneficiary name then titre
+      // Sort: management flag first, then beneficiary, then title
       pts.sort((a, b) => {
+        const fA = mgtFlag(a) ? 0 : 1;
+        const fB = mgtFlag(b) ? 0 : 1;
+        if (fA !== fB) return fA - fB;
         const bA = bilaterales.find(bl => bl.id === a.Bilaterale);
         const bB = bilaterales.find(bl => bl.id === b.Bilaterale);
         const nameA = bA ? benShort(bA.Beneficiaire) : '';
@@ -2120,7 +2180,10 @@ function renderDashboard() {
         const benLabel = bilat ? benShort(bilat.Beneficiaire) : '?';
         const bucket = bilat ? getBilatTimeBucket(bilat) : { key: 'future' };
         const bucketLabel = bucket.key === 'followup' ? 'Suivi' : (bucket.key === 'today' ? "Auj." : fmtDate(bilat?.Date));
-        sectionHTML += `<div class="dash-open-item" data-bilat-id="${p.Bilaterale}">
+        const mFlag = mgtFlag(p);
+        const mgtIcon = mFlag ? `<span title="${safeText(mFlag.key)}" style="color:${mFlag.color};font-size:13px;flex-shrink:0;margin-right:2px">👁️</span>` : '';
+        sectionHTML += `<div class="dash-open-item${mFlag ? ' dash-open-item-mgt' : ''}" data-bilat-id="${p.Bilaterale}"${mFlag ? ` style="border-left:3px solid ${mFlag.color};background:${mFlag.light}"` : ''}>
+          ${mgtIcon}
           <span class="dash-open-ben">${safeText(benLabel)}</span>
           <span class="dash-open-titre">${safeText(p.Titre || '(Sans titre)')}${p.Reference_site ? ' <span class="dash-open-ref">' + safeText(p.Reference_site) + '</span>' : ''}</span>
           <span class="dash-open-right">
@@ -2543,12 +2606,13 @@ function renderActorView() {
 
     entries.forEach(({ point, actor }) => {
       const card = document.createElement('div');
-      card.className = 'point-card';
+      card.className = 'point-card' + mgtCardClass(point);
       card.dataset.statut = point.Statut || '';
       card.innerHTML = `
         <div class="card-top">
           <div class="card-titre">${safeText(point.Titre || '(Sans titre)')}</div>
           <div class="card-badges">
+            ${mgtBadge(point)}
             <span class="badge badge-${badgeClass(point.Statut)}">${safeText(point.Statut || '—')}</span>
           </div>
         </div>
@@ -2640,6 +2704,10 @@ function renderExpandedCard(point) {
         <div class="card-sticky-actions">
           <button type="button" class="btn-inline" data-open-corep="${point.id}">${getCorepSujetForPoint(point) ? 'Mettre a jour COREP' : 'Passer en COREP'}</button>
           <button type="button" class="btn-inline" data-collapse-point="${point.id}">Refermer</button>
+          <select class="quick-mgt" data-id="${point.id}" title="Visibilité management">
+            <option value="">— Visibilité mgmt</option>
+            ${Object.keys(MGT_FLAGS).map(k => `<option value="${k}"${k === (point.Management_flag || '') ? ' selected' : ''}>${MGT_FLAGS[k].short}</option>`).join('')}
+          </select>
           <select class="quick-status" data-id="${point.id}">
             ${STATUTS.map(s=>`<option${s===point.Statut?' selected':''}>${s}</option>`).join('')}
           </select>
@@ -2798,6 +2866,7 @@ renderCards = function() {
   content.innerHTML = '';
   let pts = pointsAll.filter(p => p.Bilaterale === selectedBilatId);
   if (filterStatut !== 'all') pts = pts.filter(p => p.Statut === filterStatut);
+  if (filterMgtOnly) pts = pts.filter(p => !!mgtFlag(p));
   if (searchQ) {
     const q = searchQ.toLowerCase();
     pts = pts.filter(p =>
@@ -2832,7 +2901,7 @@ renderCards = function() {
     const corepChip = renderCorepClosedChip(p);
     const expanded = expandedPointId === p.id;
     const card = document.createElement('div');
-    card.className = 'point-card' + (p.id === selectedPointId ? ' active' : '') + (expanded ? ' expanded' : '');
+    card.className = 'point-card' + (p.id === selectedPointId ? ' active' : '') + (expanded ? ' expanded' : '') + mgtCardClass(p);
     card.dataset.statut = p.Statut || '';
     card.dataset.id = p.id;
     card.draggable = manualSortEnabled && !expanded;
@@ -2840,7 +2909,7 @@ renderCards = function() {
       <div class="card-top">
         <div class="drag-handle${manualSortEnabled ? '' : ' disabled'}" title="${manualSortEnabled ? 'Glisser pour reordonner' : 'Desactive avec filtre/recherche'}">⋮⋮</div>
         <div class="card-titre"${expanded ? ` data-editable="Titre" data-point-id="${p.id}"` : ''}>${safeText(p.Titre || '(Sans titre)')}</div>
-        <div class="card-badges">${ageBadge}${exchangeCount}<span class="badge badge-${badgeClass(p.Statut)}">${safeText(p.Statut || '—')}</span></div>
+        <div class="card-badges">${mgtBadge(p)}${ageBadge}${exchangeCount}<span class="badge badge-${badgeClass(p.Statut)}">${safeText(p.Statut || '—')}</span></div>
       </div>
       <div class="card-meta">
         ${p.Reference_site ? `<span class="card-ref">${safeText(p.Reference_site)}</span>` : ''}
@@ -2860,7 +2929,7 @@ renderCards = function() {
     `;
     card.addEventListener('click', e => {
       if (wasTextDrag(e)) return;
-      if (e.target.closest('.editable-field') || e.target.closest('.quick-status') || e.target.closest('.exchange-chip') || e.target.closest('[data-collapse-point]') || e.target.closest('[data-open-corep]') || e.target.closest('[data-delete-actor]') || e.target.closest('[data-add-actor]') || e.target.closest('[data-delete-echange]') || e.target.closest('[data-add-echange]') || e.target.closest('[data-paste-echange]') || e.target.closest('[data-paste-analyze]') || e.target.closest('[data-paste-cancel]') || e.target.closest('.mail-paste-box') || e.target.closest('.inline-editor') || e.target.closest('[data-toggle-action]') || e.target.closest('[data-editable-action]') || e.target.closest('[data-delete-action]') || e.target.closest('[data-add-action]')) return;
+      if (e.target.closest('.editable-field') || e.target.closest('.quick-status') || e.target.closest('.quick-mgt') || e.target.closest('.exchange-chip') || e.target.closest('[data-collapse-point]') || e.target.closest('[data-open-corep]') || e.target.closest('[data-delete-actor]') || e.target.closest('[data-add-actor]') || e.target.closest('[data-delete-echange]') || e.target.closest('[data-add-echange]') || e.target.closest('[data-paste-echange]') || e.target.closest('[data-paste-analyze]') || e.target.closest('[data-paste-cancel]') || e.target.closest('.mail-paste-box') || e.target.closest('.inline-editor') || e.target.closest('[data-toggle-action]') || e.target.closest('[data-editable-action]') || e.target.closest('[data-delete-action]') || e.target.closest('[data-add-action]')) return;
       expandedPointId = expanded ? null : p.id;
       if (!(p.id in selectedExchangeIndexByPoint)) selectedExchangeIndexByPoint[p.id] = 0;
       renderCards();
@@ -3028,6 +3097,19 @@ renderCards = function() {
           selectBilat(selectedBilatId);
         } catch (err) {
           alert('Erreur : ' + err.message);
+          this.disabled = false;
+        }
+      });
+    });
+    card.querySelectorAll('.quick-mgt').forEach(select => {
+      select.addEventListener('change', async function(e) {
+        e.stopPropagation();
+        this.disabled = true;
+        try {
+          await updateMgtFlag(p.id, this.value);
+        } catch (err) {
+          alert('Erreur : ' + err.message);
+        } finally {
           this.disabled = false;
         }
       });
@@ -3456,6 +3538,16 @@ document.getElementById('btn-view-mode').addEventListener('click',()=>{
   contentViewMode = contentViewMode === 'points' ? 'actors' : 'points';
   document.getElementById('btn-view-mode').textContent = contentViewMode === 'actors' ? 'Vue point' : 'Vue acteur';
   document.getElementById('actor-status-filter').style.display = 'none';
+  renderCards();
+});
+document.getElementById('btn-filter-mgt').addEventListener('click', () => {
+  filterMgtOnly = !filterMgtOnly;
+  const btn = document.getElementById('btn-filter-mgt');
+  btn.classList.toggle('active', filterMgtOnly);
+  btn.style.background = filterMgtOnly ? '#fef3c7' : '';
+  btn.style.borderColor = filterMgtOnly ? '#f59e0b' : '';
+  btn.style.color = filterMgtOnly ? '#92400e' : '';
+  btn.style.fontWeight = filterMgtOnly ? '700' : '';
   renderCards();
 });
 document.getElementById('actor-status-filter').addEventListener('change', e => {
