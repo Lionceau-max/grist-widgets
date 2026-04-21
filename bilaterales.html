@@ -162,6 +162,12 @@
   .point-card.mgt-reporting { border-left-color:#8b5cf6 !important; background:linear-gradient(90deg, #f5f3ff 0%, #fff 120px); }
   .point-card.mgt-sensible  { border-left-color:#374151 !important; background:linear-gradient(90deg, #f3f4f6 0%, #fff 120px); }
   .badge-mgt { font-weight:700; padding:3px 8px; border-radius:999px; font-size:10px; text-transform:none; letter-spacing:0; }
+  .badge-eche { font-weight:600; padding:3px 8px; border-radius:999px; font-size:10px; text-transform:none; letter-spacing:0; }
+  .echeance-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .echeance-date, .echeance-label { padding:6px 10px; border:1px solid var(--border); border-radius:6px; font-size:13px; font-family:inherit; outline:none; }
+  .echeance-date:focus, .echeance-label:focus { border-color:var(--blue); }
+  .echeance-date { width:160px; }
+  .echeance-label { flex:1; min-width:160px; }
 
   .card-top { display:flex; align-items:flex-start; gap:8px; }
   .drag-handle {
@@ -560,6 +566,7 @@
 
   /* Dashboard: Open points by status */
   .dash-open-section { margin-bottom:24px; }
+  .dash-eche-section { margin-bottom:24px; }
   .dash-open-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
   .dash-open-header h3 { font-size:15px; font-weight:700; color:var(--text); }
   .dash-open-toggle { padding:4px 10px; border-radius:6px; border:1px solid var(--border); background:#fff; font-size:11px; cursor:pointer; color:var(--text-sm); }
@@ -950,6 +957,37 @@ function mgtBadge(point) {
 }
 async function updateMgtFlag(pointId, newValue) {
   await grist.docApi.applyUserActions([['UpdateRecord', 'Points_bilaterales', pointId, { Management_flag: newValue || '' }]]);
+  await loadData();
+  if (selectedBilatId) renderCards();
+}
+
+// ── Echeance ──
+function echeanceStatus(point) {
+  const ts = Number(point?.Echeance) || 0;
+  if (!ts) return null;
+  const today = startOfTodayTs();
+  const days = Math.round((ts - today) / 86400);
+  if (days < 0)  return { kind: 'overdue',  days, color: '#dc2626', light: '#fef2f2', label: `Dépassée (J${days})` };
+  if (days === 0) return { kind: 'today',   days, color: '#ea580c', light: '#fff7ed', label: 'Aujourd\'hui' };
+  if (days <= 7)  return { kind: 'soon',    days, color: '#d97706', light: '#fffbeb', label: `J-${days}` };
+  if (days <= 30) return { kind: 'upcoming',days, color: '#2563eb', light: '#eff6ff', label: `J-${days}` };
+  return                  { kind: 'far',    days, color: '#6b7280', light: '#f9fafb', label: `J-${days}` };
+}
+function echeanceBadge(point) {
+  const st = echeanceStatus(point);
+  if (!st) return '';
+  const dateStr = fmtDate(point.Echeance);
+  const tip = point.Echeance_label
+    ? `${point.Echeance_label} — ${dateStr} (${st.label})`
+    : `Échéance ${dateStr} (${st.label})`;
+  const labelTxt = point.Echeance_label ? `· ${point.Echeance_label}` : '';
+  return `<span class="badge badge-eche" style="background:${st.color};color:#fff" title="${safeText(tip)}">📅 ${dateStr} ${safeText(labelTxt)}</span>`;
+}
+async function updateEcheance(pointId, dateStr, label) {
+  const fields = {};
+  if (dateStr !== undefined) fields.Echeance = dateStr ? toTs(dateStr) : 0;
+  if (label !== undefined) fields.Echeance_label = label || '';
+  await grist.docApi.applyUserActions([['UpdateRecord', 'Points_bilaterales', pointId, fields]]);
   await loadData();
   if (selectedBilatId) renderCards();
 }
@@ -1832,11 +1870,24 @@ async function ensurePointSchema() {
   if (table.Corep_Sujet === undefined) {
     actions.push(['AddColumn', 'Points_bilaterales', 'Corep_Sujet', {type: 'Numeric', label: 'Sujet COREP'}]);
   }
+  const needsEcheance = table.Echeance === undefined;
+  if (needsEcheance) {
+    actions.push(['AddColumn', 'Points_bilaterales', 'Echeance', {type: 'Text', label: 'Échéance'}]);
+  }
+  if (table.Echeance_label === undefined) {
+    actions.push(['AddColumn', 'Points_bilaterales', 'Echeance_label', {type: 'Text', label: 'Libellé échéance'}]);
+  }
   const needsMgtFlag = table.Management_flag === undefined;
   if (needsMgtFlag) {
     actions.push(['AddColumn', 'Points_bilaterales', 'Management_flag', {type: 'Text', label: 'Visibilité management'}]);
   }
   if (actions.length) await grist.docApi.applyUserActions(actions);
+  // Second pass: set Echeance to Date type
+  if (needsEcheance) {
+    await grist.docApi.applyUserActions([
+      ['ModifyColumn', 'Points_bilaterales', 'Echeance', { type: 'Date', widgetOptions: '{"dateFormat":"DD/MM/YYYY"}' }]
+    ]).catch(err => console.warn('Echeance Date type non applique', err));
+  }
   // Second pass to set Choice type + widgetOptions on Management_flag (following Grist best practice)
   if (needsMgtFlag) {
     const widgetOptions = JSON.stringify({
@@ -1926,6 +1977,8 @@ async function loadData() {
     Echanges_json:pT.Echanges_json ? pT.Echanges_json[i] : '',
     Corep_Sujet:pT.Corep_Sujet ? refInt(pT.Corep_Sujet[i]) : 0,
     Management_flag: pT.Management_flag ? (pT.Management_flag[i] || '') : '',
+    Echeance: pT.Echeance ? (pT.Echeance[i] || 0) : 0,
+    Echeance_label: pT.Echeance_label ? (pT.Echeance_label[i] || '') : '',
     Acteurs:parseActors(pT.Acteurs_json ? pT.Acteurs_json[i] : ''),
     Ordre:pT.Ordre && pT.Ordre[i] !== null && pT.Ordre[i] !== '' ? Number(pT.Ordre[i]) : NaN,
   }));
@@ -1959,6 +2012,8 @@ async function loadData() {
       Echanges_json:refreshed.Echanges_json ? refreshed.Echanges_json[i] : '',
       Corep_Sujet:refreshed.Corep_Sujet ? refInt(refreshed.Corep_Sujet[i]) : 0,
       Management_flag: refreshed.Management_flag ? (refreshed.Management_flag[i] || '') : '',
+      Echeance: refreshed.Echeance ? (refreshed.Echeance[i] || 0) : 0,
+      Echeance_label: refreshed.Echeance_label ? (refreshed.Echeance_label[i] || '') : '',
       Acteurs:parseActors(refreshed.Acteurs_json ? refreshed.Acteurs_json[i] : ''),
       Ordre:refreshed.Ordre && refreshed.Ordre[i] !== null && refreshed.Ordre[i] !== '' ? Number(refreshed.Ordre[i]) : NaN,
     }));
@@ -2138,9 +2193,57 @@ function renderDashboard() {
   dash.innerHTML = `
     <div id="dashboard-title">Vue d'ensemble des bilatérales</div>
     <div id="dashboard-sub">${Object.keys(byBen).length} bénéficiaires · ${totalOpen} points ouverts${totalBloque ? ` · <span style="color:var(--red);font-weight:600">${totalBloque} bloqués</span>` : ''}${totalAction ? ` · <span style="color:var(--purple);font-weight:600">${totalAction} actions requises</span>` : ''}</div>
+    <div class="dash-eche-section" id="dash-eche-section"></div>
     <div class="dash-open-section" id="dash-open-section"></div>
     <div class="dash-grid" id="dash-grid"></div>
   `;
+
+  // ── Render echeance section ──
+  const echeSection = document.getElementById('dash-eche-section');
+  const pointsWithEche = pointsAll
+    .filter(p => p.Echeance && p.Statut !== 'Résolu')
+    .sort((a, b) => a.Echeance - b.Echeance);
+  if (pointsWithEche.length > 0) {
+    const overdue = pointsWithEche.filter(p => echeanceStatus(p)?.kind === 'overdue').length;
+    const soon = pointsWithEche.filter(p => ['today','soon'].includes(echeanceStatus(p)?.kind)).length;
+    let echeHTML = `<div class="dash-open-header">
+      <h3>📅 Échéances à venir <span style="font-size:12px;font-weight:400;color:var(--text-xs)">(${pointsWithEche.length} points${overdue ? ` · <span style="color:var(--red);font-weight:600">${overdue} dépassée${overdue>1?'s':''}</span>` : ''}${soon ? ` · <span style="color:#ea580c;font-weight:600">${soon} imminente${soon>1?'s':''}</span>` : ''})</span></h3>
+      <button class="dash-open-toggle" id="dash-eche-toggle">Replier</button>
+    </div>
+    <div id="dash-eche-body"><div class="dash-open-list">`;
+    pointsWithEche.forEach(p => {
+      const bilat = bilaterales.find(bl => bl.id === p.Bilaterale);
+      const benLabel = bilat ? benShort(bilat.Beneficiaire) : '?';
+      const st = echeanceStatus(p);
+      echeHTML += `<div class="dash-open-item" data-bilat-id="${p.Bilaterale}" style="border-left:4px solid ${st.color};background:${st.light}">
+        <span class="dash-open-ben">${safeText(benLabel)}</span>
+        <span class="dash-open-titre">${safeText(p.Titre || '(Sans titre)')}${p.Echeance_label ? ' <span style="color:var(--text-xs);font-style:italic">— ' + safeText(p.Echeance_label) + '</span>' : ''}</span>
+        <span class="dash-open-right">
+          <span style="font-size:11px;color:${st.color};font-weight:700">${st.label}</span>
+          <span class="dash-open-type" style="background:${st.color};color:#fff">${fmtDate(p.Echeance)}</span>
+        </span>
+      </div>`;
+    });
+    echeHTML += '</div></div>';
+    echeSection.innerHTML = echeHTML;
+    echeSection.querySelectorAll('.dash-open-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const bilatId = parseInt(el.dataset.bilatId);
+        if (bilatId) selectBilat(bilatId);
+      });
+    });
+    const echeToggle = document.getElementById('dash-eche-toggle');
+    const echeBody = document.getElementById('dash-eche-body');
+    echeToggle.addEventListener('click', () => {
+      if (echeBody.style.display === 'none') {
+        echeBody.style.display = '';
+        echeToggle.textContent = 'Replier';
+      } else {
+        echeBody.style.display = 'none';
+        echeToggle.textContent = 'Déplier';
+      }
+    });
+  }
 
   // ── Render open points by status section ──
   const openSection = document.getElementById('dash-open-section');
@@ -2188,6 +2291,7 @@ function renderDashboard() {
           <span class="dash-open-titre">${safeText(p.Titre || '(Sans titre)')}${p.Reference_site ? ' <span class="dash-open-ref">' + safeText(p.Reference_site) + '</span>' : ''}</span>
           <span class="dash-open-right">
             ${actionsText(p) ? '<span class="dash-open-action" title="' + safeText(actionsText(p)) + '">→ ' + safeText(actionsText(p)) + '</span>' : ''}
+            ${p.Echeance ? `<span style="font-size:10px;color:${echeanceStatus(p)?.color};font-weight:700;margin-right:4px" title="${p.Echeance_label ? safeText(p.Echeance_label) + ' — ' : ''}${fmtDate(p.Echeance)}">📅 ${echeanceStatus(p)?.label}</span>` : ''}
             <span class="dash-open-type ${bucket.key}">${bucketLabel}</span>
           </span>
         </div>`;
@@ -2613,6 +2717,7 @@ function renderActorView() {
           <div class="card-titre">${safeText(point.Titre || '(Sans titre)')}</div>
           <div class="card-badges">
             ${mgtBadge(point)}
+            ${echeanceBadge(point)}
             <span class="badge badge-${badgeClass(point.Statut)}">${safeText(point.Statut || '—')}</span>
           </div>
         </div>
@@ -2743,6 +2848,15 @@ function renderExpandedCard(point) {
             <button type="button" class="btn-inline" data-paste-cancel="${point.id}">Annuler</button>
           </div>
         </div>
+      </div>
+      <div class="card-section">
+        <div class="card-section-title">Échéance</div>
+        <div class="echeance-row">
+          <input type="date" class="echeance-date" data-echeance-date="${point.id}" value="${point.Echeance ? toInputDate(point.Echeance) : ''}" title="Date d'échéance personnalisée">
+          <input type="text" class="echeance-label" data-echeance-label="${point.id}" value="${safeText(point.Echeance_label || '')}" placeholder="Libellé (ex. Reporting SFR T1)" title="Libellé court de l'échéance">
+          ${point.Echeance ? `<button type="button" class="btn-item-delete" data-echeance-clear="${point.id}" title="Supprimer l'échéance">🗑</button>` : ''}
+        </div>
+        ${point.Echeance ? `<div style="margin-top:6px;font-size:11px;color:${echeanceStatus(point)?.color || 'var(--text-xs)'};font-weight:600">${echeanceStatus(point)?.label || ''}</div>` : ''}
       </div>
       <div class="card-secondary">
         <details>
@@ -2909,7 +3023,7 @@ renderCards = function() {
       <div class="card-top">
         <div class="drag-handle${manualSortEnabled ? '' : ' disabled'}" title="${manualSortEnabled ? 'Glisser pour reordonner' : 'Desactive avec filtre/recherche'}">⋮⋮</div>
         <div class="card-titre"${expanded ? ` data-editable="Titre" data-point-id="${p.id}"` : ''}>${safeText(p.Titre || '(Sans titre)')}</div>
-        <div class="card-badges">${mgtBadge(p)}${ageBadge}${exchangeCount}<span class="badge badge-${badgeClass(p.Statut)}">${safeText(p.Statut || '—')}</span></div>
+        <div class="card-badges">${mgtBadge(p)}${echeanceBadge(p)}${ageBadge}${exchangeCount}<span class="badge badge-${badgeClass(p.Statut)}">${safeText(p.Statut || '—')}</span></div>
       </div>
       <div class="card-meta">
         ${p.Reference_site ? `<span class="card-ref">${safeText(p.Reference_site)}</span>` : ''}
@@ -2929,7 +3043,7 @@ renderCards = function() {
     `;
     card.addEventListener('click', e => {
       if (wasTextDrag(e)) return;
-      if (e.target.closest('.editable-field') || e.target.closest('.quick-status') || e.target.closest('.quick-mgt') || e.target.closest('.exchange-chip') || e.target.closest('[data-collapse-point]') || e.target.closest('[data-open-corep]') || e.target.closest('[data-delete-actor]') || e.target.closest('[data-add-actor]') || e.target.closest('[data-delete-echange]') || e.target.closest('[data-add-echange]') || e.target.closest('[data-paste-echange]') || e.target.closest('[data-paste-analyze]') || e.target.closest('[data-paste-cancel]') || e.target.closest('.mail-paste-box') || e.target.closest('.inline-editor') || e.target.closest('[data-toggle-action]') || e.target.closest('[data-editable-action]') || e.target.closest('[data-delete-action]') || e.target.closest('[data-add-action]')) return;
+      if (e.target.closest('.editable-field') || e.target.closest('.quick-status') || e.target.closest('.quick-mgt') || e.target.closest('.exchange-chip') || e.target.closest('[data-collapse-point]') || e.target.closest('[data-open-corep]') || e.target.closest('[data-delete-actor]') || e.target.closest('[data-add-actor]') || e.target.closest('[data-delete-echange]') || e.target.closest('[data-add-echange]') || e.target.closest('[data-paste-echange]') || e.target.closest('[data-paste-analyze]') || e.target.closest('[data-paste-cancel]') || e.target.closest('.mail-paste-box') || e.target.closest('.inline-editor') || e.target.closest('[data-toggle-action]') || e.target.closest('[data-editable-action]') || e.target.closest('[data-delete-action]') || e.target.closest('[data-add-action]') || e.target.closest('[data-echeance-date]') || e.target.closest('[data-echeance-label]') || e.target.closest('[data-echeance-clear]')) return;
       expandedPointId = expanded ? null : p.id;
       if (!(p.id in selectedExchangeIndexByPoint)) selectedExchangeIndexByPoint[p.id] = 0;
       renderCards();
@@ -3084,6 +3198,30 @@ renderCards = function() {
         const pid = parseInt(btn.dataset.addAction);
         btn.disabled = true;
         try { await addAction(pid); } catch (err) { alert('Erreur : ' + err.message); btn.disabled = false; }
+      });
+    });
+    // Echeance bindings
+    card.querySelectorAll('[data-echeance-date]').forEach(input => {
+      input.addEventListener('change', async (e) => {
+        e.stopPropagation();
+        const pid = parseInt(input.dataset.echeanceDate);
+        try { await updateEcheance(pid, input.value, undefined); } catch (err) { alert('Erreur : ' + err.message); }
+      });
+    });
+    card.querySelectorAll('[data-echeance-label]').forEach(input => {
+      input.addEventListener('change', async (e) => {
+        e.stopPropagation();
+        const pid = parseInt(input.dataset.echeanceLabel);
+        try { await updateEcheance(pid, undefined, input.value.trim()); } catch (err) { alert('Erreur : ' + err.message); }
+      });
+      input.addEventListener('blur', () => { /* trigger change if needed */ });
+    });
+    card.querySelectorAll('[data-echeance-clear]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const pid = parseInt(btn.dataset.echeanceClear);
+        if (!confirm('Supprimer l\'échéance de ce point ?')) return;
+        try { await updateEcheance(pid, '', ''); } catch (err) { alert('Erreur : ' + err.message); }
       });
     });
     card.querySelectorAll('.quick-status').forEach(select => {
