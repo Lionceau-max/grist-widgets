@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Organigramme DINUM</title>
+<title>Organigramme</title>
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap');
@@ -136,16 +136,22 @@
   /* Cards */
   .card {
     background: #fff; border: 2px solid #e0e0e0; border-radius: 8px;
-    padding: 8px 12px; min-width: 140px; max-width: 195px;
+    padding: 8px 12px; min-width: 148px; max-width: 228px;
     text-align: center; cursor: pointer; transition: all 0.15s; position: relative;
   }
   .card:hover { border-color: #000091; box-shadow: 0 3px 12px rgba(0,0,145,0.12); transform: translateY(-1px); }
   .card.direction { background: #000091; color: #fff; border-color: #000091; min-width: 200px; }
-  .card.direction .card-name, .card.departement .card-name { color: #fff; }
-  .card.direction .card-title, .card.departement .card-title { color: rgba(255,255,255,0.8); }
+  .card.sousdirection { background: #3558d8; color: #fff; border-color: #3558d8; }
+  .card.direction .card-name, .card.departement .card-name, .card.sousdirection .card-name { color: #fff; }
+  .card.direction .card-title, .card.departement .card-title, .card.sousdirection .card-title { color: rgba(255,255,255,0.8); }
+  .card.direction .card-unit-name, .card.departement .card-unit-name, .card.sousdirection .card-unit-name { color: rgba(255,255,255,0.9); }
   .card.cabinet { border-color: #ce0500; }
   .card.departement { background: #000091; color: #fff; border-color: #000091; }
+  .card.bureau { background: #fff7ed; border-color: #f4a261; }
   .card.pole { background: #f0f0ff; border-color: #6a6af4; }
+  .card.mission { background: #fff1f2; border-color: #fb7185; }
+  .card.cellule { background: #ecfeff; border-color: #06b6d4; }
+  .card.service { background: #eef6ff; border-color: #60a5fa; }
   .card.interim::after {
     content: 'intérim'; position: absolute; top: -7px; right: -6px;
     background: #ff6f00; color: #fff; font-size: 9px; font-weight: 700;
@@ -154,6 +160,7 @@
   .card.highlight { box-shadow: 0 0 0 3px #ffe000; }
 
   .card-unite { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 3px; line-height: 1.3; }
+  .card-unit-name { font-size: 11px; font-weight: 700; line-height: 1.25; margin-bottom: 4px; }
   .card-name { font-size: 12px; font-weight: 600; color: #000091; line-height: 1.2; }
   .card-title { font-size: 10px; color: #666; margin-top: 2px; }
 
@@ -169,54 +176,78 @@
   .children-hidden { display: none !important; }
 
   /* LIST */
-  .list-container { padding: 16px 20px; max-width: 700px; margin: 0 auto; }
-  .list-root {
-    background: #000091; color: #fff; border-radius: 8px;
-    padding: 14px 16px; margin-bottom: 16px; text-align: center; cursor: pointer;
-  }
-  .list-root .lr-unite { font-size: 11px; font-weight: 700; text-transform: uppercase; opacity: 0.7; }
-  .list-root .lr-name { font-size: 16px; font-weight: 700; margin-top: 2px; }
-  .list-root .lr-title { font-size: 12px; opacity: 0.8; }
-
-  .list-cabinet {
-    border: 2px solid #ce0500; border-radius: 8px;
-    padding: 10px 14px; margin-bottom: 12px; background: #fff;
-    cursor: pointer; display: flex; align-items: center; gap: 10px;
-  }
-  .list-cabinet:hover { background: #fff5f5; }
-  .list-cabinet .lc-unite { font-size: 12px; font-weight: 700; color: #ce0500; flex: 1; }
-  .list-cabinet .lc-name { font-size: 12px; color: #666; }
-
-  .list-group { margin-bottom: 16px; }
-  .list-group-header {
-    display: flex; align-items: center; gap: 8px;
-    padding: 10px 14px; background: #000091; color: #fff;
-    border-radius: 8px 8px 0 0; cursor: pointer;
-  }
-  .list-group-header .lgh-unite { font-size: 13px; font-weight: 700; }
-  .list-group-header .lgh-name { font-size: 12px; opacity: 0.8; }
-  .list-group-header .lgh-toggle { margin-left: auto; font-size: 14px; transition: transform 0.2s; }
-  .list-group-header.lg-collapsed { border-radius: 8px; }
-  .list-group-header.lg-collapsed .lgh-toggle { transform: rotate(-90deg); }
-  .list-group-body {
-    border: 1px solid #ddd; border-top: none;
-    border-radius: 0 0 8px 8px; overflow: hidden;
-  }
-  .list-group-body.lg-collapsed { display: none; }
-  .list-item {
+  .list-container { padding: 16px 20px; max-width: 860px; margin: 0 auto; }
+  .list-stack { display: flex; flex-direction: column; gap: 10px; }
+  .list-branch { display: flex; flex-direction: column; gap: 8px; }
+  .list-node {
     display: flex; align-items: center; gap: 10px;
-    padding: 10px 14px; background: #fff;
-    border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: background 0.1s;
+    padding: 12px 14px; background: #fff; border: 1px solid #ddd;
+    border-radius: 10px; cursor: pointer; transition: background 0.1s, box-shadow 0.1s, border-color 0.1s;
   }
-  .list-item:last-child { border-bottom: none; }
-  .list-item:hover { background: #f0f0ff; }
-  .list-item .li-unite { font-size: 12px; font-weight: 600; flex: 1; }
-  .list-item .li-name { font-size: 12px; color: #000091; white-space: nowrap; }
-  .list-item .li-interim {
+  .list-node:hover { background: #f7f7ff; }
+  .list-node.root,
+  .list-node.level-direction,
+  .list-node.level-departement {
+    background: #000091; color: #fff; border-color: #000091;
+  }
+  .list-node.level-sousdirection {
+    background: #3558d8; color: #fff; border-color: #3558d8;
+  }
+  .list-node.root:hover,
+  .list-node.level-direction:hover,
+  .list-node.level-departement:hover,
+  .list-node.level-sousdirection:hover { background: #1b1b8d; }
+  .list-node.level-cabinet { border: 2px solid #ce0500; }
+  .list-node.level-cabinet:hover { background: #fff5f5; }
+  .list-node.level-pole { background: #f0f0ff; border-color: #6a6af4; }
+  .list-node.level-pole:hover { background: #e6e6ff; }
+  .list-node.level-bureau { background: #fff7ed; border-color: #f4a261; }
+  .list-node.level-bureau:hover { background: #ffefd8; }
+  .list-node.level-mission { background: #fff1f2; border-color: #fb7185; }
+  .list-node.level-mission:hover { background: #ffe4e6; }
+  .list-node.level-cellule { background: #ecfeff; border-color: #06b6d4; }
+  .list-node.level-cellule:hover { background: #cffafe; }
+  .list-node.level-service { background: #fff7ed; border-color: #f4a261; }
+  .list-node.level-service:hover { background: #ffefd8; }
+  .list-node.highlight { box-shadow: 0 0 0 3px #ffe000; }
+
+  .list-node-meta { flex: 1; min-width: 0; }
+  .list-node-unite {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.3px; line-height: 1.3;
+  }
+  .list-node-person {
+    font-size: 13px; font-weight: 600; margin-top: 2px;
+    white-space: normal;
+  }
+  .list-node-title {
+    font-size: 11px; opacity: 0.8; margin-top: 2px;
+    white-space: normal;
+  }
+  .list-node.root .list-node-title,
+  .list-node.level-direction .list-node-title,
+  .list-node.level-departement .list-node-title,
+  .list-node.level-sousdirection .list-node-title { color: rgba(255,255,255,0.82); }
+  .list-node.level-cabinet .list-node-unite { color: #ce0500; }
+  .list-node.level-cabinet .list-node-title { color: #666; }
+  .list-node-pill {
     font-size: 9px; font-weight: 700; background: #ff6f00; color: #fff;
-    padding: 1px 5px; border-radius: 8px; text-transform: uppercase;
+    padding: 2px 6px; border-radius: 999px; text-transform: uppercase;
+    letter-spacing: 0.3px;
   }
-  .list-item.highlight { background: #fffde0; }
+  .list-node-toggle {
+    width: 26px; height: 26px; border-radius: 50%;
+    border: none; background: rgba(0,0,0,0.08); color: inherit;
+    font-size: 12px; font-weight: 700; cursor: pointer; transition: transform 0.2s, background 0.1s;
+    flex: 0 0 auto;
+  }
+  .list-node-toggle:hover { background: rgba(0,0,0,0.14); }
+  .list-node-toggle.collapsed { transform: rotate(-90deg); }
+  .list-children {
+    display: flex; flex-direction: column; gap: 8px;
+    padding-left: 18px; border-left: 2px solid #e0e0ef; margin-left: 14px;
+  }
+  .list-children.lg-collapsed { display: none; }
 
   /* Detail panel */
   .overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.3); z-index:200; }
@@ -240,6 +271,7 @@
   .dp-field { margin-bottom: 8px; }
   .dp-label { font-size: 10px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.5px; }
   .dp-value { font-size: 13px; margin-top: 1px; }
+  .dp-value.prewrap { white-space: pre-wrap; line-height: 1.45; }
   .dp-child-link { margin-bottom: 3px; cursor: pointer; color: #000091; text-decoration: underline; font-size: 13px; }
 
   @media (max-width: 600px) {
@@ -259,8 +291,8 @@
 
 <div class="header">
   <div class="header-left">
-    <h1>Organigramme DINUM</h1>
-    <div class="subtitle">Direction interministérielle du numérique</div>
+    <h1 id="pageTitle">Organigramme</h1>
+    <div class="subtitle" id="pageSubtitle">Chargement des données…</div>
   </div>
 </div>
 
@@ -276,12 +308,7 @@
     <span class="zoom-label" id="zoomLabel">100%</span>
     <button class="zoom-btn" id="zoomIn">+</button>
   </div>
-  <div class="legend">
-    <span class="legend-item"><span class="legend-swatch" style="background:#000091"></span> Direction / Dépt.</span>
-    <span class="legend-item"><span class="legend-swatch" style="background:#fff;border-color:#ce0500;border-width:2px"></span> Cabinet</span>
-    <span class="legend-item"><span class="legend-swatch" style="background:#f0f0ff;border-color:#6a6af4"></span> Pôle</span>
-    <span class="legend-item"><span class="legend-swatch" style="background:#ff6f00"></span> Intérim</span>
-  </div>
+  <div class="legend" id="legend"></div>
 </div>
 
 <div class="tree-container" id="treeView">
@@ -304,6 +331,18 @@ let currentMode = 'tree';
 let collapsed = new Set();
 let listCollapsed = new Set();
 let zoom = 100;
+const LEVEL_META = {
+  direction: { label: 'Direction', swatch: 'background:#000091;border-color:#000091' },
+  sousdirection: { label: 'Sous-direction', swatch: 'background:#3558d8;border-color:#3558d8' },
+  departement: { label: 'Niveau principal', swatch: 'background:#000091;border-color:#000091' },
+  cabinet: { label: 'Cabinet', swatch: 'background:#fff;border-color:#ce0500;border-width:2px' },
+  bureau: { label: 'Bureau', swatch: 'background:#fff7ed;border-color:#f4a261' },
+  pole: { label: 'Pôle', swatch: 'background:#f0f0ff;border-color:#6a6af4' },
+  mission: { label: 'Mission', swatch: 'background:#fff1f2;border-color:#fb7185' },
+  cellule: { label: 'Cellule', swatch: 'background:#ecfeff;border-color:#06b6d4' },
+  service: { label: 'Service', swatch: 'background:#eef6ff;border-color:#60a5fa' },
+  default: { label: 'Autre niveau', swatch: 'background:#fff;border-color:#ddd' },
+};
 
 grist.ready({ requiredAccess: 'full' });
 grist.onRecords(() => loadData());
@@ -313,21 +352,34 @@ async function loadData() {
     const data = await grist.docApi.fetchTable('Organigramme');
     allRecords = data.id.map((id, i) => ({
       id,
+      _index: i,
+      Code: readText(data, ['Code', 'Acronyme', 'Sigle'], i),
       Nom: data.Nom[i] || '',
+      Responsables: readText(data, ['Responsables', 'Responsable'], i),
+      Adjoints: readText(data, ['Adjoints', 'Adjoint', 'Adjointe'], i),
       Titre: data.Titre[i] || '',
       Unite: data.Unite[i] || '',
       Niveau: data.Niveau[i] || '',
-      Parent_Id: data.Parent_Id[i] || 0,
+      Parent_Id: refId(data.Parent_Id[i]),
       Description: data.Description[i] || '',
-      Interim: data.Interim[i] || false,
+      Presentation: readText(data, ['Présentation', 'Presentation'], i),
+      Composition: readText(data, ['Composition'], i),
+      Agents: readText(data, ['Agents', 'Effectifs'], i),
+      Localisation: readText(data, ['Localisation', 'Localisations', 'Sites'], i),
+      Notes: readText(data, ['Notes'], i),
+      Source: readText(data, ['Source'], i),
+      Page_Source: readText(data, ['Page_Source', 'Source_Page', 'Page'], i),
+      Ordre: readNumber(data, ['Ordre', 'Position'], i),
+      Interim: toBool(data.Interim[i]),
     }));
+    updateChrome();
     render();
-  } catch(e) {
+  } catch (e) {
+    updateChrome();
     document.getElementById('orgTree').innerHTML = '<p style="padding:20px;color:#ce0500;">Erreur : ' + e.message + '</p>';
   }
 }
 
-// Mode switching
 document.querySelectorAll('.mode-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
@@ -338,7 +390,7 @@ document.querySelectorAll('.mode-btn').forEach(btn => {
 });
 
 function render() {
-  const q = document.getElementById('search').value.trim().toLowerCase();
+  const q = niv(document.getElementById('search').value.trim());
   document.getElementById('treeView').classList.toggle('hidden', currentMode === 'list');
   document.getElementById('listView').classList.toggle('hidden', currentMode !== 'list');
   document.getElementById('zoomControls').style.display = currentMode === 'list' ? 'none' : 'flex';
@@ -346,163 +398,193 @@ function render() {
   else renderTree(q);
 }
 
-// TREE / COMPACT
-function buildTree(parentId) {
-  const children = allRecords.filter(r => r.Parent_Id === parentId);
+function buildTree(parentId, filter) {
+  const children = getChildren(parentId);
   if (!children.length) return '';
-  return children.map(c => {
-    const hasKids = allRecords.some(r => r.Parent_Id === c.id);
-    const niveau = niv(c.Niveau);
-    const cls = ['card', niveau];
-    if (c.Interim) cls.push('interim');
-    const isCol = collapsed.has(c.id);
-    const subTree = buildTree(c.id);
+  return children.map(child => {
+    const hasKids = hasChildren(child.id);
+    const cls = ['card', cardLevelClass(child)];
+    if (child.Interim) cls.push('interim');
+    const isCol = collapsed.has(child.id) && !branchHasMatch(child.id, filter);
+    const subTree = buildTree(child.id, filter);
     const showToggle = currentMode === 'compact' && hasKids;
+    const code = displayCode(child);
+    const unit = displayUnit(child);
+    const person = displayLeader(child);
+    const title = displayRole(child);
 
     return `<li>
-      <div class="${cls.join(' ')}" data-id="${c.id}">
-        <div class="card-unite">${esc(c.Unite)}</div>
-        ${c.Nom ? `<div class="card-name">${esc(c.Nom)}</div>` : ''}
-        ${c.Titre ? `<div class="card-title">${esc(c.Titre)}</div>` : ''}
+      <div class="${cls.join(' ')}" data-id="${child.id}">
+        <div class="card-unite">${esc(code || unit)}</div>
+        ${code && unit && unit !== code ? `<div class="card-unit-name">${esc(unit)}</div>` : ''}
+        ${person ? `<div class="card-name">${esc(person)}</div>` : ''}
+        ${title ? `<div class="card-title">${esc(title)}</div>` : ''}
       </div>
-      ${showToggle ? `<button class="toggle-children${isCol ? ' collapsed' : ''}" data-parent="${c.id}">▼</button>` : ''}
+      ${showToggle ? `<button class="toggle-children${isCol ? ' collapsed' : ''}" data-parent="${child.id}">▼</button>` : ''}
       ${subTree ? `<ul class="has-children${isCol ? ' children-hidden' : ''}">${subTree}</ul>` : ''}
     </li>`;
   }).join('');
 }
 
 function renderTree(filter) {
-  const root = allRecords.find(r => r.Parent_Id === 0);
-  if (!root) { document.getElementById('orgTree').innerHTML = '<p>Aucune donnée.</p>'; return; }
-  const niveau = niv(root.Niveau);
-  const hasKids = allRecords.some(r => r.Parent_Id === root.id);
-  const isCol = collapsed.has(root.id);
-  const childrenHtml = buildTree(root.id);
+  const root = getRoot();
+  if (!root) {
+    document.getElementById('orgTree').innerHTML = '<p>Aucune donnée.</p>';
+    return;
+  }
+  const hasKids = hasChildren(root.id);
+  const isCol = collapsed.has(root.id) && !branchHasMatch(root.id, filter);
+  const childrenHtml = buildTree(root.id, filter);
   const showToggle = currentMode === 'compact' && hasKids;
+  const code = displayCode(root);
+  const unit = displayUnit(root);
+  const person = displayLeader(root);
+  const title = displayRole(root);
 
   document.getElementById('orgTree').innerHTML = `<ul><li>
-    <div class="card ${niveau}" data-id="${root.id}">
-      <div class="card-unite">${esc(root.Unite)}</div>
-      <div class="card-name">${esc(root.Nom)}</div>
-      <div class="card-title">${esc(root.Titre)}</div>
+    <div class="card ${cardLevelClass(root)}" data-id="${root.id}">
+      <div class="card-unite">${esc(code || unit)}</div>
+      ${code && unit && unit !== code ? `<div class="card-unit-name">${esc(unit)}</div>` : ''}
+      ${person ? `<div class="card-name">${esc(person)}</div>` : ''}
+      ${title ? `<div class="card-title">${esc(title)}</div>` : ''}
     </div>
     ${showToggle ? `<button class="toggle-children${isCol ? ' collapsed' : ''}" data-parent="${root.id}">▼</button>` : ''}
     ${childrenHtml ? `<ul class="has-children${isCol ? ' children-hidden' : ''}">${childrenHtml}</ul>` : ''}
   </li></ul>`;
 
-  document.querySelectorAll('.card').forEach(c => c.addEventListener('click', () => openDetail(parseInt(c.dataset.id))));
+  document.querySelectorAll('.card').forEach(card => {
+    card.addEventListener('click', () => openDetail(parseInt(card.dataset.id, 10)));
+  });
   document.querySelectorAll('.toggle-children').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
-      const pid = parseInt(btn.dataset.parent);
+      const pid = parseInt(btn.dataset.parent, 10);
       collapsed.has(pid) ? collapsed.delete(pid) : collapsed.add(pid);
       render();
     });
   });
-  if (filter) document.querySelectorAll('.card').forEach(c => {
-    if (c.textContent.toLowerCase().includes(filter)) c.classList.add('highlight');
-  });
+  if (filter) {
+    document.querySelectorAll('.card').forEach(card => {
+      const rec = allRecords.find(r => r.id === parseInt(card.dataset.id, 10));
+      if (rec && matchesRecord(rec, filter)) card.classList.add('highlight');
+    });
+  }
   applyZoom();
 }
 
-// LIST
 function renderList(filter) {
-  const root = allRecords.find(r => r.Parent_Id === 0);
+  const root = getRoot();
   if (!root) return;
-  const cabs = allRecords.filter(r => r.Parent_Id === root.id && niv(r.Niveau) === 'cabinet');
-  const depts = allRecords.filter(r => r.Parent_Id === root.id && niv(r.Niveau) === 'departement');
-
-  let html = `<div class="list-root" data-id="${root.id}">
-    <div class="lr-unite">${esc(root.Unite)}</div>
-    <div class="lr-name">${esc(root.Nom)}</div>
-    <div class="lr-title">${esc(root.Titre)}</div>
-  </div>`;
-
-  cabs.forEach(c => {
-    html += `<div class="list-cabinet" data-id="${c.id}">
-      <div class="lc-unite">${esc(c.Unite)}</div>
-      <div class="lc-name">${esc(c.Nom)}</div>
-    </div>`;
-  });
-
-  depts.forEach(d => {
-    const poles = allRecords.filter(r => r.Parent_Id === d.id);
-    const isCol = listCollapsed.has(d.id);
-    html += `<div class="list-group">
-      <div class="list-group-header${isCol ? ' lg-collapsed' : ''}" data-dept="${d.id}">
-        <div><div class="lgh-unite">${esc(d.Unite)}</div>
-        <div class="lgh-name">${esc(d.Nom)}${d.Interim ? ' (intérim)' : ''}</div></div>
-        <div class="lgh-toggle">▼</div>
-      </div>
-      <div class="list-group-body${isCol ? ' lg-collapsed' : ''}">
-        ${poles.map(p => {
-          const hl = filter && (p.Unite.toLowerCase().includes(filter) || p.Nom.toLowerCase().includes(filter));
-          return `<div class="list-item${hl ? ' highlight' : ''}" data-id="${p.id}">
-            <div class="li-unite">${esc(p.Unite)}</div>
-            ${p.Interim ? '<span class="li-interim">intérim</span>' : ''}
-            <div class="li-name">${esc(p.Nom)}</div>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>`;
-  });
-
   const lv = document.getElementById('listView');
-  lv.innerHTML = html;
+  lv.innerHTML = `<div class="list-stack">${renderListBranch(root, 0, filter)}</div>`;
 
-  lv.querySelectorAll('.list-group-header').forEach(h => {
-    h.addEventListener('click', () => {
-      const did = parseInt(h.dataset.dept);
-      listCollapsed.has(did) ? listCollapsed.delete(did) : listCollapsed.add(did);
+  lv.querySelectorAll('.list-node').forEach(node => {
+    node.addEventListener('click', () => openDetail(parseInt(node.dataset.id, 10)));
+  });
+  lv.querySelectorAll('.list-node-toggle').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const nodeId = parseInt(btn.dataset.toggle, 10);
+      listCollapsed.has(nodeId) ? listCollapsed.delete(nodeId) : listCollapsed.add(nodeId);
       render();
     });
   });
-  lv.querySelectorAll('[data-id]').forEach(el => {
-    if (!el.classList.contains('list-group-header')) {
-      el.addEventListener('click', () => openDetail(parseInt(el.dataset.id)));
-    }
-  });
 }
 
-// ZOOM
-document.getElementById('zoomIn').addEventListener('click', () => { zoom = Math.min(150, zoom + 10); applyZoom(); });
-document.getElementById('zoomOut').addEventListener('click', () => { zoom = Math.max(30, zoom - 10); applyZoom(); });
+function renderListBranch(node, depth, filter) {
+  const children = getChildren(node.id);
+  const hasKids = children.length > 0;
+  const keepOpen = branchHasMatch(node.id, filter);
+  const isCol = hasKids && !keepOpen && listCollapsed.has(node.id);
+  const theme = listLevelClass(node);
+  const classes = ['list-node', `level-${theme}`];
+  if (depth === 0) classes.push('root');
+  if (filter && matchesRecord(node, filter)) classes.push('highlight');
+  const code = displayCode(node);
+  const unit = displayUnit(node);
+  const person = displayLeader(node);
+  const title = displayRole(node);
+
+  return `<div class="list-branch" style="margin-left:${depth * 18}px">
+    <div class="${classes.join(' ')}" data-id="${node.id}">
+      <div class="list-node-meta">
+        <div class="list-node-unite">${esc(code || unit)}</div>
+        ${code && unit && unit !== code ? `<div class="list-node-title">${esc(unit)}</div>` : ''}
+        ${person ? `<div class="list-node-person">${esc(person)}</div>` : ''}
+        ${title ? `<div class="list-node-title">${esc(title)}</div>` : ''}
+      </div>
+      ${node.Interim ? '<span class="list-node-pill">Intérim</span>' : ''}
+      ${hasKids ? `<button class="list-node-toggle${isCol ? ' collapsed' : ''}" data-toggle="${node.id}">▼</button>` : ''}
+    </div>
+    ${hasKids ? `<div class="list-children${isCol ? ' lg-collapsed' : ''}">${children.map(child => renderListBranch(child, depth + 1, filter)).join('')}</div>` : ''}
+  </div>`;
+}
+
+document.getElementById('zoomIn').addEventListener('click', () => {
+  zoom = Math.min(150, zoom + 10);
+  applyZoom();
+});
+document.getElementById('zoomOut').addEventListener('click', () => {
+  zoom = Math.max(30, zoom - 10);
+  applyZoom();
+});
+
 function applyZoom() {
-  document.getElementById('treeScroll').style.transform = `scale(${zoom/100})`;
+  document.getElementById('treeScroll').style.transform = `scale(${zoom / 100})`;
   document.getElementById('zoomLabel').textContent = zoom + '%';
 }
 
-// SEARCH
 document.getElementById('search').addEventListener('input', () => render());
 
-// DETAIL PANEL
 function getBreadcrumb(id) {
   const chain = [];
   let cur = allRecords.find(r => r.id === id);
-  while (cur) { chain.unshift(cur); cur = cur.Parent_Id ? allRecords.find(r => r.id === cur.Parent_Id) : null; }
+  while (cur) {
+    chain.unshift(cur);
+    cur = cur.Parent_Id ? allRecords.find(r => r.id === cur.Parent_Id) : null;
+  }
   return chain;
 }
 
 function openDetail(id) {
-  const r = allRecords.find(x => x.id === id);
-  if (!r) return;
+  const record = allRecords.find(x => x.id === id);
+  if (!record) return;
   const crumbs = getBreadcrumb(id);
-  const children = allRecords.filter(x => x.Parent_Id === id);
+  const children = getChildren(id);
+  const displayTitle = displayLeader(record) || displayUnit(record) || '—';
+  const detailSections = [
+    ['Code', displayCode(record)],
+    ['Unité', displayUnit(record)],
+    ['Niveau', record.Niveau],
+    ['Fonction', record.Titre],
+    ['Responsable(s)', displayLeader(record)],
+    ['Adjoint(s)', record.Adjoints],
+    ['Présentation', firstNonEmpty(record.Presentation, record.Description)],
+    ['Composition', record.Composition],
+    ['Équipe / agents', record.Agents],
+    ['Localisation', record.Localisation],
+    ['Notes', record.Notes],
+    ['Source', record.Source],
+    ['Page source', record.Page_Source],
+    ['Intérim', record.Interim ? 'Oui' : ''],
+  ];
 
   let html = '<div class="breadcrumb">' +
-    crumbs.map((c, i) => i < crumbs.length - 1
-      ? `<span onclick="openDetail(${c.id})">${esc(c.Unite)}</span><span class="sep"> › </span>`
-      : `<strong>${esc(c.Unite)}</strong>`
+    crumbs.map((crumb, i) => i < crumbs.length - 1
+      ? `<span onclick="openDetail(${crumb.id})">${esc(displayCode(crumb) || displayUnit(crumb))}</span><span class="sep"> › </span>`
+      : `<strong>${esc(displayCode(crumb) || displayUnit(crumb))}</strong>`
     ).join('') + '</div>' +
-    `<h2>${esc(r.Nom) || '—'}</h2><div class="dp-unite">${esc(r.Unite)}</div>`;
+    `<h2>${esc(displayTitle)}</h2><div class="dp-unite">${esc(displayUnit(record))}</div>`;
 
-  [['Titre', r.Titre], ['Niveau', r.Niveau], ['Description', r.Description], ['Intérim', r.Interim ? 'Oui' : '']].forEach(([l, v]) => {
-    if (v) html += `<div class="dp-field"><div class="dp-label">${l}</div><div class="dp-value">${esc(v)}</div></div>`;
+  detailSections.forEach(([label, value]) => {
+    if (value) html += `<div class="dp-field"><div class="dp-label">${label}</div><div class="dp-value prewrap">${formatText(value)}</div></div>`;
   });
 
   if (children.length) {
     html += `<div class="dp-field"><div class="dp-label">Rattachements (${children.length})</div>`;
-    children.forEach(c => html += `<div class="dp-child-link" onclick="openDetail(${c.id})">${esc(c.Unite)}${c.Nom ? ' — '+esc(c.Nom) : ''}</div>`);
+    children.forEach(child => {
+      html += `<div class="dp-child-link" onclick="openDetail(${child.id})">${esc(displayCode(child) || displayUnit(child))}${displayLeader(child) ? ' — ' + esc(displayLeader(child)) : ''}</div>`;
+    });
     html += '</div>';
   }
 
@@ -517,8 +599,193 @@ document.getElementById('overlay').onclick = () => {
   document.getElementById('overlay').classList.remove('open');
 };
 
-function niv(s) { return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
-function esc(s) { const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+function updateChrome() {
+  const root = getRoot();
+  const title = document.getElementById('pageTitle');
+  const subtitle = document.getElementById('pageSubtitle');
+  title.textContent = 'Organigramme';
+  if (!root) {
+    subtitle.textContent = 'Aucune donnée hiérarchique disponible';
+    document.title = 'Organigramme';
+    renderLegend();
+    return;
+  }
+  const bits = [displayUnit(root), displayLeader(root), displayRole(root)].filter(Boolean);
+  subtitle.textContent = bits.join(' • ') || 'Visualisation hiérarchique';
+  document.title = `Organigramme - ${displayCode(root) || displayUnit(root) || displayLeader(root) || 'Organisation'}`;
+  renderLegend();
+}
+
+function renderLegend() {
+  const el = document.getElementById('legend');
+  const used = [];
+  allRecords.forEach(record => {
+    const cls = listLevelClass(record);
+    if (!used.includes(cls)) used.push(cls);
+  });
+
+  const items = used
+    .filter(cls => LEVEL_META[cls] && cls !== 'default')
+    .map(cls => `<span class="legend-item"><span class="legend-swatch" style="${LEVEL_META[cls].swatch}"></span> ${LEVEL_META[cls].label}</span>`);
+
+  if (used.includes('default')) {
+    items.push(`<span class="legend-item"><span class="legend-swatch" style="${LEVEL_META.default.swatch}"></span> ${LEVEL_META.default.label}</span>`);
+  }
+  if (allRecords.some(record => record.Interim)) {
+    items.push('<span class="legend-item"><span class="legend-swatch" style="background:#ff6f00;border-color:#ff6f00"></span> Intérim</span>');
+  }
+  el.innerHTML = items.join('');
+}
+
+function getRoot() {
+  return sortRecords(allRecords.filter(record => record.Parent_Id === 0))[0] || null;
+}
+
+function getChildren(parentId) {
+  return sortRecords(allRecords.filter(record => record.Parent_Id === parentId));
+}
+
+function hasChildren(id) {
+  return allRecords.some(record => record.Parent_Id === id);
+}
+
+function branchHasMatch(id, filter) {
+  if (!filter) return false;
+  const node = allRecords.find(record => record.id === id);
+  if (!node) return false;
+  if (matchesRecord(node, filter)) return true;
+  return getChildren(id).some(child => branchHasMatch(child.id, filter));
+}
+
+function matchesRecord(record, filter) {
+  if (!filter) return false;
+  return niv([
+    record.Code,
+    record.Unite,
+    record.Nom,
+    record.Responsables,
+    record.Adjoints,
+    record.Titre,
+    record.Description,
+    record.Presentation,
+    record.Composition,
+    record.Agents,
+    record.Localisation,
+    record.Notes,
+    record.Source,
+    record.Page_Source,
+    record.Niveau,
+  ].join(' ')).includes(filter);
+}
+
+function cardLevelClass(record) {
+  const cls = levelClass(record.Niveau);
+  return cls === 'default' && record.Parent_Id === 0 ? 'direction' : cls;
+}
+
+function listLevelClass(record) {
+  return levelClass(record.Niveau);
+}
+
+function levelClass(value) {
+  const norm = niv(value);
+  if (!norm) return 'default';
+  if (norm.includes('cabinet')) return 'cabinet';
+  if (norm.includes('pole')) return 'pole';
+  if (norm.includes('bureau')) return 'bureau';
+  if (norm.includes('mission')) return 'mission';
+  if (norm.includes('cellule')) return 'cellule';
+  if (norm.includes('service') || norm.includes('division')) return 'service';
+  if (norm.includes('sous-direction') || norm.includes('sous direction')) return 'sousdirection';
+  if (norm.includes('departement') || norm === 'sg' || norm.includes('secretariat')) return 'departement';
+  if (norm.includes('direction') || norm.includes('presidence')) return 'direction';
+  return 'default';
+}
+
+function sortRecords(records) {
+  return [...records].sort((a, b) => {
+    const orderA = Number.isFinite(a.Ordre) ? a.Ordre : Number.MAX_SAFE_INTEGER;
+    const orderB = Number.isFinite(b.Ordre) ? b.Ordre : Number.MAX_SAFE_INTEGER;
+    if (orderA !== orderB) return orderA - orderB;
+    const levelA = levelWeight(cardLevelClass(a));
+    const levelB = levelWeight(cardLevelClass(b));
+    if (levelA !== levelB) return levelA - levelB;
+    return (a._index || 0) - (b._index || 0);
+  });
+}
+
+function levelWeight(level) {
+  return {
+    direction: 0,
+    cabinet: 1,
+    sousdirection: 2,
+    departement: 3,
+    mission: 4,
+    bureau: 5,
+    pole: 6,
+    cellule: 7,
+    service: 8,
+    default: 9,
+  }[level] ?? 99;
+}
+
+function displayCode(record) {
+  const code = record.Code || '';
+  if (!code) return '';
+  return niv(code) === niv(record.Unite) ? '' : code;
+}
+
+function displayUnit(record) {
+  return firstNonEmpty(record.Unite, record.Code, '');
+}
+
+function displayLeader(record) {
+  return firstNonEmpty(record.Responsables, record.Nom, '');
+}
+
+function displayRole(record) {
+  return firstNonEmpty(record.Titre, '');
+}
+
+function firstNonEmpty(...values) {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
+}
+
+function readText(data, aliases, index) {
+  for (const alias of aliases) {
+    if (data[alias] && data[alias][index] != null) return String(data[alias][index]).trim();
+  }
+  return '';
+}
+
+function readNumber(data, aliases, index) {
+  for (const alias of aliases) {
+    if (data[alias] && data[alias][index] != null && data[alias][index] !== '') {
+      const n = parseFloat(data[alias][index]);
+      if (Number.isFinite(n)) return n;
+    }
+  }
+  return null;
+}
+
+function refId(value) {
+  if (Array.isArray(value)) return parseInt(value[0], 10) || 0;
+  return parseInt(value, 10) || 0;
+}
+
+function toBool(value) {
+  return value === true || value === 1 || String(value).toLowerCase() === '1' || String(value).toLowerCase() === 'true';
+}
+
+function formatText(value) {
+  return esc(String(value || '')).replace(/\n/g, '<br>');
+}
+
+function niv(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
 
 loadData();
 </script>
