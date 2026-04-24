@@ -48,6 +48,27 @@
     font-family: inherit;
   }
   .controls input:focus { outline: none; border-color: #000091; }
+  .scope-picker {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .scope-picker label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #555;
+    white-space: nowrap;
+  }
+  .scope-select {
+    padding: 6px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: inherit;
+    background: #fff;
+    min-width: 160px;
+  }
+  .scope-select:focus { outline: none; border-color: #000091; }
 
   .mode-switcher {
     display: flex;
@@ -297,6 +318,10 @@
 </div>
 
 <div class="controls">
+  <div class="scope-picker hidden" id="scopePicker">
+    <label for="scopeSelect">Organigramme</label>
+    <select id="scopeSelect" class="scope-select"></select>
+  </div>
   <input type="text" id="search" placeholder="Rechercher…" />
   <div class="mode-switcher">
     <button class="mode-btn active" data-mode="tree">Arbre</button>
@@ -327,10 +352,13 @@
 
 <script>
 let allRecords = [];
+let visibleRecords = [];
 let currentMode = 'tree';
 let collapsed = new Set();
 let listCollapsed = new Set();
 let zoom = 100;
+let activeScope = '';
+let availableScopes = [];
 const LEVEL_META = {
   direction: { label: 'Direction', swatch: 'background:#000091;border-color:#000091' },
   sousdirection: { label: 'Sous-direction', swatch: 'background:#3558d8;border-color:#3558d8' },
@@ -371,7 +399,9 @@ async function loadData() {
       Page_Source: readText(data, ['Page_Source', 'Source_Page', 'Page'], i),
       Ordre: readNumber(data, ['Ordre', 'Position'], i),
       Interim: toBool(data.Interim[i]),
+      Organigramme: readText(data, ['Organigramme', 'Referentiel', 'Référentiel', 'Perimetre', 'Périmètre', 'Vue'], i),
     }));
+    syncScopes();
     updateChrome();
     render();
   } catch (e) {
@@ -379,6 +409,11 @@ async function loadData() {
     document.getElementById('orgTree').innerHTML = '<p style="padding:20px;color:#ce0500;">Erreur : ' + e.message + '</p>';
   }
 }
+
+const scopeSelect = document.getElementById('scopeSelect');
+scopeSelect.addEventListener('change', () => {
+  setActiveScope(scopeSelect.value);
+});
 
 document.querySelectorAll('.mode-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -465,7 +500,7 @@ function renderTree(filter) {
   });
   if (filter) {
     document.querySelectorAll('.card').forEach(card => {
-      const rec = allRecords.find(r => r.id === parseInt(card.dataset.id, 10));
+      const rec = getRecord(parseInt(card.dataset.id, 10));
       if (rec && matchesRecord(rec, filter)) card.classList.add('highlight');
     });
   }
@@ -538,16 +573,16 @@ document.getElementById('search').addEventListener('input', () => render());
 
 function getBreadcrumb(id) {
   const chain = [];
-  let cur = allRecords.find(r => r.id === id);
+  let cur = getRecord(id);
   while (cur) {
     chain.unshift(cur);
-    cur = cur.Parent_Id ? allRecords.find(r => r.id === cur.Parent_Id) : null;
+    cur = cur.Parent_Id ? getRecord(cur.Parent_Id) : null;
   }
   return chain;
 }
 
 function openDetail(id) {
-  const record = allRecords.find(x => x.id === id);
+  const record = getRecord(id);
   if (!record) return;
   const crumbs = getBreadcrumb(id);
   const children = getChildren(id);
@@ -594,32 +629,35 @@ function openDetail(id) {
 }
 
 document.getElementById('closePanel').onclick =
-document.getElementById('overlay').onclick = () => {
+document.getElementById('overlay').onclick = closeDetail;
+
+function closeDetail() {
   document.getElementById('detailPanel').classList.remove('open');
   document.getElementById('overlay').classList.remove('open');
-};
+}
 
 function updateChrome() {
   const root = getRoot();
   const title = document.getElementById('pageTitle');
   const subtitle = document.getElementById('pageSubtitle');
   title.textContent = 'Organigramme';
+  const scopeLabel = activeScope || 'Organisation';
   if (!root) {
-    subtitle.textContent = 'Aucune donnée hiérarchique disponible';
-    document.title = 'Organigramme';
+    subtitle.textContent = `${scopeLabel} • aucune donnée hiérarchique disponible`;
+    document.title = `Organigramme - ${scopeLabel}`;
     renderLegend();
     return;
   }
-  const bits = [displayUnit(root), displayLeader(root), displayRole(root)].filter(Boolean);
+  const bits = [scopeLabel, displayUnit(root), displayLeader(root), displayRole(root)].filter(Boolean);
   subtitle.textContent = bits.join(' • ') || 'Visualisation hiérarchique';
-  document.title = `Organigramme - ${displayCode(root) || displayUnit(root) || displayLeader(root) || 'Organisation'}`;
+  document.title = `Organigramme - ${scopeLabel}`;
   renderLegend();
 }
 
 function renderLegend() {
   const el = document.getElementById('legend');
   const used = [];
-  allRecords.forEach(record => {
+  viewRecords().forEach(record => {
     const cls = listLevelClass(record);
     if (!used.includes(cls)) used.push(cls);
   });
@@ -631,27 +669,27 @@ function renderLegend() {
   if (used.includes('default')) {
     items.push(`<span class="legend-item"><span class="legend-swatch" style="${LEVEL_META.default.swatch}"></span> ${LEVEL_META.default.label}</span>`);
   }
-  if (allRecords.some(record => record.Interim)) {
+  if (viewRecords().some(record => record.Interim)) {
     items.push('<span class="legend-item"><span class="legend-swatch" style="background:#ff6f00;border-color:#ff6f00"></span> Intérim</span>');
   }
   el.innerHTML = items.join('');
 }
 
 function getRoot() {
-  return sortRecords(allRecords.filter(record => record.Parent_Id === 0))[0] || null;
+  return sortRecords(viewRecords().filter(record => record.Parent_Id === 0))[0] || null;
 }
 
 function getChildren(parentId) {
-  return sortRecords(allRecords.filter(record => record.Parent_Id === parentId));
+  return sortRecords(viewRecords().filter(record => record.Parent_Id === parentId));
 }
 
 function hasChildren(id) {
-  return allRecords.some(record => record.Parent_Id === id);
+  return viewRecords().some(record => record.Parent_Id === id);
 }
 
 function branchHasMatch(id, filter) {
   if (!filter) return false;
-  const node = allRecords.find(record => record.id === id);
+  const node = getRecord(id);
   if (!node) return false;
   if (matchesRecord(node, filter)) return true;
   return getChildren(id).some(child => branchHasMatch(child.id, filter));
@@ -731,7 +769,7 @@ function levelWeight(level) {
 
 function displayCode(record) {
   const code = record.Code || '';
-  if (!code) return '';
+  if (!code) return record.Parent_Id === 0 && record.Organigramme ? record.Organigramme : '';
   return niv(code) === niv(record.Unite) ? '' : code;
 }
 
@@ -778,6 +816,75 @@ function refId(value) {
 
 function toBool(value) {
   return value === true || value === 1 || String(value).toLowerCase() === '1' || String(value).toLowerCase() === 'true';
+}
+
+function syncScopes() {
+  availableScopes = [...new Set(allRecords.map(record => record.Organigramme).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+  const storedScope = readStoredScope();
+  if (!activeScope || !availableScopes.includes(activeScope)) {
+    activeScope = availableScopes.includes(storedScope) ? storedScope : (availableScopes[0] || '');
+  }
+  applyScope();
+  updateScopeControl();
+}
+
+function applyScope() {
+  visibleRecords = activeScope
+    ? allRecords.filter(record => record.Organigramme === activeScope)
+    : [...allRecords];
+}
+
+function setActiveScope(scope) {
+  activeScope = scope || '';
+  writeStoredScope(activeScope);
+  applyScope();
+  collapsed.clear();
+  listCollapsed.clear();
+  closeDetail();
+  updateChrome();
+  render();
+}
+
+function updateScopeControl() {
+  const picker = document.getElementById('scopePicker');
+  scopeSelect.innerHTML = '';
+  if (!availableScopes.length) {
+    picker.classList.add('hidden');
+    return;
+  }
+  availableScopes.forEach(scope => {
+    const option = document.createElement('option');
+    option.value = scope;
+    option.textContent = scope;
+    scopeSelect.appendChild(option);
+  });
+  scopeSelect.value = activeScope;
+  picker.classList.toggle('hidden', availableScopes.length <= 1);
+}
+
+function viewRecords() {
+  return activeScope ? visibleRecords : allRecords;
+}
+
+function getRecord(id) {
+  return viewRecords().find(record => record.id === id) || null;
+}
+
+function readStoredScope() {
+  try {
+    return localStorage.getItem('organigramme.scope') || '';
+  } catch (e) {
+    return '';
+  }
+}
+
+function writeStoredScope(scope) {
+  try {
+    localStorage.setItem('organigramme.scope', scope || '');
+  } catch (e) {
+    // localStorage may be unavailable in embedded contexts
+  }
 }
 
 function formatText(value) {
