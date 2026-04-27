@@ -207,7 +207,10 @@ let sortCol = 'Date_fin_prevision', sortDir = 1;
 let viewMode = 'cards';
 let filterTopo = '', filterTitu = '', filterSuivi = '', filterExpiry = '', searchQ = '';
 
-const TODAY_TS = Math.floor(new Date('2026-04-01').getTime() / 1000);
+function todayTs() {
+  const today = new Date();
+  return Math.floor(new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() / 1000);
+}
 
 // ── Helpers ──
 function fmtDate(ts) {
@@ -217,7 +220,7 @@ function fmtDate(ts) {
 
 function expiryStatus(ts) {
   if (!ts || typeof ts !== 'number') return 'far';
-  const delta = (ts - TODAY_TS) / 86400;
+  const delta = (ts - todayTs()) / 86400;
   if (delta < 0)   return 'expired';
   if (delta <= 90) return 'urgent';
   if (delta <= 365) return 'warning';
@@ -226,7 +229,7 @@ function expiryStatus(ts) {
 
 function expiryLabel(ts) {
   if (!ts || typeof ts !== 'number') return '—';
-  const delta = Math.round((ts - TODAY_TS) / 86400);
+  const delta = Math.round((ts - todayTs()) / 86400);
   if (delta < 0)  return `Expiré (${Math.abs(delta)}j)`;
   if (delta === 0) return 'Aujourd\'hui';
   if (delta < 90) return `Dans ${delta}j`;
@@ -261,6 +264,7 @@ async function loadData() {
     Commandes_facturation: t.Commandes_facturation ? t.Commandes_facturation[i] : '',
     COEX:                  t.COEX ? t.COEX[i] : '',
     Procedure_AO:          t.Procedure_AO ? t.Procedure_AO[i] : '',
+    Notes:                 t.Notes ? t.Notes[i] : '',
   }));
 
   populateFilters();
@@ -326,7 +330,7 @@ function filtered() {
     }
     if (searchQ) {
       const q = searchQ.toLowerCase();
-      if (![m.Composant, m.Titulaire, m.Objet, m.Element_topologie, m.EJ, m.N_consultation, m.Intitule_lot]
+      if (![m.Composant, m.Titulaire, m.Objet, m.Element_topologie, m.EJ, m.N_consultation, m.Intitule_lot, m.Notes]
             .some(v => (v||'').toLowerCase().includes(q))) return false;
     }
     return true;
@@ -363,7 +367,8 @@ function renderCards(items) {
   items.forEach(m => {
     const status = expiryStatus(m.Date_fin_prevision);
     const card = document.createElement('div');
-    card.className = `marche-card ${status === 'urgent' ? 'expired' : status === 'warning' ? 'warning' : status === 'ok' ? 'ok' : 'far'}`;
+    const cardStatus = status === 'expired' ? 'expired' : status === 'urgent' || status === 'warning' ? 'warning' : status === 'ok' ? 'ok' : 'far';
+    card.className = `marche-card ${cardStatus}`;
     card.innerHTML = `
       <div class="card-top">
         <div class="card-composant">${m.Composant || '(sans titre)'}</div>
@@ -487,6 +492,7 @@ function openDetail(m) {
       <div class="dp-row"><span class="dp-label">Suivi par</span><span class="dp-value">${m.Suivi_par || '—'}</span></div>
       <div class="dp-row"><span class="dp-label">Cmd / Facturation</span>${na(m.Commandes_facturation)}</div>
       <div class="dp-row"><span class="dp-label">COEX</span>${na(m.COEX)}</div>
+      <div class="dp-row"><span class="dp-label">Notes</span>${na(m.Notes)}</div>
       <div class="dp-row"><span class="dp-label">Procédure AO</span>${na(m.Procedure_AO)}</div>
     </div>
   `;
