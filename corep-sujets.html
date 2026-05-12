@@ -5,9 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>COREP — Tous les sujets</title>
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
-<!-- SheetJS vendored : la CSP Grist bloque les CDN externes (cdn.sheetjs.com, cdnjs).
-     Le script est servi depuis la même origine que le widget (GitHub Pages). -->
-<script src="xlsx.full.min.js"></script>
+<!--
+  Note : SheetJS (.xlsx) a été tenté via 3 sources (cdn.sheetjs.com, cdnjs, et
+  'self' GitHub Pages) — toutes bloquées par la CSP de Grist sur les widgets
+  custom. Export en CSV uniquement. Le fichier xlsx.full.min.js reste vendored
+  dans le repo si jamais Grist relâche sa politique un jour : il suffira alors
+  de réintégrer <script src="xlsx.full.min.js"></script> et la branche Excel
+  dans exportToExcel().
+-->
 <style>
   *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
   :root {
@@ -169,7 +174,7 @@
       <button class="view-btn active" data-view="table" type="button">📊 Tableau</button>
       <button class="view-btn" data-view="timeline" type="button">📅 Timeline</button>
     </div>
-    <button id="btn-export" type="button">📥 Excel</button>
+    <button id="btn-export" type="button">📥 CSV</button>
   </div>
   <span id="count-label"></span>
 </div>
@@ -568,34 +573,36 @@ function exportToExcel() {
   const today = new Date().toISOString().slice(0, 10);
   try {
     const rows = buildExportRows();
+    exportToCSV(rows, today);
 
-    // Fallback CSV if SheetJS isn't loaded (CDN blocked, offline, etc.)
-    if (typeof XLSX === 'undefined') {
-      exportToCSV(rows, today);
-      setTimeout(() => alert('SheetJS indisponible — export effectué au format CSV (ouvrable dans Excel).'), 100);
-      return;
-    }
+    /* Branche Excel (.xlsx) — désactivée car la CSP de Grist sur les widgets
+       custom bloque le chargement de SheetJS depuis n'importe quelle origine
+       (cdn.sheetjs.com, cdnjs.cloudflare.com, et même 'self' sur GitHub Pages).
+       Pour réactiver : remettre <script src="xlsx.full.min.js"></script> dans
+       le head, puis remplacer l'appel ci-dessus par :
 
-    // Excel via SheetJS
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const headers = Object.keys(rows[0]);
-    ws['!cols'] = headers.map(h => {
-      const maxLen = Math.max(h.length, ...rows.map(r => String(r[h] || '').split('\n')[0].length));
-      return { wch: Math.min(80, Math.max(12, maxLen + 2)) };
-    });
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Sujets COREP');
-
-    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    downloadBlob(blob, `corep-sujets-${today}.xlsx`);
+       if (typeof XLSX !== 'undefined') {
+         const ws = XLSX.utils.json_to_sheet(rows);
+         const headers = Object.keys(rows[0]);
+         ws['!cols'] = headers.map(h => {
+           const maxLen = Math.max(h.length, ...rows.map(r => String(r[h] || '').split('\n')[0].length));
+           return { wch: Math.min(80, Math.max(12, maxLen + 2)) };
+         });
+         const wb = XLSX.utils.book_new();
+         XLSX.utils.book_append_sheet(wb, ws, 'Sujets COREP');
+         const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+         const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+         downloadBlob(blob, `corep-sujets-${today}.xlsx`);
+       } else {
+         exportToCSV(rows, today);
+       }
+    */
   } catch (e) {
     alert('Erreur lors de l\'export : ' + (e.message || e));
     console.error(e);
   } finally {
     btn.disabled = false;
-    btn.textContent = '📥 Excel';
+    btn.textContent = '📥 CSV';
   }
 }
 
