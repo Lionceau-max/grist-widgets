@@ -578,7 +578,7 @@ function exportToExcel() {
     /* Branche Excel (.xlsx) — désactivée car la CSP de Grist sur les widgets
        custom bloque le chargement de SheetJS depuis n'importe quelle origine
        (cdn.sheetjs.com, cdnjs.cloudflare.com, et même 'self' sur GitHub Pages).
-       Pour réactiver : remettre <script src="xlsx.full.min.js"></script> dans
+       Pour réactiver : remettre la balise script vers xlsx.full.min.js dans
        le head, puis remplacer l'appel ci-dessus par :
 
        if (typeof XLSX !== 'undefined') {
