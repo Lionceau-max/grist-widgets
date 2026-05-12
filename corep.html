@@ -109,6 +109,7 @@
   .dot-refuse   { background:var(--red); }
   .dot-reporte  { background:var(--amber); }
   .sujet-body { flex:1; min-width:0; }
+  .sujet-titre { font-size:13px; font-weight:700; color:var(--text); margin-bottom:3px; line-height:1.35; }
   .sujet-desc { font-size:13px; color:var(--text); line-height:1.45; overflow-wrap:anywhere; }
   .sujet-desc.collapsed {
     display:-webkit-box;
@@ -135,6 +136,8 @@
   }
   .sujet-toggle:hover { text-decoration:underline; }
   .sujet-meta { font-size:11px; color:var(--text-xs); margin-top:3px; display:flex; gap:8px; flex-wrap:wrap; }
+  .sujet-decision { margin-top:8px; padding:8px 10px; border-radius:6px; background:var(--green-lt); border-left:3px solid var(--green); font-size:12px; line-height:1.5; color:var(--text-sm); overflow-wrap:anywhere; }
+  .sujet-decision-label { font-weight:700; color:var(--green); text-transform:uppercase; letter-spacing:.04em; font-size:10px; margin-right:6px; }
   .sujet-actions { display:flex; gap:6px; flex-shrink:0; }
   .sujet-btn { padding:3px 8px; border-radius:4px; font-size:11px; font-weight:600; cursor:pointer; border:1px solid var(--border); background:#fff; color:var(--text-sm); }
   .sujet-btn:hover { background:var(--gray-lt); }
@@ -261,7 +264,9 @@
   <div class="modal-box">
     <div class="modal-header"><h3 id="sujet-modal-title">Nouveau sujet</h3><button class="modal-close" id="ms-close">✕</button></div>
     <div class="modal-body">
+      <div class="field-group"><label class="field-label">Titre</label><input id="ms-titre" class="field-input" type="text" placeholder="Titre court du sujet (optionnel mais recommandé)"></div>
       <div class="field-group"><label class="field-label">Description *</label><textarea id="ms-desc" class="field-textarea" placeholder="Décrivez le sujet à soumettre au COREP…"></textarea></div>
+      <div class="field-group"><label class="field-label">Décision</label><textarea id="ms-decision" class="field-textarea" placeholder="Décision prise en séance (à remplir après la session)" style="min-height:60px"></textarea></div>
       <div class="field-group"><label class="field-label">Soumetteur</label><input id="ms-soumetteur" class="field-input" type="text" placeholder="Prénom NOM"></div>
       <div class="field-group">
         <label class="field-label">Canal</label>
@@ -464,6 +469,8 @@ async function ensureCorepSchema() {
   if (sujetsTable.Statut === undefined) actions.push(['AddColumn', 'Corep_Sujets', 'Statut', {type: 'Text', label: 'Statut'}]);
   if (sujetsTable.Canal === undefined) actions.push(['AddColumn', 'Corep_Sujets', 'Canal', {type: 'Text', label: 'Canal'}]);
   if (sujetsTable.Point_bilaterale === undefined) actions.push(['AddColumn', 'Corep_Sujets', 'Point_bilaterale', {type: 'Numeric', label: 'Point bilaterale'}]);
+  if (sujetsTable.Titre === undefined) actions.push(['AddColumn', 'Corep_Sujets', 'Titre', {type: 'Text', label: 'Titre'}]);
+  if (sujetsTable.Decision === undefined) actions.push(['AddColumn', 'Corep_Sujets', 'Decision', {type: 'Text', label: 'Décision'}]);
   if (actions.length) await grist.docApi.applyUserActions(actions);
 }
 
@@ -568,8 +575,10 @@ async function loadData() {
     sujets = suT.id.map((id, i) => ({
       id,
       Session:     refInt(suT.Session[i]),
+      Titre:       (suT.Titre ? suT.Titre[i] : '') || '',
       Soumetteur:  (suT.Soumetteur ? suT.Soumetteur[i] : '') || '',
       Description: (suT.Description ? suT.Description[i] : '') || '',
+      Decision:    (suT.Decision ? suT.Decision[i] : '') || '',
       Statut:      (suT.Statut ? suT.Statut[i] : '') || 'Soumis',
       Canal:       (suT.Canal ? suT.Canal[i] : '') || '',
     }));
@@ -707,12 +716,14 @@ function renderSujets(items) {
     row.innerHTML = `
       <div class="sujet-statut-dot ${DOT_CLASS[su.Statut] || 'dot-soumis'}"></div>
       <div class="sujet-body">
+        ${su.Titre ? `<div class="sujet-titre">${escapeHtml(su.Titre)}</div>` : ''}
         <div class="sujet-desc${isLong ? ' collapsed' : ''}">${escapeHtmlWithImages(description)}</div>
         ${isLong ? '<button type="button" class="sujet-toggle">Voir plus</button>' : ''}
         <div class="sujet-meta">
           ${su.Soumetteur ? `<span>👤 ${su.Soumetteur}</span>` : ''}
           ${su.Canal ? `<span>📡 ${su.Canal}</span>` : ''}
         </div>
+        ${su.Decision ? `<div class="sujet-decision"><span class="sujet-decision-label">Décision</span>${escapeHtmlWithImages(su.Decision)}</div>` : ''}
       </div>
       <div class="sujet-actions">
         ${select}
@@ -784,12 +795,16 @@ function openSujetModal(sujetId = null) {
   document.getElementById('sujet-modal-title').textContent = sujetId ? 'Modifier le sujet' : 'Nouveau sujet';
   if (sujetId) {
     const su = sujets.find(s => s.id === sujetId);
+    document.getElementById('ms-titre').value = su.Titre || '';
     document.getElementById('ms-desc').value = su.Description || '';
+    document.getElementById('ms-decision').value = su.Decision || '';
     document.getElementById('ms-soumetteur').value = su.Soumetteur || '';
     document.getElementById('ms-canal').value = su.Canal || '';
     document.getElementById('ms-statut').value = su.Statut || 'Soumis';
   } else {
+    document.getElementById('ms-titre').value = '';
     document.getElementById('ms-desc').value = '';
+    document.getElementById('ms-decision').value = '';
     document.getElementById('ms-soumetteur').value = '';
     document.getElementById('ms-canal').value = '';
     document.getElementById('ms-statut').value = 'Soumis';
@@ -803,7 +818,9 @@ async function saveSujet() {
   const desc = document.getElementById('ms-desc').value.trim();
   if (!desc) { alert('Description requise.'); return; }
   const fields = {
+    Titre:       document.getElementById('ms-titre').value.trim(),
     Description: desc,
+    Decision:    document.getElementById('ms-decision').value.trim(),
     Soumetteur:  document.getElementById('ms-soumetteur').value.trim(),
     Canal:       document.getElementById('ms-canal').value,
     Statut:      document.getElementById('ms-statut').value,
@@ -911,7 +928,7 @@ document.addEventListener('keydown', e => {
 // ── Boot ──
 grist.ready({ requiredAccess: 'full' });
 // Wire image paste/drop on all image-friendly textareas
-['notes-input', 'ms-desc', 'ns-notes'].forEach(id => {
+['notes-input', 'ms-desc', 'ms-decision', 'ns-notes'].forEach(id => {
   const el = document.getElementById(id);
   if (el) wireImageInput(el);
 });
