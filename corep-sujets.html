@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>COREP — Tous les sujets</title>
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
   :root {
@@ -513,11 +513,49 @@ function setView(view) {
 }
 
 // ── Excel export ──
+function buildExportRows() {
+  return filtered.map(su => {
+    const sess = getSession(su.Session);
+    return {
+      'Date session':    sess && sess.Date ? new Date(sess.Date * 1000).toLocaleDateString('fr-FR') : '',
+      'Statut session':  sess ? sess.Statut : '',
+      'Titre':           su.Titre || '',
+      'Description':     su.Description || '',
+      'Décision':        su.Decision || '',
+      'Soumetteur':      su.Soumetteur || '',
+      'Canal':           su.Canal || '',
+      'Statut sujet':    su.Statut || '',
+      'Point bilatérale': su.Point_bilaterale || '',
+    };
+  });
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function exportToCSV(rows, today) {
+  // CSV with UTF-8 BOM so Excel opens accents correctly
+  const headers = Object.keys(rows[0]);
+  const escapeCell = v => {
+    const s = String(v == null ? '' : v);
+    return /[",\n;]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const lines = [headers.map(escapeCell).join(';')];
+  rows.forEach(r => lines.push(headers.map(h => escapeCell(r[h])).join(';')));
+  const csv = '\uFEFF' + lines.join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  downloadBlob(blob, `corep-sujets-${today}.csv`);
+}
+
 function exportToExcel() {
-  if (typeof XLSX === 'undefined') {
-    alert("La bibliothèque Excel (SheetJS) n'a pas pu être chargée. Vérifie ta connexion ou les blocages CDN éventuels.");
-    return;
-  }
   if (!filtered.length) {
     alert('Aucun sujet à exporter — ajuste les filtres pour avoir au moins une ligne.');
     return;
@@ -525,25 +563,19 @@ function exportToExcel() {
   const btn = document.getElementById('btn-export');
   btn.disabled = true;
   btn.textContent = '⏳ Export…';
+  const today = new Date().toISOString().slice(0, 10);
   try {
-    // Build rows
-    const rows = filtered.map(su => {
-      const sess = getSession(su.Session);
-      return {
-        'Date session':    sess && sess.Date ? new Date(sess.Date * 1000).toLocaleDateString('fr-FR') : '',
-        'Statut session':  sess ? sess.Statut : '',
-        'Titre':           su.Titre || '',
-        'Description':     su.Description || '',
-        'Décision':        su.Decision || '',
-        'Soumetteur':      su.Soumetteur || '',
-        'Canal':           su.Canal || '',
-        'Statut sujet':    su.Statut || '',
-        'Point bilatérale': su.Point_bilaterale || '',
-      };
-    });
+    const rows = buildExportRows();
 
+    // Fallback CSV if SheetJS isn't loaded (CDN blocked, offline, etc.)
+    if (typeof XLSX === 'undefined') {
+      exportToCSV(rows, today);
+      setTimeout(() => alert('SheetJS indisponible — export effectué au format CSV (ouvrable dans Excel).'), 100);
+      return;
+    }
+
+    // Excel via SheetJS
     const ws = XLSX.utils.json_to_sheet(rows);
-    // Auto column widths (cap at 80)
     const headers = Object.keys(rows[0]);
     ws['!cols'] = headers.map(h => {
       const maxLen = Math.max(h.length, ...rows.map(r => String(r[h] || '').split('\n')[0].length));
@@ -553,20 +585,11 @@ function exportToExcel() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Sujets COREP');
 
-    // Generate as array buffer and trigger download via Blob+<a>
-    // (XLSX.writeFile fails silently inside Grist's sandboxed iframe)
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `corep-sujets-${new Date().toISOString().slice(0, 10)}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    downloadBlob(blob, `corep-sujets-${today}.xlsx`);
   } catch (e) {
-    alert('Erreur lors de l\'export Excel : ' + (e.message || e));
+    alert('Erreur lors de l\'export : ' + (e.message || e));
     console.error(e);
   } finally {
     btn.disabled = false;
