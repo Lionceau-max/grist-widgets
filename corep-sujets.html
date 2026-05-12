@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>COREP — Tous les sujets</title>
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- SheetJS vendored : la CSP Grist bloque les CDN externes (cdn.sheetjs.com, cdnjs).
+     Le script est servi depuis la même origine que le widget (GitHub Pages). -->
+<script src="xlsx.full.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
   :root {
