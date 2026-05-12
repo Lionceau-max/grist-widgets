@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COREP — Tous les sujets</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+  :root {
+    --blue:#2563eb; --blue-lt:#eff6ff;
+    --green:#16a34a; --green-lt:#f0fdf4;
+    --red:#dc2626; --red-lt:#fef2f2;
+    --amber:#d97706; --amber-lt:#fffbeb;
+    --purple:#7c3aed; --purple-lt:#f5f3ff;
+    --gray:#6b7280; --gray-lt:#f9fafb;
+    --border:#e5e7eb; --text:#111827; --text-sm:#374151; --text-xs:#6b7280;
+    --radius:10px;
+    --shadow:0 1px 3px rgba(0,0,0,.08);
+    --shadow-lg:0 10px 30px rgba(0,0,0,.18);
+  }
+  body { font-family:system-ui,-apple-system,sans-serif; font-size:14px; color:var(--text); background:#f3f4f6; height:100vh; overflow:hidden; display:flex; flex-direction:column; }
+
+  /* ── KPIs ── */
+  #kpis { display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; padding:14px 18px; background:#fff; border-bottom:1px solid var(--border); }
+  .kpi { background:var(--gray-lt); border:1px solid var(--border); border-radius:var(--radius); padding:10px 14px; display:flex; flex-direction:column; gap:2px; }
+  .kpi-label { font-size:10px; font-weight:700; color:var(--text-xs); text-transform:uppercase; letter-spacing:.05em; }
+  .kpi-value { font-size:22px; font-weight:700; color:var(--text); line-height:1.1; }
+  .kpi-sub { font-size:11px; color:var(--text-xs); }
+  .kpi.blue { background:var(--blue-lt); border-color:#bfdbfe; }
+  .kpi.blue .kpi-value { color:var(--blue); }
+  .kpi.amber { background:var(--amber-lt); border-color:#fde68a; }
+  .kpi.amber .kpi-value { color:var(--amber); }
+  .kpi.green { background:var(--green-lt); border-color:#bbf7d0; }
+  .kpi.green .kpi-value { color:var(--green); }
+  .kpi.purple { background:var(--purple-lt); border-color:#ddd6fe; }
+  .kpi.purple .kpi-value { color:var(--purple); font-size:15px; line-height:1.3; }
+
+  /* ── Filtres ── */
+  #filters { display:flex; gap:8px; padding:10px 18px; background:#fff; border-bottom:1px solid var(--border); align-items:center; flex-wrap:wrap; }
+  #filters input, #filters select { padding:6px 10px; border-radius:6px; border:1px solid var(--border); font-size:13px; font-family:inherit; background:#fff; color:var(--text); outline:none; }
+  #filters input:focus, #filters select:focus { border-color:var(--blue); }
+  #search { flex:1; min-width:200px; max-width:340px; }
+  #btn-reset { padding:6px 12px; border-radius:6px; background:#fff; border:1px solid var(--border); font-size:12px; font-weight:600; color:var(--text-sm); cursor:pointer; }
+  #btn-reset:hover { background:var(--gray-lt); }
+  #count-label { margin-left:auto; font-size:12px; color:var(--text-xs); font-weight:600; }
+
+  /* ── Table ── */
+  #table-wrap { flex:1; overflow:auto; padding:14px 18px; }
+  table { width:100%; border-collapse:separate; border-spacing:0; background:#fff; border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow); }
+  thead th { position:sticky; top:0; background:#fafbfc; border-bottom:1px solid var(--border); padding:10px 12px; text-align:left; font-size:11px; font-weight:700; color:var(--text-xs); text-transform:uppercase; letter-spacing:.04em; cursor:pointer; user-select:none; white-space:nowrap; z-index:2; }
+  thead th:hover { background:#f3f4f6; }
+  thead th .sort-arrow { display:inline-block; margin-left:4px; opacity:.4; font-size:10px; }
+  thead th.sort-asc .sort-arrow, thead th.sort-desc .sort-arrow { opacity:1; color:var(--blue); }
+  tbody tr { cursor:pointer; transition:background .1s; }
+  tbody tr:hover { background:var(--blue-lt); }
+  tbody td { padding:11px 12px; border-bottom:1px solid var(--border); font-size:13px; vertical-align:top; }
+  tbody tr:last-child td { border-bottom:none; }
+  td.col-date { white-space:nowrap; color:var(--text-sm); font-size:12px; min-width:110px; }
+  td.col-date .session-state { font-size:10px; font-weight:600; padding:1px 6px; border-radius:8px; margin-left:4px; vertical-align:middle; }
+  td.col-titre { font-weight:600; color:var(--text); }
+  td.col-titre .titre-preview { font-weight:400; color:var(--text-xs); font-size:11px; margin-top:2px; font-style:italic; }
+  td.col-soum { color:var(--text-sm); white-space:nowrap; }
+  td.col-statut, td.col-canal { white-space:nowrap; }
+  td.col-bilat { text-align:center; }
+  .pill { display:inline-block; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:600; }
+  .pill-soumis   { background:var(--blue-lt);   color:var(--blue); }
+  .pill-valide   { background:var(--green-lt);  color:var(--green); }
+  .pill-refuse   { background:var(--red-lt);    color:var(--red); }
+  .pill-reporte  { background:var(--amber-lt);  color:var(--amber); }
+  .pill-neutral  { background:var(--gray-lt);   color:var(--text-sm); }
+  .session-state.ouverte   { background:var(--blue-lt); color:var(--blue); }
+  .session-state.confirmee { background:var(--green-lt); color:var(--green); }
+  .session-state.annulee   { background:var(--red-lt); color:var(--red); }
+  .has-decision-dot { display:inline-block; width:6px; height:6px; background:var(--green); border-radius:50%; margin-right:5px; vertical-align:middle; }
+  #empty-row td { padding:36px; text-align:center; color:var(--text-xs); font-size:13px; font-style:italic; }
+
+  /* ── Drawer détail ── */
+  #drawer-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,.25); z-index:9; }
+  #drawer-backdrop.open { display:block; }
+  #drawer { display:none; position:fixed; top:0; right:0; bottom:0; width:min(620px, 95vw); background:#fff; box-shadow:var(--shadow-lg); z-index:10; flex-direction:column; }
+  #drawer.open { display:flex; }
+  #drawer-header { padding:18px 22px 14px; border-bottom:1px solid var(--border); display:flex; align-items:flex-start; gap:12px; }
+  #drawer-title-block { flex:1; min-width:0; }
+  #drawer-title { font-size:16px; font-weight:700; color:var(--text); line-height:1.35; overflow-wrap:anywhere; }
+  #drawer-subtitle { font-size:12px; color:var(--text-xs); margin-top:4px; display:flex; gap:10px; flex-wrap:wrap; }
+  #drawer-close { background:#fff; border:1px solid var(--border); border-radius:6px; width:28px; height:28px; font-size:14px; cursor:pointer; color:var(--text-sm); flex-shrink:0; }
+  #drawer-close:hover { background:var(--gray-lt); }
+  #drawer-body { flex:1; overflow-y:auto; padding:18px 22px; display:flex; flex-direction:column; gap:14px; }
+  .drawer-section { display:flex; flex-direction:column; gap:6px; }
+  .drawer-section-label { font-size:10px; font-weight:700; color:var(--text-xs); text-transform:uppercase; letter-spacing:.05em; }
+  .drawer-content { font-size:13px; line-height:1.55; color:var(--text); white-space:pre-wrap; overflow-wrap:anywhere; }
+  .drawer-content img { max-width:100%; height:auto; border-radius:6px; margin:6px 0; cursor:zoom-in; }
+  .drawer-decision { background:var(--green-lt); border-left:3px solid var(--green); border-radius:6px; padding:12px 14px; }
+  .drawer-decision .drawer-section-label { color:var(--green); margin-bottom:4px; }
+  .drawer-cr { background:var(--blue-lt); border-left:3px solid var(--blue); border-radius:6px; padding:12px 14px; }
+  .drawer-cr .drawer-section-label { color:var(--blue); margin-bottom:4px; }
+  .drawer-bilat { background:var(--purple-lt); border-left:3px solid var(--purple); border-radius:6px; padding:10px 14px; font-size:12px; color:var(--text-sm); }
+  .meta-pill { display:inline-flex; align-items:center; gap:4px; padding:2px 9px; border-radius:10px; background:var(--gray-lt); color:var(--text-sm); font-size:11px; font-weight:600; }
+
+  /* ── Image lightbox ── */
+  #lightbox { display:none; position:fixed; inset:0; background:rgba(0,0,0,.85); z-index:100; align-items:center; justify-content:center; padding:20px; cursor:zoom-out; }
+  #lightbox.open { display:flex; }
+  #lightbox img { max-width:100%; max-height:100%; border-radius:8px; }
+
+  /* ── Loading ── */
+  #loading { padding:60px; text-align:center; color:var(--text-xs); }
+</style>
+</head>
+<body>
+
+<div id="kpis">
+  <div class="kpi blue"><span class="kpi-label">Total filtré</span><span class="kpi-value" id="kpi-total">—</span><span class="kpi-sub" id="kpi-total-sub">sujet(s)</span></div>
+  <div class="kpi amber"><span class="kpi-label">En attente</span><span class="kpi-value" id="kpi-attente">—</span><span class="kpi-sub">soumis sur session à venir</span></div>
+  <div class="kpi green"><span class="kpi-label">30 derniers jours</span><span class="kpi-value" id="kpi-30j">—</span><span class="kpi-sub">sur sessions récentes</span></div>
+  <div class="kpi purple"><span class="kpi-label">Top soumetteur</span><span class="kpi-value" id="kpi-top">—</span><span class="kpi-sub" id="kpi-top-sub">&nbsp;</span></div>
+</div>
+
+<div id="filters">
+  <input type="search" id="search" placeholder="🔍 Rechercher dans titre, description, décision…">
+  <select id="f-session"><option value="">Toutes sessions</option></select>
+  <select id="f-statut"><option value="">Tous statuts</option></select>
+  <select id="f-soumetteur"><option value="">Tous soumetteurs</option></select>
+  <select id="f-canal"><option value="">Tous canaux</option></select>
+  <select id="f-bilat">
+    <option value="">Bilatérale : indif.</option>
+    <option value="yes">Issu d'une bilat.</option>
+    <option value="no">Hors bilat.</option>
+  </select>
+  <button id="btn-reset" type="button">Réinitialiser</button>
+  <span id="count-label"></span>
+</div>
+
+<div id="table-wrap">
+  <div id="loading">Chargement…</div>
+  <table id="table" style="display:none">
+    <thead>
+      <tr>
+        <th data-sort="date" class="col-date">Session <span class="sort-arrow">▾</span></th>
+        <th data-sort="titre">Sujet <span class="sort-arrow">▾</span></th>
+        <th data-sort="soum">Soumetteur <span class="sort-arrow">▾</span></th>
+        <th data-sort="statut">Statut <span class="sort-arrow">▾</span></th>
+        <th data-sort="canal">Canal <span class="sort-arrow">▾</span></th>
+        <th data-sort="bilat" style="text-align:center">🔗</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+</div>
+
+<div id="drawer-backdrop"></div>
+<div id="drawer">
+  <div id="drawer-header">
+    <div id="drawer-title-block">
+      <div id="drawer-title">—</div>
+      <div id="drawer-subtitle"></div>
+    </div>
+    <button id="drawer-close" type="button">✕</button>
+  </div>
+  <div id="drawer-body"></div>
+</div>
+
+<div id="lightbox"><img id="lightbox-img" alt=""></div>
+
+<script>
+// ── State ──
+let sessions = [], sujets = [];
+let filtered = [];
+let sortKey = 'date', sortDir = 'desc';
+let selectedSujetId = null;
+
+// ── Helpers ──
+const PILL_CLASS = { 'Soumis':'pill-soumis', 'Validé':'pill-valide', 'Refusé':'pill-refuse', 'Reporté':'pill-reporte' };
+
+function refInt(v) { return typeof v === 'string' ? parseInt(v) || 0 : (v || 0); }
+function fmtDate(ts) {
+  if (!ts) return '—';
+  return new Date(ts * 1000).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'2-digit' });
+}
+function fmtDateLong(ts) {
+  if (!ts) return '—';
+  return new Date(ts * 1000).toLocaleDateString('fr-FR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
+}
+function escapeHtml(v) {
+  return String(v || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escapeHtmlWithImages(v) {
+  const text = String(v || '');
+  const placeholders = [];
+  const safe = text.replace(/<img\s+src="data:image\/[a-z]+;base64,[A-Za-z0-9+/=]+"[^>]*>/gi, m => {
+    placeholders.push(m);
+    return `__IMG_${placeholders.length - 1}__`;
+  });
+  let out = escapeHtml(safe);
+  placeholders.forEach((img, i) => { out = out.replace(`__IMG_${i}__`, img); });
+  return out;
+}
+function statePillClass(s) { return ({'Ouverte':'ouverte','Confirmée':'confirmee','Annulée':'annulee'})[s] || 'ouverte'; }
+function getSession(sid) { return sessions.find(s => s.id === sid); }
+function getTitreOrFallback(su) {
+  if (su.Titre) return su.Titre;
+  const d = String(su.Description || '').trim();
+  if (!d) return '(sans titre)';
+  const firstLine = d.split('\n')[0].trim();
+  return firstLine.length > 80 ? firstLine.slice(0, 80) + '…' : firstLine;
+}
+function getDescPreview(su) {
+  if (!su.Titre) return '';
+  const d = String(su.Description || '').trim();
+  if (!d) return '';
+  const firstLine = d.split('\n')[0].trim();
+  return firstLine.length > 100 ? firstLine.slice(0, 100) + '…' : firstLine;
+}
+
+// ── Load ──
+async function loadData() {
+  try {
+    const [sT, suT] = await Promise.all([
+      grist.docApi.fetchTable('Corep_Sessions'),
+      grist.docApi.fetchTable('Corep_Sujets'),
+    ]);
+    sessions = sT.id.map((id, i) => ({
+      id,
+      Date: typeof sT.Date[i] === 'string' ? parseInt(sT.Date[i]) || 0 : (sT.Date[i] || 0),
+      Statut: (sT.Statut ? sT.Statut[i] : '') || 'Ouverte',
+      Notes: (sT.Notes ? sT.Notes[i] : '') || ''
+    }));
+    sujets = suT.id.map((id, i) => ({
+      id,
+      Session:     refInt(suT.Session[i]),
+      Titre:       (suT.Titre ? suT.Titre[i] : '') || '',
+      Soumetteur:  (suT.Soumetteur ? suT.Soumetteur[i] : '') || '',
+      Description: (suT.Description ? suT.Description[i] : '') || '',
+      Decision:    (suT.Decision ? suT.Decision[i] : '') || '',
+      Statut:      (suT.Statut ? suT.Statut[i] : '') || 'Soumis',
+      Canal:       (suT.Canal ? suT.Canal[i] : '') || '',
+      Point_bilaterale: refInt(suT.Point_bilaterale ? suT.Point_bilaterale[i] : 0),
+    }));
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('table').style.display = '';
+    buildFilterOptions();
+    applyFiltersAndRender();
+  } catch (err) {
+    document.getElementById('loading').innerHTML = `Erreur de chargement : ${escapeHtml(err.message || err)}`;
+  }
+}
+
+// ── Filter options ──
+function buildFilterOptions() {
+  // Sessions : tri date décroissant
+  const sessSorted = [...sessions].sort((a, b) => b.Date - a.Date);
+  const fs = document.getElementById('f-session');
+  fs.innerHTML = '<option value="">Toutes sessions</option>' + sessSorted.map(s =>
+    `<option value="${s.id}">${fmtDate(s.Date)}</option>`
+  ).join('');
+
+  const statuts = [...new Set(sujets.map(s => s.Statut).filter(Boolean))].sort();
+  document.getElementById('f-statut').innerHTML =
+    '<option value="">Tous statuts</option>' + statuts.map(s => `<option>${escapeHtml(s)}</option>`).join('');
+
+  const soums = [...new Set(sujets.map(s => s.Soumetteur).filter(Boolean))].sort();
+  document.getElementById('f-soumetteur').innerHTML =
+    '<option value="">Tous soumetteurs</option>' + soums.map(s => `<option>${escapeHtml(s)}</option>`).join('');
+
+  const canaux = [...new Set(sujets.map(s => s.Canal).filter(Boolean))].sort();
+  document.getElementById('f-canal').innerHTML =
+    '<option value="">Tous canaux</option>' + canaux.map(s => `<option>${escapeHtml(s)}</option>`).join('');
+}
+
+// ── Filtering / sorting ──
+function applyFiltersAndRender() {
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  const fSes = document.getElementById('f-session').value;
+  const fSta = document.getElementById('f-statut').value;
+  const fSou = document.getElementById('f-soumetteur').value;
+  const fCan = document.getElementById('f-canal').value;
+  const fBil = document.getElementById('f-bilat').value;
+
+  filtered = sujets.filter(su => {
+    if (fSes && String(su.Session) !== fSes) return false;
+    if (fSta && su.Statut !== fSta) return false;
+    if (fSou && su.Soumetteur !== fSou) return false;
+    if (fCan && su.Canal !== fCan) return false;
+    if (fBil === 'yes' && !su.Point_bilaterale) return false;
+    if (fBil === 'no' && su.Point_bilaterale) return false;
+    if (q) {
+      const hay = (su.Titre + ' ' + su.Description + ' ' + su.Decision + ' ' + su.Soumetteur).toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  // Sort
+  filtered.sort((a, b) => {
+    let av, bv;
+    switch (sortKey) {
+      case 'date':
+        av = getSession(a.Session)?.Date || 0;
+        bv = getSession(b.Session)?.Date || 0;
+        break;
+      case 'titre':  av = getTitreOrFallback(a).toLowerCase(); bv = getTitreOrFallback(b).toLowerCase(); break;
+      case 'soum':   av = a.Soumetteur.toLowerCase(); bv = b.Soumetteur.toLowerCase(); break;
+      case 'statut': av = a.Statut; bv = b.Statut; break;
+      case 'canal':  av = a.Canal; bv = b.Canal; break;
+      case 'bilat':  av = a.Point_bilaterale ? 1 : 0; bv = b.Point_bilaterale ? 1 : 0; break;
+    }
+    if (av < bv) return sortDir === 'asc' ? -1 : 1;
+    if (av > bv) return sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  renderRows();
+  renderKpis();
+  updateSortHeaders();
+}
+
+function updateSortHeaders() {
+  document.querySelectorAll('thead th').forEach(th => {
+    th.classList.remove('sort-asc', 'sort-desc');
+    const arrow = th.querySelector('.sort-arrow');
+    if (!arrow) return;
+    if (th.dataset.sort === sortKey) {
+      th.classList.add(sortDir === 'asc' ? 'sort-asc' : 'sort-desc');
+      arrow.textContent = sortDir === 'asc' ? '▴' : '▾';
+    } else {
+      arrow.textContent = '▾';
+    }
+  });
+}
+
+// ── Render rows ──
+function renderRows() {
+  const tbody = document.getElementById('rows');
+  const cnt = document.getElementById('count-label');
+  cnt.textContent = `${filtered.length} sujet${filtered.length !== 1 ? 's' : ''} affiché${filtered.length !== 1 ? 's' : ''} sur ${sujets.length}`;
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr id="empty-row"><td colspan="6">Aucun sujet ne correspond aux filtres.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.map(su => {
+    const sess = getSession(su.Session);
+    const pillCls = PILL_CLASS[su.Statut] || 'pill-neutral';
+    const preview = getDescPreview(su);
+    const decDot = su.Decision ? '<span class="has-decision-dot" title="Décision renseignée"></span>' : '';
+    return `
+      <tr data-id="${su.id}">
+        <td class="col-date">
+          ${sess ? fmtDate(sess.Date) : '—'}
+          ${sess ? `<span class="session-state ${statePillClass(sess.Statut)}">${escapeHtml(sess.Statut)}</span>` : ''}
+        </td>
+        <td class="col-titre">
+          ${decDot}${escapeHtml(getTitreOrFallback(su))}
+          ${preview ? `<div class="titre-preview">${escapeHtml(preview)}</div>` : ''}
+        </td>
+        <td class="col-soum">${escapeHtml(su.Soumetteur) || '—'}</td>
+        <td class="col-statut"><span class="pill ${pillCls}">${escapeHtml(su.Statut)}</span></td>
+        <td class="col-canal">${escapeHtml(su.Canal) || '—'}</td>
+        <td class="col-bilat">${su.Point_bilaterale ? `<span title="Point bilatérale #${su.Point_bilaterale}">🔗</span>` : ''}</td>
+      </tr>
+    `;
+  }).join('');
+  // Wire click
+  tbody.querySelectorAll('tr').forEach(tr => {
+    tr.addEventListener('click', () => openDrawer(parseInt(tr.dataset.id)));
+  });
+}
+
+// ── KPIs ──
+function renderKpis() {
+  document.getElementById('kpi-total').textContent = filtered.length;
+
+  const nowTs = Math.floor(Date.now() / 1000);
+  const thirtyDaysAgo = nowTs - 30 * 86400;
+
+  // En attente : Soumis ET session ouverte / future
+  const attente = filtered.filter(su => {
+    if (su.Statut !== 'Soumis') return false;
+    const sess = getSession(su.Session);
+    if (!sess) return false;
+    return sess.Statut === 'Ouverte' || (sess.Date && sess.Date >= nowTs - 86400);
+  }).length;
+  document.getElementById('kpi-attente').textContent = attente;
+
+  // 30 derniers jours : session dans la fenêtre
+  const last30 = filtered.filter(su => {
+    const sess = getSession(su.Session);
+    return sess && sess.Date >= thirtyDaysAgo && sess.Date <= nowTs;
+  }).length;
+  document.getElementById('kpi-30j').textContent = last30;
+
+  // Top soumetteur (parmi le filtré)
+  const counts = {};
+  filtered.forEach(su => { if (su.Soumetteur) counts[su.Soumetteur] = (counts[su.Soumetteur] || 0) + 1; });
+  const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+  if (top) {
+    document.getElementById('kpi-top').textContent = top[0];
+    document.getElementById('kpi-top-sub').textContent = `${top[1]} sujet${top[1] !== 1 ? 's' : ''}`;
+  } else {
+    document.getElementById('kpi-top').textContent = '—';
+    document.getElementById('kpi-top-sub').textContent = '\u00A0';
+  }
+}
+
+// ── Drawer ──
+function openDrawer(id) {
+  const su = sujets.find(s => s.id === id);
+  if (!su) return;
+  selectedSujetId = id;
+  const sess = getSession(su.Session);
+
+  document.getElementById('drawer-title').textContent = getTitreOrFallback(su);
+
+  const subtitleParts = [];
+  if (sess) subtitleParts.push(`<span class="meta-pill">📅 ${fmtDateLong(sess.Date)}</span>`);
+  if (sess) subtitleParts.push(`<span class="meta-pill"><span class="session-state ${statePillClass(sess.Statut)}">${escapeHtml(sess.Statut)}</span></span>`);
+  if (su.Soumetteur) subtitleParts.push(`<span class="meta-pill">👤 ${escapeHtml(su.Soumetteur)}</span>`);
+  if (su.Canal) subtitleParts.push(`<span class="meta-pill">📡 ${escapeHtml(su.Canal)}</span>`);
+  const pillCls = PILL_CLASS[su.Statut] || 'pill-neutral';
+  subtitleParts.push(`<span class="pill ${pillCls}">${escapeHtml(su.Statut)}</span>`);
+  document.getElementById('drawer-subtitle').innerHTML = subtitleParts.join('');
+
+  const body = document.getElementById('drawer-body');
+  let html = '';
+
+  if (su.Description) {
+    html += `<div class="drawer-section">
+      <div class="drawer-section-label">Description</div>
+      <div class="drawer-content">${escapeHtmlWithImages(su.Description)}</div>
+    </div>`;
+  }
+
+  if (su.Decision) {
+    html += `<div class="drawer-decision">
+      <div class="drawer-section-label">Décision</div>
+      <div class="drawer-content">${escapeHtmlWithImages(su.Decision)}</div>
+    </div>`;
+  }
+
+  if (su.Point_bilaterale) {
+    html += `<div class="drawer-bilat">🔗 Sujet rattaché au point bilatérale <strong>#${su.Point_bilaterale}</strong></div>`;
+  }
+
+  if (sess && sess.Notes && sess.Statut === 'Confirmée') {
+    html += `<div class="drawer-cr">
+      <div class="drawer-section-label">CR de la session (${fmtDate(sess.Date)})</div>
+      <div class="drawer-content">${escapeHtmlWithImages(sess.Notes)}</div>
+    </div>`;
+  }
+
+  body.innerHTML = html || '<div style="color:var(--text-xs); font-style:italic">Aucun contenu à afficher.</div>';
+
+  // Wire images for lightbox
+  body.querySelectorAll('img').forEach(img => {
+    img.addEventListener('click', () => {
+      document.getElementById('lightbox-img').src = img.src;
+      document.getElementById('lightbox').classList.add('open');
+    });
+  });
+
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawer-backdrop').classList.add('open');
+}
+
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawer-backdrop').classList.remove('open');
+  selectedSujetId = null;
+}
+
+// ── Wire events ──
+document.getElementById('search').addEventListener('input', applyFiltersAndRender);
+['f-session','f-statut','f-soumetteur','f-canal','f-bilat'].forEach(id => {
+  document.getElementById(id).addEventListener('change', applyFiltersAndRender);
+});
+document.getElementById('btn-reset').addEventListener('click', () => {
+  document.getElementById('search').value = '';
+  ['f-session','f-statut','f-soumetteur','f-canal','f-bilat'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  applyFiltersAndRender();
+});
+document.querySelectorAll('thead th[data-sort]').forEach(th => {
+  th.addEventListener('click', () => {
+    const k = th.dataset.sort;
+    if (sortKey === k) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    else { sortKey = k; sortDir = 'desc'; }
+    applyFiltersAndRender();
+  });
+});
+document.getElementById('drawer-close').addEventListener('click', closeDrawer);
+document.getElementById('drawer-backdrop').addEventListener('click', closeDrawer);
+document.getElementById('lightbox').addEventListener('click', () => {
+  document.getElementById('lightbox').classList.remove('open');
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (document.getElementById('lightbox').classList.contains('open')) {
+      document.getElementById('lightbox').classList.remove('open');
+    } else if (document.getElementById('drawer').classList.contains('open')) {
+      closeDrawer();
+    }
+  }
+});
+
+// ── Init ──
+grist.ready({ requiredAccess: 'full' });
+grist.onRecords(() => loadData()); // refresh on any change to subscribed tables
+loadData();
+</script>
+</body>
+</html>
