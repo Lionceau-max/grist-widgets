@@ -514,38 +514,64 @@ function setView(view) {
 
 // ── Excel export ──
 function exportToExcel() {
+  if (typeof XLSX === 'undefined') {
+    alert("La bibliothèque Excel (SheetJS) n'a pas pu être chargée. Vérifie ta connexion ou les blocages CDN éventuels.");
+    return;
+  }
   if (!filtered.length) {
     alert('Aucun sujet à exporter — ajuste les filtres pour avoir au moins une ligne.');
     return;
   }
-  // Build rows
-  const rows = filtered.map(su => {
-    const sess = getSession(su.Session);
-    return {
-      'Date session':    sess && sess.Date ? new Date(sess.Date * 1000).toLocaleDateString('fr-FR') : '',
-      'Statut session':  sess ? sess.Statut : '',
-      'Titre':           su.Titre || '',
-      'Description':     su.Description || '',
-      'Décision':        su.Decision || '',
-      'Soumetteur':      su.Soumetteur || '',
-      'Canal':           su.Canal || '',
-      'Statut sujet':    su.Statut || '',
-      'Point bilatérale': su.Point_bilaterale || '',
-    };
-  });
+  const btn = document.getElementById('btn-export');
+  btn.disabled = true;
+  btn.textContent = '⏳ Export…';
+  try {
+    // Build rows
+    const rows = filtered.map(su => {
+      const sess = getSession(su.Session);
+      return {
+        'Date session':    sess && sess.Date ? new Date(sess.Date * 1000).toLocaleDateString('fr-FR') : '',
+        'Statut session':  sess ? sess.Statut : '',
+        'Titre':           su.Titre || '',
+        'Description':     su.Description || '',
+        'Décision':        su.Decision || '',
+        'Soumetteur':      su.Soumetteur || '',
+        'Canal':           su.Canal || '',
+        'Statut sujet':    su.Statut || '',
+        'Point bilatérale': su.Point_bilaterale || '',
+      };
+    });
 
-  const ws = XLSX.utils.json_to_sheet(rows);
-  // Auto column widths (cap at 80)
-  const headers = Object.keys(rows[0]);
-  ws['!cols'] = headers.map(h => {
-    const maxLen = Math.max(h.length, ...rows.map(r => String(r[h] || '').split('\n')[0].length));
-    return { wch: Math.min(80, Math.max(12, maxLen + 2)) };
-  });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    // Auto column widths (cap at 80)
+    const headers = Object.keys(rows[0]);
+    ws['!cols'] = headers.map(h => {
+      const maxLen = Math.max(h.length, ...rows.map(r => String(r[h] || '').split('\n')[0].length));
+      return { wch: Math.min(80, Math.max(12, maxLen + 2)) };
+    });
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Sujets COREP');
-  const today = new Date().toISOString().slice(0, 10);
-  XLSX.writeFile(wb, `corep-sujets-${today}.xlsx`);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sujets COREP');
+
+    // Generate as array buffer and trigger download via Blob+<a>
+    // (XLSX.writeFile fails silently inside Grist's sandboxed iframe)
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `corep-sujets-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert('Erreur lors de l\'export Excel : ' + (e.message || e));
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📥 Excel';
+  }
 }
 
 // ── Drawer ──
