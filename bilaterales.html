@@ -628,10 +628,10 @@
     </div>
     <div id="toolbar" style="display:none">
       <button id="btn-new-point">+ Point</button>
-      <button id="btn-view-mode" title="Basculer l'affichage">Vue acteur</button>
+      <button id="btn-view-mode" title="Basculer l'affichage">Vue contexte</button>
       <button id="btn-filter-mgt" title="Afficher uniquement les points en visibilité management">👁️ Management</button>
-      <select id="actor-status-filter" title="Filtrer par statut acteur" style="display:none">
-        <option value="">Tous les statuts acteur</option>
+      <select id="actor-status-filter" title="Filtrer par statut élément" style="display:none">
+        <option value="">Tous les statuts d'élément</option>
         <option value="À faire">À faire</option>
         <option value="En attente">En attente</option>
         <option value="Fait">Fait</option>
@@ -669,9 +669,9 @@
     <div class="field-group"><label class="field-label">Description</label><textarea id="f-desc" class="field-textarea"></textarea></div>
     <div class="field-group"><label class="field-label">Action suivante</label><textarea id="f-action" class="field-textarea" style="min-height:60px"></textarea></div>
     <div class="field-group">
-      <label class="field-label">Acteurs associés</label>
+      <label class="field-label">Éléments de contexte</label>
       <div id="f-acteurs" class="actors-editor"></div>
-      <button id="btn-add-actor" class="btn-add-actor" type="button">+ Ajouter un acteur</button>
+      <button id="btn-add-actor" class="btn-add-actor" type="button">+ Ajouter un élément</button>
     </div>
     <div class="field-group"><label class="field-label">Sujet PQP lié</label><select id="f-sujet" class="field-select"><option value="">— Aucun —</option></select></div>
   </div>
@@ -917,7 +917,7 @@ async function updatePointField(pointId, fieldName, value) {
 }
 function _pointActors(pointId) {
   const p = pointsAll.find(p => p.id === pointId);
-  return [...(p?.Acteurs || [])].map(a => ({ nom: a.nom || '', description: a.description || '' }));
+  return [...(p?.Contexte || [])].map(a => ({ nom: a.nom || '', description: a.description || '' }));
 }
 function _pointEchanges(pointId) {
   const p = pointsAll.find(p => p.id === pointId);
@@ -994,8 +994,8 @@ async function updateEcheance(pointId, dateStr, label) {
 
 async function addActor(pointId) {
   const actors = _pointActors(pointId);
-  actors.push({ nom: 'Nouvel acteur', description: '' });
-  await updatePointField(pointId, 'Acteurs_json', stringifyActorsKeepAll(actors));
+  actors.push({ nom: 'Nouvel élément', description: '' });
+  await updatePointField(pointId, 'Contexte_json', stringifyActorsKeepAll(actors));
 }
 
 // ── Actions CRUD ──
@@ -1058,15 +1058,15 @@ function renderClosedActions(point) {
 async function deleteActor(pointId, index) {
   const actors = _pointActors(pointId);
   if (index < 0 || index >= actors.length) return;
-  if (!confirm(`Supprimer l'acteur "${actors[index].nom || '(sans nom)'}" ?`)) return;
+  if (!confirm(`Supprimer l'élément "${actors[index].nom || '(sans nom)'}" ?`)) return;
   actors.splice(index, 1);
-  await updatePointField(pointId, 'Acteurs_json', stringifyActorsKeepAll(actors));
+  await updatePointField(pointId, 'Contexte_json', stringifyActorsKeepAll(actors));
 }
 async function saveActorField(pointId, index, field, newValue) {
   const actors = _pointActors(pointId);
   if (!actors[index]) return;
   actors[index][field] = newValue;
-  await grist.docApi.applyUserActions([['UpdateRecord', 'Points_bilaterales', pointId, {Acteurs_json: stringifyActorsKeepAll(actors)}]]);
+  await grist.docApi.applyUserActions([['UpdateRecord', 'Points_bilaterales', pointId, {Contexte_json: stringifyActorsKeepAll(actors)}]]);
 }
 async function addEchange(pointId) {
   const items = _pointEchanges(pointId);
@@ -1364,7 +1364,7 @@ function parseActors(raw) {
       })
       .filter(actor => actor.nom || actor.description);
   } catch (err) {
-    console.warn('Acteurs_json invalide', err);
+    console.warn('Contexte_json invalide', err);
     return [];
   }
 }
@@ -1386,8 +1386,8 @@ function buildCorepDescription(point) {
     const acts = parseActions(point.Action_suivante).filter(a => !a.done);
     if (acts.length) lines.push('', 'Actions en cours :', ...acts.map(a => `  - ${a.text}`));
   }
-  const actorNames = (point.Acteurs || []).map(actor => actor.nom).filter(Boolean);
-  if (actorNames.length) lines.push('', `Acteurs : ${actorNames.join(', ')}`);
+  const actorNames = (point.Contexte || []).map(actor => actor.nom).filter(Boolean);
+  if (actorNames.length) lines.push('', `Éléments de contexte : ${actorNames.join(', ')}`);
   return lines.join('\n').trim();
 }
 function parseOutlookMailText(text) {
@@ -1514,7 +1514,7 @@ function actorMailToExchange(actor) {
 }
 function getPointEchanges(point) {
   const structured = parseEchanges(point.Echanges_json || '');
-  const items = structured.length ? structured : point.Acteurs.map(actorMailToExchange).filter(Boolean);
+  const items = structured.length ? structured : point.Contexte.map(actorMailToExchange).filter(Boolean);
   return items.sort((a, b) => parseExchangeDateValue(b.date) - parseExchangeDateValue(a.date));
 }
 function exchangeLabel(item) {
@@ -1532,12 +1532,12 @@ function exchangeShortLine(item) {
 }
 function actorListLabel(actors) {
   const names = actors.map(actor => actor.nom).filter(Boolean);
-  if (!names.length) return 'Aucun acteur';
+  if (!names.length) return 'Aucun élément';
   if (names.length <= 2) return names.join(', ');
   return `${names.slice(0, 2).join(', ')} +${names.length - 2}`;
 }
 function actorTooltip(actor) {
-  return actor.description || actor.nom || 'Acteur';
+  return actor.description || actor.nom || 'Élément';
 }
 function exchangeTooltip(item) {
   return [
@@ -1593,8 +1593,8 @@ function renderCorepBanner(point) {
   `;
 }
 function renderClosedActorList(actors) {
-  if (!actors.length) return '<span class="card-inline-chip">Aucun acteur</span>';
-  return actors.map(actor => `<span class="card-inline-chip" title="${safeText(actorTooltip(actor))}">${safeText(actor.nom || 'Acteur')}</span>`).join('');
+  if (!actors.length) return '<span class="card-inline-chip">Aucun élément</span>';
+  return actors.map(actor => `<span class="card-inline-chip" title="${safeText(actorTooltip(actor))}">${safeText(actor.nom || 'Élément')}</span>`).join('');
 }
 function renderClosedExchangeList(echanges) {
   if (!echanges.length) return '<span class="card-inline-chip mail">Aucun mail</span>';
@@ -1716,11 +1716,11 @@ function inlineActorRowHtml(actor = {}, index = 0) {
   return `
     <div class="inline-actor-row" data-index="${index}">
       <div class="inline-actor-top">
-        <div class="inline-actor-title">Acteur ${index + 1}</div>
+        <div class="inline-actor-title">Élément ${index + 1}</div>
         <button type="button" class="btn-inline" data-inline-remove-actor="${index}">Supprimer</button>
       </div>
       <div class="field-group">
-        <label class="field-label">Acteur</label>
+        <label class="field-label">Élément</label>
         <input class="field-input" data-inline-actor="nom" type="text" value="${safeText(actor.nom || '')}">
       </div>
       <div class="field-group">
@@ -1731,12 +1731,12 @@ function inlineActorRowHtml(actor = {}, index = 0) {
   `;
 }
 function renderInlineActorsEditor(actors) {
-  const rows = actors.length ? actors.map((actor, index) => inlineActorRowHtml(actor, index)).join('') : '<div class="exchange-empty">Aucun acteur pour ce point.</div>';
+  const rows = actors.length ? actors.map((actor, index) => inlineActorRowHtml(actor, index)).join('') : '<div class="exchange-empty">Aucun élément de contexte pour ce point.</div>';
   return `
     <div class="inline-actors-editor" data-inline-actors>
       ${rows}
     </div>
-    <button type="button" class="btn-inline" data-inline-add-actor="1">Ajouter un acteur</button>
+    <button type="button" class="btn-inline" data-inline-add-actor="1">Ajouter un élément</button>
   `;
 }
 function collectInlineActors(card) {
@@ -1782,8 +1782,8 @@ function renderExpandedCardEditor(point) {
         <textarea class="field-textarea" data-inline-field="Description" style="min-height:90px">${safeText(point.Description || '')}</textarea>
       </div>
       <div class="field-group">
-        <label class="field-label">Acteurs</label>
-        ${renderInlineActorsEditor(point.Acteurs || [])}
+        <label class="field-label">Éléments de contexte</label>
+        ${renderInlineActorsEditor(point.Contexte || [])}
       </div>
       <div class="field-group">
         <label class="field-label">Echanges</label>
@@ -1803,7 +1803,7 @@ async function saveInlinePoint(pointId, card) {
     Statut: (card.querySelector('[data-inline-field="Statut"]')?.value || 'En cours').trim(),
     Action_suivante: (card.querySelector('[data-inline-field="Action_suivante"]')?.value || '').trim(),
     Description: (card.querySelector('[data-inline-field="Description"]')?.value || '').trim(),
-    Acteurs_json: stringifyActors(collectInlineActors(card)),
+    Contexte_json: stringifyActors(collectInlineActors(card)),
     Echanges_json: stringifyEchanges(collectInlineEchanges(card)),
   };
   await grist.docApi.applyUserActions([['UpdateRecord', 'Points_bilaterales', pointId, fields]]);
@@ -1818,7 +1818,7 @@ async function saveInlinePoint(pointId, card) {
 function renderActorSummary(actor) {
   return `
     <div class="card-actor">
-      <div class="card-actor-head"><span class="actor-badge">${safeText(actor.nom || 'Acteur')}</span></div>
+      <div class="card-actor-head"><span class="actor-badge">${safeText(actor.nom || 'Élément')}</span></div>
       ${actor.description ? `<div class="card-actor-line">${safeText(actor.description).replace(/\n/g, '<br>')}</div>` : '<div class="card-actor-line">Aucune description.</div>'}
     </div>
   `;
@@ -1828,9 +1828,9 @@ function renderEditableActorCard(actor, index, pointId) {
     <div class="card-actor" data-actor-index="${index}">
       <div class="card-actor-head">
         <div class="card-actor-head-left">
-          <span class="actor-badge" data-editable-actor="nom" data-actor-index="${index}" data-point-id="${pointId}">${safeText(actor.nom || 'Acteur')}</span>
+          <span class="actor-badge" data-editable-actor="nom" data-actor-index="${index}" data-point-id="${pointId}">${safeText(actor.nom || 'Élément')}</span>
         </div>
-        <button type="button" class="btn-item-delete" data-delete-actor="${index}" data-point-id="${pointId}" title="Supprimer cet acteur">🗑</button>
+        <button type="button" class="btn-item-delete" data-delete-actor="${index}" data-point-id="${pointId}" title="Supprimer cet élément">🗑</button>
       </div>
       <div class="card-actor-line${actor.description ? '' : ' empty'}" data-editable-actor="description" data-actor-index="${index}" data-point-id="${pointId}">${actor.description ? safeTextWithImages(actor.description) : '(Aucune description — cliquer pour ajouter)'}</div>
     </div>
@@ -1858,8 +1858,8 @@ function canManualSortCurrentView() {
 async function ensurePointSchema() {
   const table = await grist.docApi.fetchTable('Points_bilaterales');
   const actions = [];
-  if (table.Acteurs_json === undefined) {
-    actions.push(['AddColumn', 'Points_bilaterales', 'Acteurs_json', {type: 'Text', label: 'Acteurs'}]);
+  if (table.Contexte_json === undefined) {
+    actions.push(['AddColumn', 'Points_bilaterales', 'Contexte_json', {type: 'Text', label: 'Éléments de contexte'}]);
   }
   if (table.Echanges_json === undefined) {
     actions.push(['AddColumn', 'Points_bilaterales', 'Echanges_json', {type: 'Text', label: 'Echanges'}]);
@@ -1973,13 +1973,13 @@ async function loadData() {
     id, Bilaterale:refInt(pT.Bilaterale[i]), Titre:pT.Titre[i],
     Description:pT.Description[i], Reference_site:pT.Reference_site[i],
     Statut:pT.Statut[i], Action_suivante:pT.Action_suivante[i], Sujet_PQP:refInt(pT.Sujet_PQP[i]),
-    Acteurs_json:pT.Acteurs_json ? pT.Acteurs_json[i] : '',
+    Contexte_json:pT.Contexte_json ? pT.Contexte_json[i] : '',
     Echanges_json:pT.Echanges_json ? pT.Echanges_json[i] : '',
     Corep_Sujet:pT.Corep_Sujet ? refInt(pT.Corep_Sujet[i]) : 0,
     Management_flag: pT.Management_flag ? (pT.Management_flag[i] || '') : '',
     Echeance: pT.Echeance ? (pT.Echeance[i] || 0) : 0,
     Echeance_label: pT.Echeance_label ? (pT.Echeance_label[i] || '') : '',
-    Acteurs:parseActors(pT.Acteurs_json ? pT.Acteurs_json[i] : ''),
+    Contexte:parseActors(pT.Contexte_json ? pT.Contexte_json[i] : ''),
     Ordre:pT.Ordre && pT.Ordre[i] !== null && pT.Ordre[i] !== '' ? Number(pT.Ordre[i]) : NaN,
   }));
 
@@ -2008,13 +2008,13 @@ async function loadData() {
       id, Bilaterale:refInt(refreshed.Bilaterale[i]), Titre:refreshed.Titre[i],
       Description:refreshed.Description[i], Reference_site:refreshed.Reference_site[i],
       Statut:refreshed.Statut[i], Action_suivante:refreshed.Action_suivante[i], Sujet_PQP:refInt(refreshed.Sujet_PQP[i]),
-      Acteurs_json:refreshed.Acteurs_json ? refreshed.Acteurs_json[i] : '',
+      Contexte_json:refreshed.Contexte_json ? refreshed.Contexte_json[i] : '',
       Echanges_json:refreshed.Echanges_json ? refreshed.Echanges_json[i] : '',
       Corep_Sujet:refreshed.Corep_Sujet ? refInt(refreshed.Corep_Sujet[i]) : 0,
       Management_flag: refreshed.Management_flag ? (refreshed.Management_flag[i] || '') : '',
       Echeance: refreshed.Echeance ? (refreshed.Echeance[i] || 0) : 0,
       Echeance_label: refreshed.Echeance_label ? (refreshed.Echeance_label[i] || '') : '',
-      Acteurs:parseActors(refreshed.Acteurs_json ? refreshed.Acteurs_json[i] : ''),
+      Contexte:parseActors(refreshed.Contexte_json ? refreshed.Contexte_json[i] : ''),
       Ordre:refreshed.Ordre && refreshed.Ordre[i] !== null && refreshed.Ordre[i] !== '' ? Number(refreshed.Ordre[i]) : NaN,
     }));
   }
@@ -2424,7 +2424,7 @@ function renderSidebar() {
       return pointsAll.some(p => p.Bilaterale === b.id &&
         ((p.Titre||'').toLowerCase().includes(q) || (p.Description||'').toLowerCase().includes(q) ||
          (p.Reference_site||'').toLowerCase().includes(q) || actionsText(p).toLowerCase().includes(q) ||
-         p.Acteurs.some(actor => [actor.nom, actor.description].join(' ').toLowerCase().includes(q))));
+         p.Contexte.some(actor => [actor.nom, actor.description].join(' ').toLowerCase().includes(q))));
     });
   }
 
@@ -2489,7 +2489,7 @@ function makeBilatItem(b) {
 function selectBilat(id) {
   selectedBilatId=id; filterStatut='all'; searchQ=''; expandedPointId=null; selectedExchangeIndexByPoint={};
   document.getElementById('search-box').value='';
-  document.getElementById('btn-view-mode').textContent = contentViewMode === 'actors' ? 'Vue point' : 'Vue acteur';
+  document.getElementById('btn-view-mode').textContent = contentViewMode === 'actors' ? 'Vue point' : 'Vue contexte';
   document.getElementById('actor-status-filter').style.display = 'none';
   document.getElementById('actor-status-filter').value = '';
   renderSidebar();
@@ -2563,11 +2563,11 @@ function actorEditorRowHtml(actor = {}, index = 0) {
   return `
     <div class="actor-row" data-index="${index}">
       <div class="actor-row-top">
-        <div class="actor-row-title">Acteur ${index + 1}</div>
+        <div class="actor-row-title">Élément ${index + 1}</div>
         <button type="button" class="btn-remove-actor">Supprimer</button>
       </div>
       <div class="field-group">
-        <label class="field-label">Acteur</label>
+        <label class="field-label">Élément</label>
         <input class="field-input actor-input" data-key="nom" type="text" value="${safeText(actor.nom)}" placeholder="DINUM, Can'L, operateur...">
       </div>
       <div class="field-group">
@@ -2610,7 +2610,7 @@ function refreshActorEditorTitles() {
   document.querySelectorAll('#f-acteurs .actor-row').forEach((row, index) => {
     row.dataset.index = index;
     const title = row.querySelector('.actor-row-title');
-    if (title) title.textContent = `Acteur ${index + 1}`;
+    if (title) title.textContent = `Élément ${index + 1}`;
   });
 }
 
@@ -2622,7 +2622,7 @@ function renderActorsEditorEmptyState() {
     if (!empty) {
       empty = document.createElement('div');
       empty.className = 'actors-empty';
-      empty.textContent = 'Aucun acteur associé pour l’instant.';
+      empty.textContent = 'Aucun élément de contexte pour l’instant.';
       container.appendChild(empty);
     }
   } else if (empty) {
@@ -2686,17 +2686,17 @@ function renderActorView() {
 
   points.forEach(point => {
     if (filterStatut !== 'all' && point.Statut !== filterStatut) return;
-    point.Acteurs.forEach(actor => {
+    point.Contexte.forEach(actor => {
       const haystack = [point.Titre, point.Description, point.Reference_site, actionsText(point), actor.nom, actor.description].join(' ').toLowerCase();
       if (query && !haystack.includes(query)) return;
-      const key = actor.nom || 'Sans acteur';
+      const key = actor.nom || 'Sans nom';
       if (!actorGroups.has(key)) actorGroups.set(key, []);
       actorGroups.get(key).push({ point, actor });
     });
   });
 
   if (!actorGroups.size) {
-    content.innerHTML = '<div id="empty-state"><div class="icon">📭</div><div>Aucun acteur trouvé</div></div>';
+    content.innerHTML = '<div id="empty-state"><div class="icon">📭</div><div>Aucun élément trouvé</div></div>';
     return;
   }
 
@@ -2730,7 +2730,7 @@ function renderActorView() {
         if (wasTextDrag(e)) return;
         expandedPointId = point.id;
         contentViewMode = 'points';
-        document.getElementById('btn-view-mode').textContent = 'Vue acteur';
+        document.getElementById('btn-view-mode').textContent = 'Vue contexte';
         document.getElementById('actor-status-filter').style.display = 'none';
         renderCards();
       });
@@ -2799,9 +2799,9 @@ function renderEditableExchangeDetail(pointId, echanges) {
 
 function renderExpandedCard(point) {
   const echanges = getPointEchanges(point);
-  const actorsHtml = point.Acteurs.length
-    ? `<div class="card-actors-grid">${point.Acteurs.map((a, i) => renderEditableActorCard(a, i, point.id)).join('')}</div>`
-    : '<div class="exchange-empty">Aucun acteur consigne pour ce point.</div>';
+  const actorsHtml = point.Contexte.length
+    ? `<div class="card-actors-grid">${point.Contexte.map((a, i) => renderEditableActorCard(a, i, point.id)).join('')}</div>`
+    : '<div class="exchange-empty">Aucun élément de contexte pour ce point.</div>';
   return `
     <div class="card-expanded">
       <div class="card-sticky-bar">
@@ -2829,9 +2829,9 @@ function renderExpandedCard(point) {
         <div class="card-secondary-body ${point.Description ? '' : 'empty'}" style="margin-top:0" data-editable="Description" data-point-id="${point.id}" data-editable-textarea="1">${safeText(point.Description || 'Aucune description — cliquer pour ajouter')}</div>
       </div>
       <div class="card-section">
-        <div class="card-section-title">Acteurs</div>
+        <div class="card-section-title">Éléments de contexte</div>
         ${actorsHtml}
-        <button type="button" class="btn-add-item" data-add-actor="${point.id}">+ Ajouter un acteur</button>
+        <button type="button" class="btn-add-item" data-add-actor="${point.id}">+ Ajouter un élément</button>
       </div>
       <div class="card-section">
         <div class="card-section-title">Echanges</div>
@@ -2881,7 +2881,7 @@ function renderCards() {
   if(filterStatut!=='all') pts=pts.filter(p=>p.Statut===filterStatut);
   if(searchQ){
     const q=searchQ.toLowerCase();
-    pts=pts.filter(p=>(p.Titre||'').toLowerCase().includes(q)||(p.Description||'').toLowerCase().includes(q)||(p.Reference_site||'').toLowerCase().includes(q)||actionsText(p).toLowerCase().includes(q)||p.Acteurs.some(actor=>[actor.nom, actor.description].join(' ').toLowerCase().includes(q)));
+    pts=pts.filter(p=>(p.Titre||'').toLowerCase().includes(q)||(p.Description||'').toLowerCase().includes(q)||(p.Reference_site||'').toLowerCase().includes(q)||actionsText(p).toLowerCase().includes(q)||p.Contexte.some(actor=>[actor.nom, actor.description].join(' ').toLowerCase().includes(q)));
   }
   if(!pts.length){content.innerHTML='<div id="empty-state"><div class="icon">📭</div><div>Aucun point trouvé</div></div>';return;}
   pts=sortPointsForDisplay(pts);
@@ -2901,7 +2901,7 @@ function renderCards() {
     card.dataset.statut=p.Statut||'';
     card.dataset.id = p.id;
     card.draggable = manualSortEnabled;
-    const actorsHtml = p.Acteurs.length ? `<div class="card-actors">${p.Acteurs.map(renderActorSummary).join('')}</div>` : '';
+    const actorsHtml = p.Contexte.length ? `<div class="card-actors">${p.Contexte.map(renderActorSummary).join('')}</div>` : '';
     card.innerHTML=`
       <div class="card-top">
         <div class="drag-handle${manualSortEnabled ? '' : ' disabled'}" title="${manualSortEnabled ? 'Glisser pour réordonner' : 'Désactivé avec filtre/recherche'}">⋮⋮</div>
@@ -2988,7 +2988,7 @@ renderCards = function() {
       (p.Description || '').toLowerCase().includes(q) ||
       (p.Reference_site || '').toLowerCase().includes(q) ||
       actionsText(p).toLowerCase().includes(q) ||
-      p.Acteurs.some(actor => [actor.nom, actor.description].join(' ').toLowerCase().includes(q)) ||
+      p.Contexte.some(actor => [actor.nom, actor.description].join(' ').toLowerCase().includes(q)) ||
       getPointEchanges(p).some(item => [item.from, item.to, item.cc, item.subject, item.body, item.raw].join(' ').toLowerCase().includes(q))
     );
   }
@@ -3010,7 +3010,7 @@ renderCards = function() {
     const ageBadge = age >= 2 ? `<span class="badge-age${age >= 3 ? ' old' : ''}" title="${age} bilaterales">⏱ ${age} reunions</span>` : '';
     const echanges = getPointEchanges(p);
     const exchangeCount = echanges.length ? `<span class="badge badge-age">${echanges.length} echange${echanges.length > 1 ? 's' : ''}</span>` : '';
-    const closedActorsHtml = renderClosedActorList(p.Acteurs);
+    const closedActorsHtml = renderClosedActorList(p.Contexte);
     const closedMailsHtml = renderClosedExchangeList(echanges);
     const corepChip = renderCorepClosedChip(p);
     const expanded = expandedPointId === p.id;
@@ -3027,12 +3027,12 @@ renderCards = function() {
       </div>
       <div class="card-meta">
         ${p.Reference_site ? `<span class="card-ref">${safeText(p.Reference_site)}</span>` : ''}
-        <span class="card-actors-inline">${safeText(actorListLabel(p.Acteurs))}</span>
+        <span class="card-actors-inline">${safeText(actorListLabel(p.Contexte))}</span>
         ${corepChip}
       </div>
       ${renderClosedActions(p)}
       <div class="card-meta">
-        <span class="card-inline-label">Acteurs</span>
+        <span class="card-inline-label">Éléments de contexte</span>
         <div class="card-inline-list">${closedActorsHtml}</div>
       </div>
       <div class="card-meta">
@@ -3066,7 +3066,7 @@ renderCards = function() {
         allowImages: field === 'description',
         getCurrent: () => {
           const pt = pointsAll.find(pp => pp.id === pid);
-          return (pt?.Acteurs?.[idx]?.[field]) || '';
+          return (pt?.Contexte?.[idx]?.[field]) || '';
         },
         save: (newValue) => saveActorField(pid, idx, field, newValue),
       });
@@ -3382,7 +3382,7 @@ function openPanel(pointId) {
   document.getElementById('f-desc').value=p.Description||'';
   document.getElementById('f-action').value=p.Action_suivante||'';
   document.getElementById('f-sujet').value=p.Sujet_PQP||'';
-  renderActorsEditor(p.Acteurs || []);
+  renderActorsEditor(p.Contexte || []);
 
   // History
   const history=getHistory(p);
@@ -3459,7 +3459,7 @@ async function savePoint() {
   const fields={Titre:document.getElementById('f-titre').value.trim(),Reference_site:document.getElementById('f-ref').value.trim(),
     Statut:document.getElementById('f-statut').value,Description:document.getElementById('f-desc').value.trim(),
     Action_suivante:document.getElementById('f-action').value.trim(),Sujet_PQP:parseInt(document.getElementById('f-sujet').value)||0,
-    Acteurs_json:stringifyActors(actors)};
+    Contexte_json:stringifyActors(actors)};
   const btn=document.getElementById('btn-save');
   btn.disabled=true;btn.textContent='Enregistrement…';
   try{
@@ -3602,7 +3602,7 @@ async function confirmReconduction() {
       await grist.docApi.applyUserActions(ptsToClone.map(p=>['AddRecord','Points_bilaterales',null,{
         Bilaterale:newId,Titre:p.Titre,Reference_site:p.Reference_site,
         Description:p.Description,Statut:p.Statut,Action_suivante:p.Action_suivante,Sujet_PQP:p.Sujet_PQP||0,
-        Acteurs_json:p.Acteurs_json||'', Echanges_json:p.Echanges_json||'', Ordre:Number.isFinite(p.Ordre) ? p.Ordre : 0,
+        Contexte_json:p.Contexte_json||'', Echanges_json:p.Echanges_json||'', Ordre:Number.isFinite(p.Ordre) ? p.Ordre : 0,
       }]));
     }
     document.getElementById('modal-recon').classList.remove('open');
@@ -3629,10 +3629,10 @@ function generateResume() {
     lines.push(`   Statut : ${p.Statut||'—'}`);
     if(p.Description) lines.push(`   ${p.Description.replace(/\n/g,'\n   ')}`);
     if(actionsText(p)) lines.push(`   → Action : ${actionsText(p)}`);
-    if(p.Acteurs.length){
-      lines.push('   Acteurs associés :');
-      p.Acteurs.forEach(actor => {
-        lines.push(`   - ${actor.nom || 'Acteur'}`);
+    if(p.Contexte.length){
+      lines.push('   Éléments de contexte :');
+      p.Contexte.forEach(actor => {
+        lines.push(`   - ${actor.nom || 'Élément'}`);
         if (actor.description) lines.push(`     ${actor.description.replace(/\n/g,'\n     ')}`);
       });
     }
@@ -3674,7 +3674,7 @@ document.getElementById('recon-confirm').addEventListener('click',confirmRecondu
 document.getElementById('btn-new-point').addEventListener('click',openNewPointPanel);
 document.getElementById('btn-view-mode').addEventListener('click',()=>{
   contentViewMode = contentViewMode === 'points' ? 'actors' : 'points';
-  document.getElementById('btn-view-mode').textContent = contentViewMode === 'actors' ? 'Vue point' : 'Vue acteur';
+  document.getElementById('btn-view-mode').textContent = contentViewMode === 'actors' ? 'Vue point' : 'Vue contexte';
   document.getElementById('actor-status-filter').style.display = 'none';
   renderCards();
 });
@@ -3887,9 +3887,9 @@ async function generateCR() {
           indent: { left: 720 }, spacing: { after: 80 },
         }));
       }
-      if (p.Acteurs.length) {
-        p.Acteurs.forEach(actor => {
-          const actorParts = [actor.nom || 'Acteur'];
+      if (p.Contexte.length) {
+        p.Contexte.forEach(actor => {
+          const actorParts = [actor.nom || 'Élément'];
           if (actor.description) actorParts.push(actor.description.replace(/\s+/g, ' ').slice(0, 220));
           children.push(new Paragraph({
             children: [tr('• ' + actorParts.join(' | '), { color: '404040' })],
