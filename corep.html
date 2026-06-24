@@ -72,6 +72,15 @@
   .statut-ouverte   { background:var(--blue-lt); color:var(--blue); }
   .statut-confirmee { background:var(--green-lt); color:var(--green); }
   .statut-annulee   { background:var(--red-lt); color:var(--red); }
+  /* Nature de réunion (COREP vs Revue de projet) */
+  .nature-pill { padding:4px 12px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer; user-select:none; border:1px solid transparent; transition:filter .12s; }
+  .nature-pill:hover { filter:brightness(0.95); }
+  .nature-pill::before { content:"↻ "; opacity:.5; font-weight:400; }
+  .nature-corep  { background:#E3F2FD; color:#0D47A1; }
+  .nature-revue  { background:#FFF3E0; color:#E65100; }
+  .si-nature { font-size:10px; font-weight:700; margin-top:2px; letter-spacing:.02em; }
+  .si-nature.corep { color:#0D47A1; }
+  .si-nature.revue { color:#E65100; }
   .hdr-btn { padding:6px 14px; border-radius:7px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid var(--border); background:#fff; color:var(--text-sm); }
   .hdr-btn:hover { background:var(--gray-lt); }
   .hdr-btn.green { background:var(--green); color:#fff; border-color:var(--green); }
@@ -226,6 +235,7 @@
           <div id="session-title">—</div>
           <div id="session-subtitle"></div>
         </div>
+        <span id="session-nature-pill" class="nature-pill" title="Cliquer pour basculer Comité de réponse ⇄ Revue de projet"></span>
         <span id="session-statut-pill" class="statut-pill"></span>
         <button class="hdr-btn" id="btn-msg">📋 Message</button>
         <button class="hdr-btn green" id="btn-confirm" style="display:none">✓ Confirmer</button>
@@ -284,9 +294,16 @@
 <!-- Modal : Nouvelle session -->
 <div class="modal-backdrop" id="modal-session">
   <div class="modal-box">
-    <div class="modal-header"><h3>Nouvelle session COREP</h3><button class="modal-close" id="ns-close">✕</button></div>
+    <div class="modal-header"><h3>Nouvelle session</h3><button class="modal-close" id="ns-close">✕</button></div>
     <div class="modal-body">
       <div class="field-group"><label class="field-label">Date (jeudi) *</label><input id="ns-date" class="field-input" type="date"></div>
+      <div class="field-group">
+        <label class="field-label">Nature</label>
+        <select id="ns-nature" class="field-select">
+          <option>Comité de réponse</option>
+          <option>Revue de projet</option>
+        </select>
+      </div>
       <div class="field-group"><label class="field-label">CR de session</label><textarea id="ns-notes" class="field-textarea" style="min-height:60px" placeholder="Optionnel au moment de la création"></textarea></div>
     </div>
     <div class="modal-footer"><button class="btn-secondary" id="ns-cancel">Annuler</button><button class="btn-primary" id="ns-save">Créer</button></div>
@@ -464,6 +481,7 @@ async function ensureCorepSchema() {
   const sujetsTable = await grist.docApi.fetchTable('Corep_Sujets');
   if (sessionsTable.Statut === undefined) actions.push(['AddColumn', 'Corep_Sessions', 'Statut', {type: 'Text', label: 'Statut'}]);
   if (sessionsTable.Notes === undefined) actions.push(['AddColumn', 'Corep_Sessions', 'Notes', {type: 'Text', label: 'Notes'}]);
+  if (sessionsTable.Nature === undefined) actions.push(['AddColumn', 'Corep_Sessions', 'Nature', {type: 'Choice', label: 'Nature', widgetOptions: JSON.stringify({choices:['Comité de réponse','Revue de projet'],choiceOptions:{'Comité de réponse':{fillColor:'#E3F2FD',textColor:'#0D47A1'},'Revue de projet':{fillColor:'#FFF3E0',textColor:'#E65100'}}})}]);
   if (sujetsTable.Soumetteur === undefined) actions.push(['AddColumn', 'Corep_Sujets', 'Soumetteur', {type: 'Text', label: 'Soumetteur'}]);
   if (sujetsTable.Description === undefined) actions.push(['AddColumn', 'Corep_Sujets', 'Description', {type: 'Text', label: 'Description'}]);
   if (sujetsTable.Statut === undefined) actions.push(['AddColumn', 'Corep_Sujets', 'Statut', {type: 'Text', label: 'Statut'}]);
@@ -569,7 +587,8 @@ async function loadData() {
     ]);
 
     sessions = sT.id.map((id, i) => ({
-      id, Date: sT.Date[i], Statut: (sT.Statut ? sT.Statut[i] : '') || 'Ouverte', Notes: (sT.Notes ? sT.Notes[i] : '') || ''
+      id, Date: sT.Date[i], Statut: (sT.Statut ? sT.Statut[i] : '') || 'Ouverte', Notes: (sT.Notes ? sT.Notes[i] : '') || '',
+      Nature: (sT.Nature ? sT.Nature[i] : '') || 'Comité de réponse'
     })).sort((a, b) => a.Date - b.Date);
 
     sujets = suT.id.map((id, i) => ({
@@ -614,9 +633,11 @@ function renderSidebar() {
     const div = document.createElement('div');
     div.className = 'session-item' + (s.id === selectedSessionId ? ' active' : '') + (isNext ? ' is-next' : '');
     const cls = { 'Ouverte': 'ouverte', 'Confirmée': 'confirmee', 'Annulée': 'annulee' }[s.Statut] || 'ouverte';
+    const isRevue = s.Nature === 'Revue de projet';
     div.innerHTML = `
       ${isNext ? '<div class="si-next-label">→ Prochaine</div>' : ''}
       <div class="si-date">${fmtDateShort(s.Date)}</div>
+      <div class="si-nature ${isRevue ? 'revue' : 'corep'}">${isRevue ? 'Revue de projet' : 'Comité de réponse'}</div>
       <div class="si-statut"><span class="si-badge ${cls}">${s.Statut}</span></div>
       <div class="si-count">${sujetsCount} sujet${sujetsCount !== 1 ? 's' : ''}</div>
     `;
@@ -645,6 +666,12 @@ function selectSession(id) {
   const cls = { 'Ouverte': 'statut-ouverte', 'Confirmée': 'statut-confirmee', 'Annulée': 'statut-annulee' }[s.Statut];
   pill.className = 'statut-pill ' + cls;
   pill.textContent = s.Statut;
+
+  const naturePill = document.getElementById('session-nature-pill');
+  const isRevue = s.Nature === 'Revue de projet';
+  naturePill.className = 'nature-pill ' + (isRevue ? 'nature-revue' : 'nature-corep');
+  naturePill.textContent = isRevue ? 'Revue de projet' : 'Comité de réponse';
+  naturePill.onclick = () => toggleNature(id);
 
   const btnConfirm = document.getElementById('btn-confirm');
   const btnCancel = document.getElementById('btn-cancel-session');
@@ -841,11 +868,20 @@ async function deleteSujet(id) {
   await loadData();
 }
 
+// ── Nature de session (COREP ⇄ Revue de projet) ──
+async function toggleNature(id) {
+  const s = sessions.find(s => s.id === id);
+  if (!s) return;
+  const next = s.Nature === 'Revue de projet' ? 'Comité de réponse' : 'Revue de projet';
+  await grist.docApi.applyUserActions([['UpdateRecord', 'Corep_Sessions', id, { Nature: next }]]);
+  await loadData();
+}
+
 // ── New session ──
 async function saveNewSession() {
   const dateStr = document.getElementById('ns-date').value;
   if (!dateStr) { alert('Date requise.'); return; }
-  const fields = { Date: toTs(dateStr), Statut: 'Ouverte', Notes: document.getElementById('ns-notes').value.trim() };
+  const fields = { Date: toTs(dateStr), Statut: 'Ouverte', Nature: document.getElementById('ns-nature').value, Notes: document.getElementById('ns-notes').value.trim() };
   const res = await grist.docApi.applyUserActions([['AddRecord', 'Corep_Sessions', null, fields]]);
   const newId = res.retValues[0];
   document.getElementById('modal-session').classList.remove('open');
@@ -892,6 +928,7 @@ Nicolas`;
 // ── Events ──
 document.getElementById('btn-new-session').addEventListener('click', () => {
   document.getElementById('ns-date').value = '';
+  document.getElementById('ns-nature').value = 'Comité de réponse';
   document.getElementById('ns-notes').value = '';
   document.getElementById('modal-session').classList.add('open');
 });
