@@ -160,6 +160,11 @@
 <div id="filters">
   <input type="search" id="search" placeholder="🔍 Rechercher dans titre, description, décision…">
   <select id="f-session"><option value="">Toutes sessions</option></select>
+  <select id="f-nature">
+    <option value="">COREP + Revues</option>
+    <option value="Comité de réponse">Comité de réponse</option>
+    <option value="Revue de projet">Revue de projet</option>
+  </select>
   <select id="f-statut"><option value="">Tous statuts</option></select>
   <select id="f-soumetteur"><option value="">Tous soumetteurs</option></select>
   <select id="f-canal"><option value="">Tous canaux</option></select>
@@ -276,6 +281,7 @@ async function loadData() {
       id,
       Date: typeof sT.Date[i] === 'string' ? parseInt(sT.Date[i]) || 0 : (sT.Date[i] || 0),
       Statut: (sT.Statut ? sT.Statut[i] : '') || 'Ouverte',
+      Nature: (sT.Nature ? sT.Nature[i] : '') || 'Comité de réponse',
       Notes: (sT.Notes ? sT.Notes[i] : '') || ''
     }));
     sujets = suT.id.map((id, i) => ({
@@ -324,6 +330,7 @@ function buildFilterOptions() {
 function applyFiltersAndRender() {
   const q = document.getElementById('search').value.trim().toLowerCase();
   const fSes = document.getElementById('f-session').value;
+  const fNat = document.getElementById('f-nature').value;
   const fSta = document.getElementById('f-statut').value;
   const fSou = document.getElementById('f-soumetteur').value;
   const fCan = document.getElementById('f-canal').value;
@@ -331,6 +338,7 @@ function applyFiltersAndRender() {
 
   filtered = sujets.filter(su => {
     if (fSes && String(su.Session) !== fSes) return false;
+    if (fNat && (getSession(su.Session)?.Nature || 'Comité de réponse') !== fNat) return false;
     if (fSta && su.Statut !== fSta) return false;
     if (fSou && su.Soumetteur !== fSou) return false;
     if (fCan && su.Canal !== fCan) return false;
@@ -401,6 +409,7 @@ function renderRows() {
         <td class="col-date">
           ${sess ? fmtDate(sess.Date) : '—'}
           ${sess ? `<span class="session-state ${statePillClass(sess.Statut)}">${escapeHtml(sess.Statut)}</span>` : ''}
+          ${sess && sess.Nature === 'Revue de projet' ? '<span style="display:inline-block;margin-top:2px;padding:1px 6px;border-radius:8px;background:#FFF3E0;color:#E65100;font-size:10px;font-weight:700;">Revue de projet</span>' : ''}
         </td>
         <td class="col-titre">
           ${decDot}${escapeHtml(getTitreOrFallback(su))}
@@ -674,12 +683,12 @@ function closeDrawer() {
 
 // ── Wire events ──
 document.getElementById('search').addEventListener('input', applyFiltersAndRender);
-['f-session','f-statut','f-soumetteur','f-canal','f-bilat'].forEach(id => {
+['f-session','f-nature','f-statut','f-soumetteur','f-canal','f-bilat'].forEach(id => {
   document.getElementById(id).addEventListener('change', applyFiltersAndRender);
 });
 document.getElementById('btn-reset').addEventListener('click', () => {
   document.getElementById('search').value = '';
-  ['f-session','f-statut','f-soumetteur','f-canal','f-bilat'].forEach(id => {
+  ['f-session','f-nature','f-statut','f-soumetteur','f-canal','f-bilat'].forEach(id => {
     document.getElementById(id).value = '';
   });
   applyFiltersAndRender();
